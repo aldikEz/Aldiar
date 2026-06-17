@@ -10,7 +10,7 @@
   --border: #222224;
   --text: #ffffff;
   --muted: #8e8e93;
-  --accent: #00D2FF;
+  --accent: #F2F2F7 !important;
   --radius: 8px;
 }
 
@@ -37,6 +37,7 @@
 html {
   min-height: 100%;
   background-color: var(--canvas);
+  scroll-behavior: smooth !important;
 }
 
 body {
@@ -88,32 +89,32 @@ a:focus-visible {
 .layout-shell {
   display: flex;
   width: 100%;
-  max-width: 1152px;
+  max-width: 1200px !important;
   min-height: 100vh;
   flex-direction: column;
-  row-gap: 64px;
+  row-gap: 36px !important;
   margin-right: auto;
   margin-left: auto;
-  padding: 32px 24px 80px;
+  padding: 24px 24px 64px !important;
 }
 
 .page-header {
   display: flex;
   width: 100%;
-  min-height: 56px;
+  min-height: 64px !important;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border) !important;
   border-radius: var(--radius);
-  background-color: var(--surface);
-  padding: 0 24px;
+  background-color: var(--surface) !important;
+  padding: 0 32px !important;
 }
 
 .global-brand {
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 13px;
+  font-size: 14px !important;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -131,11 +132,11 @@ a:focus-visible {
 
 .global-nav a {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 48px !important;
   align-items: center;
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   letter-spacing: 0;
   text-decoration: none;
   transition: color 0.15s ease;
@@ -160,11 +161,80 @@ a:focus-visible {
   letter-spacing: 0;
 }
 
+.hero-search-anchor {
+  display: flex;
+  width: 100% !important;
+  max-width: 680px !important;
+  height: 46px !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 16px auto 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 9999px !important;
+  background-color: rgba(18, 18, 20, 0.6) !important;
+  padding: 0 20px !important;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-search-anchor:hover {
+  border-color: rgba(242, 242, 247, 0.3) !important;
+  box-shadow:
+    0 12px 24px -8px rgba(0, 0, 0, 0.85),
+    0 0 16px 0 rgba(242, 242, 247, 0.04) !important;
+}
+
+.hero-search-anchor:active {
+  transform: scale(0.985);
+}
+
+.hero-search-anchor:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.hero-search-copy {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px !important;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.hero-search-copy svg {
+  display: block;
+  width: 18px !important;
+  height: 18px !important;
+  flex: 0 0 auto;
+  opacity: 0.55;
+}
+
+.hero-search-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hero-section {
   position: relative;
+  display: flex !important;
+  min-height: auto !important;
+  margin-top: 8px !important;
   isolation: isolate;
   overflow: hidden;
+  align-items: center;
+  justify-content: flex-start !important;
+  flex-direction: column !important;
+  gap: 12px !important;
   width: 100%;
+  text-align: center;
 }
 
 .shader-background {
@@ -184,11 +254,19 @@ a:focus-visible {
 .hero-content {
   position: relative;
   z-index: 1;
+  display: flex !important;
+  min-height: auto !important;
+  margin-top: 8px !important;
+  width: 100%;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  text-align: center;
 }
 
 .kicker,
 .hero-copy,
-.selected-command,
 .command-title,
 .card-topline,
 .data-card p {
@@ -213,9 +291,9 @@ a:focus-visible {
 
 .hero-title {
   max-width: 760px;
-  margin: 14px 0 0;
+  margin: 8px auto 0 !important;
   font-size: clamp(32px, 6vw, 76px);
-  line-height: 0.98;
+  line-height: 1.05 !important;
 }
 
 .text-mask {
@@ -246,33 +324,19 @@ a:focus-visible {
 }
 
 .accent-text {
-  color: var(--accent);
+  color: var(--accent) !important;
   font-weight: 900;
 }
 
 .hero-copy {
-  max-width: 640px;
-  margin-top: 20px;
+  max-width: 680px !important;
+  margin-top: 14px !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+  color: #ffffff !important;
   font-size: clamp(16px, 2vw, 19px);
-}
-
-.selected-command {
-  display: inline-flex;
-  min-height: 40px;
-  align-items: center;
-  gap: 6px;
-  margin-top: 24px;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: var(--radius);
-  background-color: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  padding: 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
-.selected-command span {
-  color: var(--accent);
+  font-weight: 500 !important;
+  opacity: 0.95 !important;
 }
 
 .bento-grid {
@@ -280,6 +344,7 @@ a:focus-visible {
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 24px;
   width: 100%;
+  scroll-margin-top: 96px !important;
 }
 
 .data-card {
@@ -294,8 +359,10 @@ a:focus-visible {
 
 .data-card:hover {
   background-color: var(--surface-hover);
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  box-shadow: 0 0 4px 0 color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: rgba(242, 242, 247, 0.3) !important;
+  box-shadow:
+    0 12px 24px -8px rgba(0, 0, 0, 0.85),
+    0 0 16px 0 rgba(242, 242, 247, 0.04) !important;
 }
 
 .card-topline {
@@ -336,40 +403,67 @@ a:focus-visible {
 }
 
 .command-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: flex-start;
   background-color: var(--canvas);
   opacity: 0;
+  padding: 14vh 16px 0;
   pointer-events: none;
-  transform: scale(0.98);
-  transform-origin: center;
+  transform: translateY(-8px) scale(0.98);
+  transform-origin: top center;
   transition: opacity 0.15s ease-out, transform 0.15s ease-out;
 }
 
 .command-overlay.is-open {
   opacity: 1;
   pointer-events: auto;
-  transform: scale(1);
+  transform: translateY(0) scale(1);
 }
 
 .command-menu {
-  width: min(640px, calc(100vw - 32px));
-  max-width: 640px;
+  width: min(640px, calc(100vw - 32px)) !important;
+  max-width: 640px !important;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid #2c2c2e;
+  border-radius: 12px !important;
   background-color: var(--surface);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .command-input-row {
+  position: relative;
   display: flex;
-  min-height: 54px;
+  min-height: 64px !important;
   align-items: center;
   border-bottom: 1px solid var(--border);
+  padding: 0 20px !important;
+}
+
+.command-search-icon {
+  position: static;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: var(--muted);
+  pointer-events: none;
+  opacity: 0.55;
+  transform: none;
+}
+
+.command-search-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .command-input-row input {
@@ -379,8 +473,9 @@ a:focus-visible {
   border-radius: 0;
   background-color: var(--surface);
   color: var(--text);
-  padding: 16px;
-  font-size: 14px;
+  padding: 20px 0 !important;
+  font-size: 15px !important;
+  letter-spacing: -0.01em;
   outline: none;
 }
 
@@ -407,6 +502,14 @@ a:focus-visible {
   list-style: none;
 }
 
+.command-empty {
+  margin: 0;
+  padding: 18px 16px 20px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
 .command-option {
   display: flex;
   min-height: 44px;
@@ -426,11 +529,21 @@ a:focus-visible {
   transition: background-color 0.1s ease, color 0.1s ease;
 }
 
-.command-option:hover,
-.command-option.is-active {
+.command-option:hover {
   background-color: var(--surface-hover);
-  box-shadow: inset 2px 0 0 var(--accent);
   color: var(--text);
+}
+
+.command-option.is-active {
+  background-color: var(--surface-hover) !important;
+  box-shadow: inset 3px 0 0 0 var(--accent) !important;
+  color: var(--text);
+}
+
+.command-option.is-active .command-shortcut {
+  border-color: rgba(242, 242, 247, 0.25) !important;
+  background-color: rgba(242, 242, 247, 0.08) !important;
+  color: var(--text) !important;
 }
 
 .command-shortcut {
@@ -444,6 +557,46 @@ a:focus-visible {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.command-footer {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--border);
+  border-bottom-right-radius: 11px;
+  border-bottom-left-radius: 11px;
+  background-color: #161618;
+  color: var(--muted);
+  padding: 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.command-actions-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.command-footer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--border);
+  color: var(--muted);
+  padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.45;
   letter-spacing: 0;
 }
 
@@ -476,15 +629,15 @@ a:focus-visible {
 
 @media (max-width: 640px) {
   .layout-shell {
-    row-gap: 48px;
-    padding: 24px 16px 56px;
+    row-gap: 48px !important;
+    padding: 24px 16px 56px !important;
   }
 
   .page-header {
     align-items: flex-start;
     flex-direction: column;
     justify-content: center;
-    padding: 16px;
+    padding: 16px !important;
   }
 
   .global-nav ul {
@@ -496,12 +649,22 @@ a:focus-visible {
     display: none;
   }
 
+  .hero-search-anchor {
+    height: 46px !important;
+    margin-top: 24px !important;
+    padding: 0 16px !important;
+  }
+
   .command-input-row {
-    min-height: 58px;
+    min-height: 58px !important;
   }
 
   .command-input-row input {
-    font-size: 16px;
+    font-size: 16px !important;
+  }
+
+  .command-footer {
+    padding: 0 12px;
   }
 
   .data-card {

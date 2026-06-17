@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
 type ShaderBackgroundProps = {
-  targetRef: RefObject<HTMLElement>;
+  targetRef: RefObject<HTMLElement | null>;
   className?: string;
 };
 
@@ -28,7 +28,7 @@ type ShaderRuntime = {
 };
 
 const FRAME_INTERVAL = 1000 / 60;
-const FULLSCREEN_TRIANGLES = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
+const FULLSCREEN_TRIANGLE = new Float32Array([-1, -1, 3, -1, -1, 3]);
 
 const VERTEX_SHADER_SOURCE = `
 attribute vec2 position;
@@ -62,7 +62,7 @@ float fbm(vec2 p) {
     float v = 0.0;
     float a = 0.5;
     vec2 shift = vec2(100.0);
-    mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.50));
+    mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
     for (int i = 0; i < 3; i++) {
         v += a * noise(p);
         p = rot * p * 2.0 + shift;
@@ -82,26 +82,27 @@ void main() {
     float mouseDist = distance(st, mouseNormalized);
     
     // Distort coordinates based on proximity to interactive cursor
-    float distortion = exp(-mouseDist * 4.0) * 0.12;
-    vec2 distortedSt = st + vec2(distortion * sin(u_time), distortion * cos(u_time));
+    float distortion = exp(-mouseDist * 4.5) * 0.15;
+    vec2 distortedSt = st + vec2(distortion * sin(u_time * 0.5), distortion * cos(u_time * 0.5));
 
     // Evolve noise mapping across temporal and spatial fields
-    vec2 q = vec2(fbm(distortedSt + u_time * 0.05), fbm(distortedSt + vec2(1.0)));
-    vec2 r = vec2(fbm(distortedSt + q + u_time * 0.03), fbm(distortedSt + q));
+    vec2 q = vec2(fbm(distortedSt + u_time * 0.04), fbm(distortedSt + vec2(1.0)));
+    vec2 r = vec2(fbm(distortedSt + q + u_time * 0.02), fbm(distortedSt + q));
     float f = fbm(distortedSt + r);
 
     // Base Canvas Palette Configuration (#000000 Pitch Black Base)
     vec3 baseColor = vec3(0.0, 0.0, 0.0);
     
-    // Target Accent Palette Configuration (Subtle Electric Cyan / Deep Violet Smoke)
-    vec3 accentColor = vec3(0.0, 0.82, 1.0); // #00D2FF Matrix Base
+    // Target Accent Palette Configuration (Subtle Monochrome Silver Smoke)
+    vec3 accentColor = vec3(0.55, 0.57, 0.60);
     
     // Mix colors based on noise calculations to generate dark ink swells
-    vec3 color = mix(baseColor, accentColor, clamp(f * f * 2.2, 0.0, 0.15));
+    vec3 color = mix(baseColor, accentColor, clamp(f * f * 1.8, 0.0, 0.08));
     
-    // Force edge vignette to fade seamlessly into solid matte-black canvas
-    float vignette = st.x * st.y * (1.0 - st.x) * (1.0 - st.y);
-    vignette = clamp(pow(16.0 * vignette, 0.25), 0.0, 1.0);
+    // MATHEMATICAL EDGE VIGNETTE (Erases the square canvas artifact)
+    vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+    float vignette = uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y);
+    vignette = clamp(pow(16.0 * vignette, 0.65), 0.0, 1.0);
     
     gl_FragColor = vec4(color * vignette, 1.0);
 }
@@ -233,7 +234,7 @@ export default function ShaderBackground({ targetRef, className }: ShaderBackgro
 
       const cssWidth = Math.max(1, target.clientWidth);
       const cssHeight = Math.max(1, target.clientHeight);
-      const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+      const pixelRatio = Math.min(Math.max(1, window.devicePixelRatio || 1), 2);
       const width = Math.max(1, Math.floor(cssWidth * pixelRatio));
       const height = Math.max(1, Math.floor(cssHeight * pixelRatio));
 
@@ -307,7 +308,7 @@ export default function ShaderBackground({ targetRef, className }: ShaderBackgro
       gl.uniform2f(runtime.resolutionLocation, canvas.width, canvas.height);
       gl.uniform2f(runtime.mouseLocation, runtime.currentMouseX, runtime.currentMouseY);
       gl.uniform1f(runtime.timeLocation, (timestamp - runtime.startTime) * 0.001);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 
     function initialize() {
@@ -361,7 +362,7 @@ export default function ShaderBackground({ targetRef, className }: ShaderBackgro
         gl.clearColor(0, 0, 0, 1);
         gl.useProgram(program);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, FULLSCREEN_TRIANGLES, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, FULLSCREEN_TRIANGLE, gl.STATIC_DRAW);
         gl.enableVertexAttribArray(positionLocation);
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
