@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
-
-type NavItem = {
-  label: string;
-  count?: string;
-  icon: 'command' | 'branch' | 'spark' | 'deploy' | 'pulse' | 'settings';
-};
+import ShaderBackground from './components/ShaderBackground';
 
 type Card = {
   eyebrow: string;
@@ -20,21 +14,12 @@ type CommandAction = {
   shortcut: string;
 };
 
-const navItems: NavItem[] = [
-  { label: 'Command Center', count: '12', icon: 'command' },
-  { label: 'Workflows', count: '8', icon: 'branch' },
-  { label: 'Agents', count: '5', icon: 'spark' },
-  { label: 'Deployments', count: '3', icon: 'deploy' },
-  { label: 'Telemetry', icon: 'pulse' },
-  { label: 'Settings', icon: 'settings' },
-];
-
 const commandActions: CommandAction[] = [
-  { label: 'Open Projects', shortcut: '⌥ P' },
-  { label: 'Create New Task', shortcut: '⌥ T' },
-  { label: 'Search Documentation', shortcut: '⌥ D' },
-  { label: 'View Analytics', shortcut: '⌥ A' },
-  { label: 'Settings', shortcut: '↵ Enter' },
+  { label: 'Open Projects', shortcut: 'Option P' },
+  { label: 'Create New Task', shortcut: 'Option T' },
+  { label: 'Search Documentation', shortcut: 'Option D' },
+  { label: 'View Analytics', shortcut: 'Option A' },
+  { label: 'Settings', shortcut: 'Enter' },
 ];
 
 const cards: Card[] = [
@@ -82,66 +67,7 @@ const cards: Card[] = [
   },
 ];
 
-function Icon({ name }: { name: NavItem['icon'] }) {
-  const common = {
-    width: 17,
-    height: 17,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    xmlns: 'http://www.w3.org/2000/svg',
-    'aria-hidden': true,
-  };
-
-  const paths: Record<NavItem['icon'], JSX.Element> = {
-    command: (
-      <>
-        <path d="M9 9H7.8A2.8 2.8 0 1 1 10.6 6.2V18A2.8 2.8 0 1 1 7.8 15H16.2A2.8 2.8 0 1 1 13.4 17.8V6.2A2.8 2.8 0 1 1 16.2 9H9Z" />
-      </>
-    ),
-    branch: (
-      <>
-        <path d="M7 7A3 3 0 1 0 7 13A3 3 0 0 0 7 7Z" />
-        <path d="M17 4A3 3 0 1 0 17 10A3 3 0 0 0 17 4Z" />
-        <path d="M17 14A3 3 0 1 0 17 20A3 3 0 0 0 17 14Z" />
-        <path d="M9.8 10.1L14.2 7.9M9.8 11.9L14.2 16.1" />
-      </>
-    ),
-    spark: (
-      <>
-        <path d="M12 3L13.9 8.1L19 10L13.9 11.9L12 17L10.1 11.9L5 10L10.1 8.1L12 3Z" />
-        <path d="M18 15L18.8 17.2L21 18L18.8 18.8L18 21L17.2 18.8L15 18L17.2 17.2L18 15Z" />
-      </>
-    ),
-    deploy: (
-      <>
-        <path d="M12 4L19 8V16L12 20L5 16V8L12 4Z" />
-        <path d="M12 12L19 8M12 12V20M12 12L5 8" />
-      </>
-    ),
-    pulse: (
-      <>
-        <path d="M4 12H8L10 6L14 18L16 12H20" />
-      </>
-    ),
-    settings: (
-      <>
-        <path d="M12 15.2A3.2 3.2 0 1 0 12 8.8A3.2 3.2 0 0 0 12 15.2Z" />
-        <path d="M19 12A7.1 7.1 0 0 0 18.9 10.8L21 9.2L19 5.8L16.5 6.8A7.7 7.7 0 0 0 14.4 5.6L14 3H10L9.6 5.6A7.7 7.7 0 0 0 7.5 6.8L5 5.8L3 9.2L5.1 10.8A7.6 7.6 0 0 0 5.1 13.2L3 14.8L5 18.2L7.5 17.2A7.7 7.7 0 0 0 9.6 18.4L10 21H14L14.4 18.4A7.7 7.7 0 0 0 16.5 17.2L19 18.2L21 14.8L18.9 13.2A7.1 7.1 0 0 0 19 12Z" />
-      </>
-    ),
-  };
-
-  return (
-    <svg {...common} className="nav-icon">
-      <g stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6">
-        {paths[name]}
-      </g>
-    </svg>
-  );
-}
-
 export default function App() {
-  const [activeNav, setActiveNav] = useState(navItems[0].label);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const [query, setQuery] = useState('');
@@ -149,15 +75,7 @@ export default function App() {
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const commandOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  function handleCardPointerMove(event: ReactPointerEvent<HTMLElement>) {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
-    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
-
-    event.currentTarget.style.setProperty('--pointer-x', `${x}%`);
-    event.currentTarget.style.setProperty('--pointer-y', `${y}%`);
-  }
+  const heroRef = useRef<HTMLElement | null>(null);
 
   function openCommandMenu() {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -242,119 +160,61 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar" aria-label="Primary navigation">
-        <div className="brand-block">
-          <div className="brand-mark" aria-hidden="true">
-            <span />
-          </div>
-          <div>
-            <p className="brand-name">Vector</p>
-            <p className="brand-meta">Developer OS</p>
-          </div>
-        </div>
+      <main className="layout-shell" id="main-content">
+        <header className="page-header">
+          <a className="global-brand" href="#main-content" aria-label="Vector OS home">
+            VECTOR // OS
+          </a>
+          <nav className="global-nav" aria-label="Global navigation">
+            <ul>
+              <li>
+                <a href="#features">Features</a>
+              </li>
+              <li>
+                <a href="#docs">Docs</a>
+              </li>
+              <li>
+                <a href="#changelog">
+                  Changelog
+                  <span className="global-shortcut" aria-hidden="true">
+                    G then F
+                  </span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </header>
 
-        <nav className="nav-stack">
-          {navItems.map((item) => (
-            <button
-              aria-current={activeNav === item.label ? 'page' : undefined}
-              className="nav-link"
-              key={item.label}
-              onClick={() => setActiveNav(item.label)}
-              type="button"
-            >
-              <span className="nav-label">
-                <Icon name={item.icon} />
-                {item.label}
+        <section className="hero-section" aria-labelledby="page-title" ref={heroRef}>
+          <ShaderBackground targetRef={heroRef} />
+          <div className="hero-content">
+            <p className="kicker">Realtime developer productivity</p>
+            <h1 id="page-title" className="hero-title">
+              <span className="text-mask">
+                <span className="text-reveal text-reveal-line-1">
+                  Ship <span className="accent-text">complex</span> software
+                </span>
               </span>
-              {item.count ? <span className="nav-count">{item.count}</span> : null}
-            </button>
-          ))}
-        </nav>
-
-        <section className="sidebar-status" aria-labelledby="workspace-title">
-          <p id="workspace-title" className="status-title">
-            Workspace
-          </p>
-          <p className="status-copy">Production branch monitored across 18 services.</p>
-        </section>
-      </aside>
-
-      <main className="main-content" id="main-content">
-        <section className="hero-section" aria-labelledby="page-title">
-          <p className="kicker">Realtime developer productivity</p>
-          <h1 id="page-title">Ship complex software from one command layer.</h1>
-          <p className="hero-copy">
-            Coordinate agents, diffs, reviews, deploys, and team memory without losing the thread.
-          </p>
-          <p className="selected-command" aria-live="polite">
-            Last command: <span>{selectedCommand}</span>
-          </p>
-        </section>
-
-        <section
-          aria-hidden={!isCommandOpen}
-          aria-label="Command menu overlay"
-          className={`command-overlay${isCommandOpen ? ' is-open' : ''}`}
-        >
-          <div
-            aria-labelledby="command-title"
-            aria-modal="true"
-            className="command-menu"
-            role="dialog"
-          >
-            <div className="command-input-row">
-              <label className="sr-only" htmlFor="command-search">
-                Search commands or tools
-              </label>
-              <input
-                aria-activedescendant={`command-option-${activeCommandIndex}`}
-                aria-controls="command-options"
-                autoComplete="off"
-                id="command-search"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search commands or tools... (Press ⌘K)"
-                ref={commandInputRef}
-                tabIndex={isCommandOpen ? 0 : -1}
-                type="search"
-                value={query}
-              />
-            </div>
-
-            <div className="command-results">
-              <p id="command-title" className="command-title">
-                Suggested Commands
-              </p>
-              <ul id="command-options" role="listbox">
-                {commandActions.map((item, index) => (
-                  <li key={item.label} role="presentation">
-                    <button
-                      aria-selected={activeCommandIndex === index}
-                      className={`command-option${activeCommandIndex === index ? ' is-active' : ''}`}
-                      id={`command-option-${index}`}
-                      onClick={() => selectCommand(index)}
-                      onMouseEnter={() => setActiveCommandIndex(index)}
-                      ref={(node) => {
-                        commandOptionRefs.current[index] = node;
-                      }}
-                      role="option"
-                      tabIndex={isCommandOpen ? 0 : -1}
-                      type="button"
-                    >
-                      <span>{item.label}</span>
-                      <span className="command-shortcut" aria-hidden="true">
-                        {item.shortcut}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+              <span className="text-mask">
+                <span className="text-reveal text-reveal-line-2">
+                  from one <span className="accent-text">command</span> layer.
+                </span>
+              </span>
+            </h1>
+            <p className="hero-copy text-mask">
+              <span className="text-reveal text-reveal-subheadline">
+                Coordinate agents, diffs, reviews, deploys, and team memory without losing the thread.
+              </span>
+            </p>
+            <p className="selected-command" aria-live="polite">
+              Last command: <span>{selectedCommand}</span>
+            </p>
           </div>
         </section>
 
-        <section className="bento-grid" aria-label="Productivity overview">
+        <section className="bento-grid" id="features" aria-label="Productivity overview">
           {cards.map((card) => (
-            <article className="data-card" key={card.title} onPointerMove={handleCardPointerMove}>
+            <article className="data-card" key={card.title}>
               <div className="card-topline">
                 <span>{card.eyebrow}</span>
                 <span>{card.meta}</span>
@@ -368,6 +228,60 @@ export default function App() {
           ))}
         </section>
       </main>
+
+      <section
+        aria-hidden={!isCommandOpen}
+        aria-label="Command menu overlay"
+        className={`command-overlay${isCommandOpen ? ' is-open' : ''}`}
+      >
+        <div aria-labelledby="command-title" aria-modal="true" className="command-menu" role="dialog">
+          <div className="command-input-row">
+            <input
+              aria-activedescendant={`command-option-${activeCommandIndex}`}
+              aria-label="Search commands or tools"
+              aria-controls="command-options"
+              autoComplete="off"
+              id="command-search"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search commands or tools... (Press Command K)"
+              ref={commandInputRef}
+              tabIndex={isCommandOpen ? 0 : -1}
+              type="search"
+              value={query}
+            />
+          </div>
+
+          <div className="command-results">
+            <p id="command-title" className="command-title">
+              Suggested Commands
+            </p>
+            <ul id="command-options" role="listbox">
+              {commandActions.map((item, index) => (
+                <li key={item.label} role="presentation">
+                  <button
+                    aria-selected={activeCommandIndex === index}
+                    className={`command-option${activeCommandIndex === index ? ' is-active' : ''}`}
+                    id={`command-option-${index}`}
+                    onClick={() => selectCommand(index)}
+                    onMouseEnter={() => setActiveCommandIndex(index)}
+                    ref={(node) => {
+                      commandOptionRefs.current[index] = node;
+                    }}
+                    role="option"
+                    tabIndex={isCommandOpen ? 0 : -1}
+                    type="button"
+                  >
+                    <span>{item.label}</span>
+                    <span className="command-shortcut" aria-hidden="true">
+                      {item.shortcut}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
