@@ -5,11 +5,11 @@ module.exports = {
     extend: {
       colors: {
         raycast: {
-          bg: '#0F0F11',
-          panel: '#17171A',
-          border: '#28282E',
-          selected: '#232329',
-          accent: '#FF6363',
+          bg: '#0B0B0C',
+          panel: '#161618',
+          border: '#2C2C2E',
+          selected: '#1C1C1F',
+          accent: '#6366F1',
         },
       },
       fontFamily: {
