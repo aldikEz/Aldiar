@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import ShaderBackground from './components/ShaderBackground';
-
-type Card = {
-  eyebrow: string;
-  title: string;
-  value: string;
-  meta: string;
-  description: string;
-};
+import { ShaderAnimation } from './components/ui/shader-lines';
 
 type CommandAction = {
   label: string;
@@ -17,15 +9,70 @@ type CommandAction = {
 type RiskSurface = 'Low' | 'Clear' | 'Audited';
 
 const commandActions: CommandAction[] = [
-  { label: 'Open Projects', shortcut: 'Option P' },
-  { label: 'Create New Task', shortcut: 'Option T' },
-  { label: 'Search Documentation', shortcut: 'Option D' },
-  { label: 'View Analytics', shortcut: 'Option A' },
-  { label: 'Settings', shortcut: 'Enter' },
+  { label: 'Restart Microservices Engine', shortcut: 'Option R' },
+  { label: 'Purge System Build Cache', shortcut: 'Option P' },
+  { label: 'Deploy Cluster Snapshot', shortcut: 'Option D' },
+  { label: 'View Container Registry Logs', shortcut: 'Option L' },
+  { label: 'Cluster Settings', shortcut: 'Enter' },
 ];
+
+const DEFAULT_KICKER_TEXT = 'Ephemeral microservice orchestration engine';
+const DEFAULT_SYSTEM_LOGS = ['[SYS] Core initialization successful.', '[SYS] Viewport pipeline bound to GPU.'];
+const STORAGE_KEYS = {
+  flowIntegrity: 'kuber.flowIntegrity',
+  queuedCommands: 'kuber.queuedCommands',
+  isCardMatrixInverted: 'kuber.isCardMatrixInverted',
+  systemLogs: 'kuber.systemLogs',
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function readStoredNumber(key: string, fallback: number, min: number, max: number) {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const storedValue = window.localStorage.getItem(key);
+  const parsedValue = storedValue === null ? Number.NaN : Number(storedValue);
+  return Number.isFinite(parsedValue) ? clamp(parsedValue, min, max) : fallback;
+}
+
+function readStoredBoolean(key: string, fallback: boolean) {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const storedValue = window.localStorage.getItem(key);
+
+  if (storedValue === 'true') {
+    return true;
+  }
+
+  if (storedValue === 'false') {
+    return false;
+  }
+
+  return fallback;
+}
+
+function readStoredLogs() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_SYSTEM_LOGS;
+  }
+
+  try {
+    const parsedValue = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.systemLogs) ?? '[]');
+
+    if (Array.isArray(parsedValue) && parsedValue.every((entry) => typeof entry === 'string')) {
+      return parsedValue.length > 0 ? parsedValue.slice(-8) : DEFAULT_SYSTEM_LOGS;
+    }
+  } catch {
+    return DEFAULT_SYSTEM_LOGS;
+  }
+
+  return DEFAULT_SYSTEM_LOGS;
 }
 
 export default function App() {
@@ -33,11 +80,14 @@ export default function App() {
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const [query, setQuery] = useState('');
   const [, setSelectedCommand] = useState(commandActions[0].label);
-  const [flowIntegrity, setFlowIntegrity] = useState(94);
-  const [queuedCommands, setQueuedCommands] = useState(28);
+  const [flowIntegrity, setFlowIntegrity] = useState(() => readStoredNumber(STORAGE_KEYS.flowIntegrity, 94, 91, 98));
+  const [queuedCommands, setQueuedCommands] = useState(() => readStoredNumber(STORAGE_KEYS.queuedCommands, 28, 20, 35));
   const [riskSurface, setRiskSurface] = useState<RiskSurface>('Low');
-  const [isCardMatrixInverted, setIsCardMatrixInverted] = useState(false);
-  const [kickerText, setKickerText] = useState('Realtime developer productivity');
+  const [isCardMatrixInverted, setIsCardMatrixInverted] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.isCardMatrixInverted, false),
+  );
+  const [kickerText, setKickerText] = useState(DEFAULT_KICKER_TEXT);
+  const [systemLogs, setSystemLogs] = useState<string[]>(readStoredLogs);
 
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -51,58 +101,25 @@ export default function App() {
     [query],
   );
 
-  const telemetryCards = useMemo<Card[]>(() => {
-    const cards: Card[] = [
-      {
-        eyebrow: 'Focus Session',
-        title: 'Flow integrity',
-        value: `${flowIntegrity}%`,
-        meta: flowIntegrity >= 94 ? '+12.4%' : 'recovering',
-        description: 'Context switches were reduced across active branches and review loops.',
-      },
-      {
-        eyebrow: 'Automation',
-        title: 'Queued commands',
-        value: String(queuedCommands),
-        meta: `${Math.max(1, Math.round(queuedCommands / 5))} live`,
-        description: 'High-confidence workflows are ready to execute from the command layer.',
-      },
-      {
-        eyebrow: 'Code Health',
-        title: 'Risk surface',
-        value: riskSurface,
-        meta: riskSurface === 'Audited' ? 'locked' : '2 files',
-        description: 'Recent diffs touch isolated UI modules with complete type coverage.',
-      },
-      {
-        eyebrow: 'Reviews',
-        title: 'Signal quality',
-        value: '8.7',
-        meta: 'A grade',
-        description: 'Noise is filtered before the team sees suggestions, failures, or alerts.',
-      },
-      {
-        eyebrow: 'Deployments',
-        title: 'Preview velocity',
-        value: '4m 12s',
-        meta: '-31s',
-        description: 'Build cache and test prioritization keep preview cycles compact.',
-      },
-      {
-        eyebrow: 'Knowledge',
-        title: 'Repo memory',
-        value: '1.8k',
-        meta: 'indexed',
-        description: 'Architecture decisions, owners, and conventions are mapped for agents.',
-      },
-    ];
-
-    return isCardMatrixInverted ? [...cards].reverse() : cards;
-  }, [flowIntegrity, isCardMatrixInverted, queuedCommands, riskSurface]);
-
   useEffect(() => {
     setActiveCommandIndex(0);
   }, [query]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.flowIntegrity, String(flowIntegrity));
+  }, [flowIntegrity]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.queuedCommands, String(queuedCommands));
+  }, [queuedCommands]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.isCardMatrixInverted, String(isCardMatrixInverted));
+  }, [isCardMatrixInverted]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.systemLogs, JSON.stringify(systemLogs));
+  }, [systemLogs]);
 
   useEffect(() => {
     const telemetryInterval = window.setInterval(() => {
@@ -153,7 +170,7 @@ export default function App() {
 
     setKickerText(nextText);
     kickerTimeoutRef.current = window.setTimeout(() => {
-      setKickerText('Realtime developer productivity');
+      setKickerText(DEFAULT_KICKER_TEXT);
       kickerTimeoutRef.current = null;
     }, 3500);
   }
@@ -187,21 +204,42 @@ export default function App() {
     });
   }
 
+  function pushSystemLog(message: string) {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    setSystemLogs((currentLogs) => [...currentLogs, `[${timestamp}] ${message}`].slice(-8));
+  }
+
+  function getCommandLog(actionLabel: string) {
+    switch (actionLabel) {
+      case 'Restart Microservices Engine':
+        return '[WARN] Cluster restart sequence initiated. Re-indexing pods...';
+      case 'Purge System Build Cache':
+        return '[INFO] Cache purge complete. Cleared 1.8GB layer files.';
+      case 'Deploy Cluster Snapshot':
+        return '[SUCCESS] Cluster snapshot deployed safely. Verification ok.';
+      case 'View Container Registry Logs':
+        return '[INFO] Container registry log stream opened.';
+      case 'Cluster Settings':
+        return '[INFO] Cluster settings panel requested.';
+      default:
+        return `[INFO] Command executed: ${actionLabel}.`;
+    }
+  }
+
   function selectCommandAction(action: CommandAction) {
     setSelectedCommand(action.label);
+    pushSystemLog(getCommandLog(action.label));
 
     switch (action.label) {
-      case 'Open Projects':
+      case 'Restart Microservices Engine':
         setIsCardMatrixInverted((currentValue) => !currentValue);
-        setQueuedCommands((currentValue) => clamp(currentValue + 3, 20, 35));
-        break;
-      case 'Create New Task':
         setFlowIntegrity((currentValue) => clamp(currentValue - 4, 91, 98));
-        temporarilySetKickerText('Action Triggered: Initializing New Task Loop');
         break;
-      case 'Search Documentation':
+      case 'Purge System Build Cache':
+        temporarilySetKickerText('Trace Cleared: Build Cache Purged');
+        break;
+      case 'Deploy Cluster Snapshot':
         lockRiskSurfaceAudit();
-        temporarilySetKickerText('System Focus: Documentation Index Active');
         break;
       default:
         break;
@@ -286,31 +324,37 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <main className="layout-shell" id="main-content">
-        <header className="page-header">
-          <a className="global-brand" href="#main-content" aria-label="Vector OS home">
-            VECTOR // OS
-          </a>
-          <nav className="global-nav" aria-label="Global navigation">
-            <ul>
-              <li>
-                <a href="#features">Features</a>
-              </li>
-              <li>
-                <a href="#docs">Docs</a>
-              </li>
-              <li>
-                <a href="#changelog">
-                  Changelog
-                  <span className="global-shortcut" aria-hidden="true">
-                    G then F
-                  </span>
-                </a>
-              </li>
-            </ul>
-          </nav>
-        </header>
+      <div className="global-shader-lines-layer" aria-hidden="true">
+        <ShaderAnimation />
+      </div>
+      <div className="global-shader-lines-layer global-shader-lines-layer-left" aria-hidden="true">
+        <ShaderAnimation />
+      </div>
 
+      <a className="brand-lockup" href="#main-content" aria-label="DeployGuard home">
+        <span className="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" focusable="false">
+            <path
+              d="M8.5 7.5h8.2c5.2 0 8.8 3.5 8.8 8.5s-3.6 8.5-8.8 8.5H8.5v-17Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <path
+              d="M13 16h9M18.8 11.8 23 16l-4.2 4.2"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            />
+            <path d="M8.5 7.5v17" stroke="currentColor" strokeLinecap="round" strokeWidth="2.6" />
+          </svg>
+        </span>
+        <span>DeployGuard</span>
+      </a>
+
+      <main className="layout-shell" id="main-content">
         <div
           className="hero-search-anchor"
           onClick={openCommandMenu}
@@ -339,8 +383,6 @@ export default function App() {
         </div>
 
         <section className="hero-section" aria-labelledby="page-title" ref={heroRef}>
-          <ShaderBackground targetRef={heroRef} />
-
           <div className="hero-content">
             <p className="kicker">{kickerText}</p>
             <h1 id="page-title" className="hero-title">
@@ -363,20 +405,144 @@ export default function App() {
           </div>
         </section>
 
-        <section className="bento-grid" id="features" aria-label="Productivity overview">
-          {telemetryCards.map((card) => (
-            <article className="data-card" key={card.title}>
-              <div className="card-topline">
-                <span>{card.eyebrow}</span>
-                <span>{card.meta}</span>
+        <section className="raycast-dashboard-feed" id="features" aria-label="Project execution feed">
+          <article className="feed-row feed-analytics" aria-label="Core project compilation analytics tracker">
+            <div className="feed-row-header">
+              <span>Core Project Compilation Analytics Tracker</span>
+              <strong>{riskSurface} Network Profile</strong>
+            </div>
+            <div className="analytics-grid">
+              <div className="analytics-metric">
+                <span>System Build Integrity</span>
+                <strong>{flowIntegrity}%</strong>
+                <div className="metric-track-bg" aria-hidden="true">
+                  <div className="metric-track-fill" style={{ width: `${flowIntegrity}%` }} />
+                </div>
               </div>
-              <div className="card-heading">
-                <h2>{card.title}</h2>
-                <strong>{card.value}</strong>
+              <div className="analytics-metric">
+                <span>Pending Build Files</span>
+                <strong>{queuedCommands}</strong>
+                <p>{queuedCommands} files left in stack</p>
               </div>
-              <p>{card.description}</p>
-            </article>
-          ))}
+              <div className="analytics-metric">
+                <span>Active Configuration</span>
+                <strong>Next.js 15 + i18n Localization Engine</strong>
+                <p>Client routing, locale dictionaries, edge middleware, and Supabase adapters are staged.</p>
+              </div>
+            </div>
+          </article>
+
+          <article className="feed-row feed-code-blueprint" aria-label="Localized code blueprint frame">
+            <div className="blueprint-meta">
+              <span>Localized Code Blueprint Frame</span>
+              <strong>src/locales/kk/common.json</strong>
+              <p>Checksum Target: i18n-kz-7f42a9 / Namespace: common / Runtime: edge-safe JSON module</p>
+            </div>
+            <pre className="feed-code-canvas" aria-label="Kazakh localization JSON preview">
+              <code>{`{
+  "navigation": {
+    "features": "Мүмкіндіктер",
+    "docs": "Құжаттама",
+    "changelog": "Өзгерістер журналы"
+  },
+  "hero": {
+    "kicker": "Эфемерлі микросервис оркестрация қозғалтқышы",
+    "title": "Бір command қабатынан күрделі software жеткізіңіз",
+    "search": "Құралдар мен әрекеттерді іздеу... (⌘K)"
+  },
+  "deployment": {
+    "region": "central-asia-kz",
+    "checksum": "sha256:8d0a7b9e4c11",
+    "fallbackLocale": "en",
+    "targets": ["edge", "server", "client"]
+  }
+}`}</code>
+            </pre>
+          </article>
+
+          <article className="feed-row" aria-label="Automated file scaffolding tree map">
+            <div className="feed-row-header">
+              <span>Automated File Scaffolding Tree Map</span>
+              <strong>5 tracked paths</strong>
+            </div>
+            <div className="file-tree-map">
+              <div className="file-tree-item">
+                <span>root / src / app / layout.tsx</span>
+                <strong>Compiled Successfully</strong>
+              </div>
+              <div className="file-tree-item">
+                <span>root / src / app / page.tsx</span>
+                <strong>Hydrated</strong>
+              </div>
+              <div className="file-tree-item">
+                <span>root / src / app / api / i18n / route.ts</span>
+                <strong>Ready</strong>
+              </div>
+              <div className="file-tree-item">
+                <span>root / src / locales / en / common.json</span>
+                <strong>Token Synced</strong>
+              </div>
+              <div className="file-tree-item">
+                <span>root / src / locales / ru / common.json</span>
+                <strong>Verified</strong>
+              </div>
+              <div className="file-tree-item">
+                <span>root / src / locales / kk / common.json</span>
+                <strong>Checksum Matched</strong>
+              </div>
+              <div className="file-tree-item">
+                <span>root / src / middleware.ts</span>
+                <strong>Edge Bound</strong>
+              </div>
+              <div className="file-tree-item">
+                <span>root / supabase / migrations / 20260617_locale_registry.sql</span>
+                <strong>Queued</strong>
+              </div>
+            </div>
+          </article>
+
+          <article className="feed-row" aria-label="Real-time security and compliance checklist">
+            <div className="feed-row-header">
+              <span>Real-Time Security & Compliance Checklists</span>
+              <strong>Production Gate</strong>
+            </div>
+            <div className="compliance-list">
+              <p>
+                <strong>PASS</strong>
+                Project Architecture Schema Validity Verify
+              </p>
+              <p>
+                <strong>PASS</strong>
+                Client-Side Multi-Language String Matrix Verification
+              </p>
+              <p>
+                <strong>PASS</strong>
+                Content Security Policy (CSP) Frame Isolation Safeguard
+              </p>
+              <p>
+                <strong>PASS</strong>
+                Supabase Anonymous Key Boundary Surface Review
+              </p>
+              <p>
+                <strong>PASS</strong>
+                Edge Runtime Locale Fallback Consistency Audit
+              </p>
+            </div>
+          </article>
+
+          <section className="feed-row feed-terminal-zone" aria-label="Active monospace system console logger panel">
+            <div className="feed-row-header">
+              <span>Active Monospace System Console Logger Panel</span>
+              <strong>{systemLogs.length} live entries</strong>
+            </div>
+            <div className="terminal-log-view terminal-log-view-expanded">
+              {systemLogs.map((entry, index) => (
+                <p className={index === systemLogs.length - 1 ? 'is-latest' : undefined} key={entry + index}>
+                  {entry}
+                </p>
+              ))}
+            </div>
+          </section>
         </section>
       </main>
 
