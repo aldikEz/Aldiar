@@ -1,110 +1,102 @@
-# 🚀 nFactorial Teens — Стартовый шаблон
+# Pace AI
 
-Твоя отправная точка. Здесь уже готово: страница, **вход по email**, **профиль** и **база данных**
-(пример: список записей). Дальше ты переделаешь это под свою идею с помощью **Codex**.
+Pace AI is a polished front-end concept for one simple tracker that helps people plan training, food, school, recovery, and coach check-ins.
 
-Стек: **Vite + React + TypeScript + Supabase + Vercel**.
+This build is a landing page plus interactive demo with a working local planner, food log, coach demo, and training session flow. It uses local React state and browser storage for the preview flow. There is no production auth, billing, medical advice, or account database wired into the live page yet.
 
----
+## Stack
 
-## ✅ Запуск за 8 шагов (День 2)
+- Vite
+- React
+- TypeScript
+- Supabase project files for future database and AI work
+- Vercel config with basic security headers
 
-> Всё по галочкам. Застрял на шаге — подними руку, не прыгай дальше.
+## Run Locally
 
-1. **Возьми свою копию.** На GitHub нажми зелёную кнопку **«Use this template» → Create a new
-   repository**. Назови репозиторий своим именем проекта. Это твоя копия, не оригинал.
-
-2. **Открой в VSCode.** Скопируй ссылку своего репо → в терминале:
-   ```bash
-   git clone <ссылка-твоего-репо>
-   cd <папка-проекта>
-   code .
-   ```
-
-3. **Установи зависимости.** В терминале VSCode:
-   ```bash
-   npm install
-   ```
-
-4. **Создай проект в Supabase.** Зайди на [supabase.com](https://supabase.com) → **New project**.
-   Запомни пароль базы. Подожди ~2 минуты, пока проект поднимется.
-
-5. **Вставь ключи.** Скопируй файл `.env.example` → переименуй копию в `.env.local`.
-   В Supabase: **Project Settings → API**. Скопируй **Project URL** и **anon public** ключ,
-   вставь в `.env.local`:
-   ```
-   VITE_SUPABASE_URL=https://твой-проект.supabase.co
-   VITE_SUPABASE_ANON_KEY=твой-anon-ключ
-   ```
-   ⚠️ `.env.local` НЕ коммить — он уже в `.gitignore`.
-
-6. **Создай таблицу КОМАНДОЙ (не вручную).** Базу настраиваем миграциями — это по-взрослому:
-   ```bash
-   npm run db:login          # откроется браузер, подтверди вход
-   npm run db:link           # выбери свой проект из списка (спросит пароль базы)
-   npm run db:push           # применит supabase/migrations/* — создаст таблицу entries
-   ```
-   `db:push` берёт SQL из `supabase/migrations/` и применяет к твоей базе. Таблицы созданы — без ручного копипаста.
-
-7. **Запусти локально.**
-   ```bash
-   npm run dev
-   ```
-   Открой ссылку из терминала (обычно `http://localhost:5173`). Зарегистрируйся, добавь запись —
-   она сохранится в твоей базе. Работает? 🎉
-
-8. **Выложи в интернет (Vercel).** Залей код на GitHub:
-   ```bash
-   git add .
-   git commit -m "first version"
-   git push
-   ```
-   На [vercel.com](https://vercel.com) → **Add New → Project** → выбери свой репозиторий.
-   В **Environment Variables** добавь те же `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` →
-   **Deploy**. Через минуту у тебя будет **живая ссылка**. Это и есть твой проект в интернете.
-
----
-
-## 🔁 Главный цикл (каждый день)
-
-```
-просишь Codex что-то сделать  →  смотришь что он изменил  →
-проверяешь что всё работает (npm run dev)  →  git push  →  Vercel сам обновляет ссылку
+```bash
+npm install
+npm run dev
 ```
 
-**Проверка перед push:** приложение запускается? нет красных ошибок? Тогда коммить.
+Open the local URL Vite prints, usually `http://localhost:5173`.
 
----
+## Verify Before Shipping
 
-## 📂 Что где лежит
+```bash
+npm run build
+```
 
-| Файл | Что это |
-|------|---------|
-| `src/App.tsx` | Главный экран: показывает вход или приложение |
-| `src/components/Auth.tsx` | Вход и регистрация |
-| `src/components/Entries.tsx` | Пример работы с базой (читать/добавить/удалить) |
-| `src/lib/supabase.ts` | Подключение к Supabase |
-| `supabase/migrations/` | Таблицы базы (применяются `npm run db:push`) |
-| `supabase/functions/ai/` | AI на бесплатном ключе Gemini (день 5) |
-| `AGENTS.md` | Контекст для Codex — он читает это сам |
-| `CODEX_SETUP.md` | Готовые промпты для Codex по дням |
+Also check the page at a small phone width, around `375px`, to confirm there is no horizontal scroll and all buttons fit.
 
----
+## Current Demo Behavior
 
-## 🤖 AI (день 5) — бесплатный Gemini
+- `Start 3-day trial` opens a short planner.
+- Planner answers create a saved mock setup in this browser.
+- `Start training` creates a focused training session with sets, targets, progress, and saved history.
+- `AI week` / `Generate AI Week` calls the Gemini Edge Function when configured and falls back to a local plan when it is not reachable.
+- `Log food` saves simple meal, snack, water, or note entries.
+- `Log today` updates the plan note.
+- `Cmd/Ctrl + K` opens quick actions.
+- Pricing buttons open the planner or coach-mode mock action.
+- Privacy, Terms, and Safety buttons open readable demo notices.
+- The Privacy sheet can clear browser-only demo data.
 
-Внутри уже есть AI-функция (`supabase/functions/ai`). Чтобы включить:
-1. Возьми бесплатный ключ: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-2. Положи его в секрет: `npm run ai:secret -- GEMINI_API_KEY=твой_ключ`
-3. Задеплой: `npm run ai:deploy`
-4. Вызывай из кода: `supabase.functions.invoke('ai', { body: { prompt, system } })` → `data.text`
+## Browser-Only Demo Data
 
----
+The front-end preview stores only small demo state in `localStorage`, such as:
 
-## 🆘 Если сломалось
+- last action
+- plan note
+- saved mock setup
+- food entries
+- active and completed training sessions
+- whether a coach note is pinned
 
-- **Белый экран + ошибка про ключи** → не вставил ключи в `.env.local` (шаг 5).
-- **«relation entries does not exist»** → не сделал `npm run db:push` (шаг 6).
-- **`db:push` ругается на доступ** → сначала `npm run db:login`, потом `npm run db:link`.
-- **На Vercel пусто, локально работает** → забыл добавить Environment Variables на Vercel (шаг 8).
-- **Codex сломал код** → не коммить! Попроси Codex починить или откати изменения в VSCode.
+Users can clear this from the Privacy sheet. A real product should add account-level export, correction, deletion, consent, and retention controls before launch.
+
+## Optional Supabase Setup
+
+The current landing page does not require Supabase to run. Supabase files are kept for future database and AI features.
+
+If you later wire Supabase into the app:
+
+1. Copy `.env.example` to `.env.local`.
+2. Add your Supabase URL and anon key.
+3. Link and push migrations only when you are ready to use the database.
+
+```bash
+npm run db:login
+npm run db:link
+npm run db:push
+```
+
+## Optional AI Function
+
+The app calls `supabase/functions/ai` for Gemini so the Gemini key is not exposed in browser JavaScript.
+
+For local frontend work, `.env.local` needs:
+
+```bash
+VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+```
+
+Before deploying or serving the Edge Function, set both server-side secrets:
+
+```bash
+npm run ai:secret -- GEMINI_API_KEY=your_key
+npm run ai:secret -- AI_ALLOWED_ORIGINS=http://localhost:5173,https://your-domain.com
+npm run ai:deploy
+```
+
+`AI_ALLOWED_ORIGINS` matters. Without it, the function only allows localhost/127.0.0.1 so it does not become a public AI proxy by accident.
+
+If the Edge Function is missing, blocked, or not configured, Pace still works with a local fallback plan.
+
+## Production Notes
+
+- `vercel.json` adds CSP, frame blocking, referrer policy, permissions policy, and MIME sniff protection.
+- These headers reduce common web risk, but they do not make the site impossible to hack.
+- The Privacy, Terms, and Safety text is demo copy, not final legal advice.
+- Before collecting real user data, payments, health/food/weight data, or teen/minor data, get qualified legal and security review.

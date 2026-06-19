@@ -8,14 +8,20 @@ declare global {
   }
 }
 
-export function ShaderAnimation() {
+type ShaderAnimationProps = {
+  isActive?: boolean;
+};
+
+export function ShaderAnimation({ isActive = false }: ShaderAnimationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isActiveRef = useRef(isActive);
   const sceneRef = useRef<{
     camera: any;
     scene: any;
     renderer: any;
     uniforms: any;
     animationId: number | null;
+    renderFrame: (() => void) | null;
     cleanupResize: (() => void) | null;
   }>({
     camera: null,
@@ -23,8 +29,23 @@ export function ShaderAnimation() {
     renderer: null,
     uniforms: null,
     animationId: null,
+    renderFrame: null,
     cleanupResize: null,
   });
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+
+    if (isActive && sceneRef.current.renderFrame && sceneRef.current.animationId === null) {
+      sceneRef.current.renderFrame();
+    }
+
+    if (!isActive && sceneRef.current.animationId !== null) {
+      cancelAnimationFrame(sceneRef.current.animationId);
+      sceneRef.current.animationId = null;
+      sceneRef.current.renderer?.render(sceneRef.current.scene, sceneRef.current.camera);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,6 +69,7 @@ export function ShaderAnimation() {
         renderer: null,
         uniforms: null,
         animationId: null,
+        renderFrame: null,
         cleanupResize: null,
       };
     }
@@ -153,16 +175,28 @@ export function ShaderAnimation() {
         renderer,
         uniforms,
         animationId: null,
+        renderFrame: null,
         cleanupResize: () => window.removeEventListener("resize", onWindowResize, false),
       };
 
-      const animate = () => {
+      const renderFrame = () => {
+        if (!isActiveRef.current) {
+          sceneRef.current.animationId = null;
+          renderer.render(scene, camera);
+          return;
+        }
+
         uniforms.time.value += 0.05;
         renderer.render(scene, camera);
-        sceneRef.current.animationId = requestAnimationFrame(animate);
+        sceneRef.current.animationId = requestAnimationFrame(renderFrame);
       };
 
-      animate();
+      sceneRef.current.renderFrame = renderFrame;
+      renderer.render(scene, camera);
+
+      if (isActiveRef.current) {
+        renderFrame();
+      }
     }
 
     if (window.THREE) {
