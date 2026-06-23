@@ -14,7 +14,6 @@ import {
   FileText,
   Flag,
   Flame,
-  Heart,
   Home,
   Languages,
   LogOut,
@@ -28,17 +27,15 @@ import {
   Star,
   Sun,
   Target,
-  Trophy,
   User,
   UserPlus,
-  Users,
 } from 'lucide-react';
-import { scanFoodTextWithClientTimeout, scanImageWithClientTimeout, type ImageScanPayload } from '../../lib/imageScanClient';
+import { scanImageWithClientTimeout, type ImageScanPayload } from '../../lib/imageScanClient';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 
-type Navigate = (path: string) => void;
-type DashboardTab = 'home' | 'progress' | 'groups' | 'profile';
+type Navigate = (path: string, options?: { replace?: boolean }) => void;
+type DashboardTab = 'home' | 'progress' | 'profile';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
 type LegalPageKind = 'privacy' | 'terms' | 'subscription' | 'contact' | 'support';
 type DashboardEntry = {
@@ -296,19 +293,72 @@ const personalizationStepIds = new Set([
 ]);
 const setupSteps = onboardingSteps.filter((step) => personalizationStepIds.has(step.id));
 const SETUP_TOTAL_STEPS = setupSteps.length;
+const SENSIBITE_PROFILE_STORAGE_KEY = 'sensibite-profile-v1';
 
-function StoreBadge({ title, eyebrow, onClick }: { title: string; eyebrow: string; onClick?: () => void }) {
-  return (
-    <button className="flex h-12 min-w-[148px] items-center gap-3 rounded-[9px] bg-[#17151d] px-3.5 text-left text-white shadow-sm transition active:scale-[0.98]" onClick={onClick} type="button">
-      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-zinc-950">
-        <Sparkles className="h-4 w-4" />
-      </div>
-      <div>
-        <p className="text-[10px] font-black uppercase leading-none text-white/70">{eyebrow}</p>
-        <p className="mt-1 text-base font-black leading-none">{title}</p>
-      </div>
-    </button>
-  );
+type StoredSensiProfile = Pick<
+  SetupProfile,
+  'age' | 'allergies' | 'checkInsPerDay' | 'dietType' | 'gender' | 'goal' | 'heightCm' | 'symptoms' | 'timelineWeeks' | 'triggers' | 'unitSystem' | 'weightKg'
+>;
+
+function toStoredProfile(profile: SetupProfile): StoredSensiProfile {
+  return {
+    age: profile.age,
+    allergies: profile.allergies,
+    checkInsPerDay: profile.checkInsPerDay,
+    dietType: profile.dietType,
+    gender: profile.gender,
+    goal: profile.goal,
+    heightCm: profile.heightCm,
+    symptoms: profile.symptoms,
+    timelineWeeks: profile.timelineWeeks,
+    triggers: profile.triggers,
+    unitSystem: profile.unitSystem,
+    weightKg: profile.weightKg,
+  };
+}
+
+function saveStoredProfile(profile: SetupProfile) {
+  try {
+    window.localStorage.setItem(SENSIBITE_PROFILE_STORAGE_KEY, JSON.stringify(toStoredProfile(profile)));
+  } catch {
+    // Local storage can be disabled; the app still works without profile context.
+  }
+}
+
+function readStoredProfile(): StoredSensiProfile | null {
+  try {
+    const raw = window.localStorage.getItem(SENSIBITE_PROFILE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredSensiProfile>;
+    return {
+      age: typeof parsed.age === 'number' ? parsed.age : 24,
+      allergies: Array.isArray(parsed.allergies) ? parsed.allergies.filter((value): value is string => typeof value === 'string') : [],
+      checkInsPerDay: typeof parsed.checkInsPerDay === 'number' ? parsed.checkInsPerDay : 2,
+      dietType: typeof parsed.dietType === 'string' ? parsed.dietType : 'No specific diet',
+      gender: parsed.gender === 'Male' || parsed.gender === 'Other' ? parsed.gender : 'Female',
+      goal: parsed.goal === 'Reduce bloating' || parsed.goal === 'Build consistency' ? parsed.goal : 'Find triggers',
+      heightCm: typeof parsed.heightCm === 'number' ? parsed.heightCm : 170,
+      symptoms: Array.isArray(parsed.symptoms) ? parsed.symptoms.filter((value): value is string => typeof value === 'string') : [],
+      timelineWeeks: typeof parsed.timelineWeeks === 'number' ? parsed.timelineWeeks : 6,
+      triggers: Array.isArray(parsed.triggers) ? parsed.triggers.filter((value): value is string => typeof value === 'string') : [],
+      unitSystem: parsed.unitSystem === 'imperial' ? 'imperial' : 'metric',
+      weightKg: typeof parsed.weightKg === 'number' ? parsed.weightKg : 64,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getProfileScanTriggers(profile: StoredSensiProfile | null) {
+  const values = [
+    ...(profile?.triggers ?? []),
+    ...(profile?.allergies ?? []),
+    ...(profile?.symptoms ?? []),
+    profile?.dietType,
+    profile?.goal,
+  ];
+
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value && value !== 'None')))).slice(0, 12);
 }
 
 function PhoneStatusBar({ dark = false }: { dark?: boolean }) {
@@ -341,9 +391,9 @@ function MarketingPhone({
     scan: {
       label: 'Result ready',
       title: 'Fried chicken meal',
-      metric: 'Flag',
+      metric: 'High',
       accent: 'Possible trigger',
-      body: 'Fried foods show up before bloating in your last 3 evening logs.',
+      body: 'Fried food is a possible repeat signal in evening meals.',
     },
     symptoms: {
       label: 'Check-in saved',
@@ -355,16 +405,16 @@ function MarketingPhone({
     timeline: {
       label: 'Pattern found',
       title: 'Late fried meals',
-      metric: '8 PM',
+      metric: 'Late',
       accent: 'Risk window',
-      body: 'Most discomfort logs cluster after late fried food entries.',
+      body: 'Discomfort check-ins can be compared against meal timing.',
     },
     speed: {
       label: 'Quick log',
       title: 'One-tap memory',
       metric: '3s',
       accent: 'Logged',
-      body: 'A meal and feeling can be saved before the pattern disappears.',
+      body: 'A food event is saved before the detail disappears.',
     },
   };
   const activePreview = previewContent[preview];
@@ -379,7 +429,7 @@ function MarketingPhone({
       <div className="absolute -left-[4px] top-[104px] h-9 w-[3px] rounded-l bg-zinc-700" />
       <div className="absolute -left-[4px] top-[151px] h-11 w-[3px] rounded-l bg-zinc-700" />
       <div className="absolute -right-[4px] top-[136px] h-14 w-[3px] rounded-r bg-zinc-700" />
-      <div className={cn('h-[472px] overflow-hidden rounded-[42px] border-[8px] border-black md:h-[528px]', dark ? 'bg-[#14121a] text-white' : 'bg-[#fbfaf7] text-zinc-950')}>
+      <div className={cn('h-[492px] overflow-hidden rounded-[42px] border-[8px] border-black md:h-[548px]', dark ? 'bg-[#14121a] text-white' : 'bg-[#fbfaf7] text-zinc-950')}>
         <PhoneStatusBar dark={dark} />
         {!result ? (
           <>
@@ -422,12 +472,12 @@ function MarketingPhone({
                 src="https://images.unsplash.com/photo-1562967914-608f82629710?q=80&w=900&auto=format&fit=crop"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 text-white">
-                <div>
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-2 text-white">
+                <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/70">{activePreview.label}</p>
-                  <p className="mt-1 text-lg font-black leading-tight">{activePreview.title}</p>
+                  <p className="mt-1 text-sm font-black leading-tight md:text-lg">{activePreview.title}</p>
                 </div>
-                <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-zinc-950">11:25 PM</div>
+                <div className="hidden shrink-0 rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-zinc-950 md:block">11:25 PM</div>
               </div>
             </div>
             <div className="mt-5 rounded-[24px] bg-zinc-950 p-4 text-white shadow-[0_16px_32px_rgba(15,23,42,0.16)]">
@@ -436,7 +486,7 @@ function MarketingPhone({
                 <p className="text-[11px] font-black text-zinc-300">{activePreview.accent}</p>
               </div>
               <div className="mt-3 flex items-end justify-between">
-                <p className="text-5xl font-black tracking-[-0.08em]">{activePreview.metric}</p>
+                <p className="text-5xl font-black">{activePreview.metric}</p>
                 <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-zinc-100 ring-1 ring-white/[0.15]">
                   <ScanLine className="h-5 w-5" />
                 </div>
@@ -453,11 +503,11 @@ function MarketingPhone({
 export function LandingPage({ navigate }: { navigate: Navigate }) {
   const [activeIncludeIndex, setActiveIncludeIndex] = useState(0);
   const loveReviews = [
-    ['Amina', 'I finally know what to write down after I eat. It feels simple enough to keep using.'],
-    ['Dana', 'The check-in later part is the thing I needed. I always forget the meal once I feel fine.'],
-    ['Madina', 'It makes patterns obvious without turning health tracking into homework.'],
-    ['Arman', 'I would use this before ordering food because the answer is fast and clear.'],
-    ['Sofia', 'The photo plus feeling history makes more sense than trying to remember everything myself.'],
+    ['Young adult, 24', 'I forget what I ate once I feel fine. This makes the follow-up simple.'],
+    ['Parent, 51', 'The questions made me realize I never keep notes long enough to see a pattern.'],
+    ['Student tester', 'It feels faster than writing a food diary, so I would actually use it.'],
+    ['Wellness user', 'The value is the timeline. Photos and check-ins finally stay together.'],
+    ['Early tester', 'It turns small moments into something I can look back at later.'],
   ];
   const scrollToSection = (id: string) => {
     const target = document.getElementById(id);
@@ -469,13 +519,13 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       icon: Camera,
       preview: 'scan',
       title: 'Snap the meal',
-      body: 'No long diary entry. No searching through notes later. Take one photo when you eat, and SensiBite saves the meal, time, and context before you forget it.',
+      body: 'Take one photo when you eat. SensiBite saves the meal, time, and context before the detail disappears.',
     },
     {
       icon: Activity,
       preview: 'symptoms',
       title: 'Tap how you feel',
-      body: 'When your stomach reacts later, choose Fine, Bloated, Pain, or Nausea in seconds. The check-in connects back to what you actually ate.',
+      body: 'When your body reacts later, choose Fine, Bloated, Pain, or Nausea in seconds. The check-in connects back to the meal.',
     },
     {
       icon: BarChart3,
@@ -487,7 +537,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       icon: Bell,
       preview: 'speed',
       title: 'Keep it effortless',
-      body: 'The loop stays light enough to use in real life: photo first, feeling later, clear pattern when enough signals repeat.',
+      body: 'The loop stays light enough to use in real life: photo first, check-in later, pattern when enough signals repeat.',
     },
   ];
 
@@ -505,12 +555,15 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">Home</button>
             <button onClick={() => scrollToSection('includes')} type="button">Features</button>
             <button onClick={() => scrollToSection('product')} type="button">Product</button>
-            <button onClick={() => navigate('/manage-subscription')} type="button">Manage Subscription</button>
-            <button onClick={() => navigate('/login')} type="button">Login</button>
+            <button onClick={() => navigate('/about')} type="button">About</button>
           </nav>
-          <div className="hidden gap-4 lg:flex">
-            <StoreBadge eyebrow="Open app" onClick={() => navigate('/login')} title="App Store" />
-            <StoreBadge eyebrow="Open app" onClick={() => navigate('/login')} title="Google Play" />
+          <div className="hidden items-center gap-3 lg:flex">
+            <button className="h-11 rounded-full px-5 text-sm font-black text-zinc-600 transition hover:text-zinc-950" onClick={() => navigate('/login')} type="button">
+              Login
+            </button>
+            <button className="h-11 rounded-full bg-zinc-950 px-5 text-sm font-black text-white transition active:scale-[0.98]" onClick={() => navigate('/auth')} type="button">
+              Get Started
+            </button>
           </div>
           <button className="h-11 rounded-full bg-zinc-950 px-5 text-sm font-black text-white lg:hidden" onClick={() => navigate('/login')} type="button">
             Login
@@ -520,13 +573,13 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
       <section className="mx-auto grid min-h-[calc(100vh-76px)] w-full max-w-[1680px] items-center gap-8 overflow-hidden px-5 pb-14 pt-8 md:min-h-[calc(100vh-86px)] md:px-10 md:py-12 xl:grid-cols-[0.88fr_1.12fr] xl:px-12">
         <div className="relative z-10 max-w-[720px]">
-          <h1 className="max-w-[820px] text-[42px] font-black leading-[1.01] tracking-[-0.055em] sm:text-[58px] md:text-[76px] md:tracking-[-0.06em] xl:text-[82px]">
+          <h1 className="max-w-[820px] text-[42px] font-black leading-[1.01] sm:text-[58px] md:text-[76px] md: xl:text-[82px]">
             Meet SensiBite
             <br />
-            Find food triggers from a photo
+            Spot triggers from food photos
           </h1>
-          <p className="mt-6 max-w-[690px] text-[18px] font-semibold leading-8 tracking-[-0.015em] text-[#5f574d] md:mt-7 md:text-[25px] md:leading-[1.42]">
-            Snap a meal, check in later, and let SensiBite build a private pattern map of possible food triggers over time.
+          <p className="mt-6 max-w-[690px] text-[18px] font-semibold leading-8 text-[#5f574d] md:mt-7 md:text-[25px] md:leading-[1.42]">
+            Scan a meal, check in later, and see possible patterns without keeping a food diary.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row md:mt-9 md:gap-4">
             <button
@@ -540,7 +593,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
 
         <div className="relative min-h-[530px] sm:min-h-[630px] xl:min-h-[650px]">
-          <div className="absolute left-1/2 top-10 h-[390px] w-[390px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(113,113,122,0.16),transparent_68%)] blur-2xl md:h-[430px] md:w-[430px]" />
+          <div className="absolute left-1/2 top-10 h-[320px] w-[320px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(113,113,122,0.16),transparent_68%)] blur-2xl sm:h-[390px] sm:w-[390px] md:h-[430px] md:w-[430px]" />
           <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 sm:top-14 sm:-translate-x-[74%] xl:left-[7%] xl:top-16 xl:translate-x-0">
             <MarketingPhone tilt="-rotate-6" />
           </div>
@@ -553,11 +606,11 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       <section className="scroll-mt-28 bg-[#fffff4] px-5 py-24 md:px-10 md:py-28" id="includes">
         <div className="mx-auto max-w-[1480px]">
           <div className="mx-auto max-w-[960px] text-center">
-              <h2 className="mx-auto max-w-[850px] text-5xl font-black leading-[1.02] tracking-[-0.045em] md:text-7xl">
+              <h2 className="mx-auto max-w-[850px] text-5xl font-black leading-[1.02] md:text-7xl">
                 One photo now. Clearer patterns later.
               </h2>
               <p className="mx-auto mt-6 max-w-[820px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
-                SensiBite removes the heavy part of food tracking. Snap what you ate, check in when your body reacts, and let the app build the private pattern map for you.
+                SensiBite removes the heavy part of food tracking. Scan what you ate, check in when your body reacts, and let the timeline build itself.
               </p>
           </div>
 
@@ -584,7 +637,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                     <Icon className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black leading-tight tracking-[-0.035em] md:text-3xl">{title}</h3>
+                    <h3 className="text-2xl font-black leading-tight md:text-3xl">{title}</h3>
                     <p className="mt-3 max-w-[650px] text-base font-semibold leading-7 text-[#5f574d] md:text-lg md:leading-8">{body}</p>
                   </div>
                 </button>
@@ -597,13 +650,13 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       <section className="scroll-mt-28 overflow-hidden bg-white px-5 py-24 md:px-12 md:py-28" id="product">
         <div className="mx-auto max-w-[1500px]">
           <div className="mx-auto max-w-[1120px] text-center">
-            <h2 className="text-[48px] font-black leading-[0.98] tracking-[-0.06em] md:text-[86px]">
+            <h2 className="text-[48px] font-black leading-[0.98] md:text-[86px]">
               More than tracking meals.
               <br />
-              Understand what your body keeps reacting to.
+              See what keeps showing up.
             </h2>
             <p className="mx-auto mt-7 max-w-[850px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
-              SensiBite shows the pattern first. Photos, quick feeling check-ins, and timing come together into one clear picture of what may be affecting you.
+              SensiBite turns photos, check-ins, and timing into one clear picture, so repeated meals stop disappearing from memory.
             </p>
             <div className="mx-auto mt-10 grid max-w-[1040px] gap-3 text-left md:grid-cols-3">
               {[
@@ -615,7 +668,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                   <div className="flex items-start gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-sm font-black text-white">{index + 1}</div>
                     <div>
-                      <h3 className="text-xl font-black tracking-[-0.035em]">{title}</h3>
+                      <h3 className="text-xl font-black">{title}</h3>
                       <p className="mt-2 text-sm font-semibold leading-6 text-zinc-500">{body}</p>
                     </div>
                   </div>
@@ -629,7 +682,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Pattern timeline</p>
-                  <p className="mt-4 text-5xl font-black tracking-[-0.07em] md:text-7xl">3 repeats</p>
+                  <p className="mt-4 text-5xl font-black md:text-7xl">3 repeats</p>
                 </div>
                 <span className="rounded-full bg-[#f7f3ea] px-4 py-2 text-sm font-black text-[#5f574d]">This week</span>
               </div>
@@ -667,16 +720,16 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               <div className="mt-6 grid grid-cols-2 gap-3">
                 {['Fine', 'Bloated', 'Pain', 'Nausea'].map((status) => (
                   <div className="rounded-[20px] bg-[#fbfaf7] px-4 py-5 text-center ring-1 ring-zinc-950/[0.04]" key={status}>
-                    <p className="text-[20px] font-black tracking-[-0.04em] text-zinc-950">{status}</p>
+                    <p className="text-[20px] font-black text-zinc-950">{status}</p>
                   </div>
                 ))}
               </div>
 
               <div className="mt-7 rounded-[26px] bg-[#fbfaf7] p-5 text-zinc-950 ring-1 ring-zinc-950/[0.04]">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Health score</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Pattern score</p>
                 <div className="mt-4 flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-6xl font-black leading-none tracking-[-0.08em]">6/10</p>
+                    <p className="text-6xl font-black leading-none">6/10</p>
                   </div>
                   <div className="relative h-16 w-16 shrink-0 rounded-full bg-zinc-100 p-1.5">
                     <div className="absolute inset-1.5 rounded-full bg-[conic-gradient(#18181b_0_60%,#e7e5e4_60%_100%)]" />
@@ -692,15 +745,12 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
       <section className="overflow-hidden bg-[#fffef7] px-5 py-20 md:px-12">
         <div className="mx-auto max-w-[1500px] text-center">
-          <h2 className="text-5xl font-black leading-[1.02] tracking-[-0.055em] md:text-7xl">Everyone loves us</h2>
-          <div className="relative mt-12">
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#fffef7] to-transparent md:w-32" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#fffef7] to-transparent md:w-32" />
-            <div className="review-marquee flex w-max gap-4 pr-4">
-              {[...loveReviews, ...loveReviews].map(([name, quote], index) => (
+          <h2 className="text-5xl font-black leading-[1.02] md:text-7xl">Early users get it fast</h2>
+          <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {loveReviews.map(([name, quote]) => (
                 <article
-                  className="w-[300px] rounded-[26px] bg-white p-6 text-left shadow-[0_18px_45px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05] md:w-[380px]"
-                  key={`${name}-${index}`}
+                  className="rounded-[26px] bg-white p-6 text-left shadow-[0_18px_45px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05]"
+                  key={name}
                 >
                   <div className="flex gap-1">
                     {[0, 1, 2, 3, 4].map((star) => (
@@ -711,7 +761,6 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                   <p className="mt-5 text-sm font-black text-zinc-500">{name}</p>
                 </article>
               ))}
-            </div>
           </div>
         </div>
       </section>
@@ -720,21 +769,19 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         <div className="mx-auto grid max-w-[1500px] gap-8 border-t border-zinc-200 pt-10 md:grid-cols-[1fr_auto_auto]">
           <div>
             <p className="text-2xl font-black">SensiBite</p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <StoreBadge eyebrow="Open app" onClick={() => navigate('/login')} title="App Store" />
-              <StoreBadge eyebrow="Open app" onClick={() => navigate('/login')} title="Google Play" />
-            </div>
+            <p className="mt-4 max-w-[360px] text-sm font-semibold leading-6 text-zinc-500">Private food memory for meals, check-ins, and possible repeat patterns.</p>
           </div>
           <div className="space-y-3 text-sm font-bold text-zinc-500">
             <p className="font-black text-zinc-950">Legal</p>
-            <button className="block transition hover:text-zinc-950" onClick={() => navigate('/privacy')} type="button">Privacy Policy</button>
-            <button className="block transition hover:text-zinc-950" onClick={() => navigate('/terms')} type="button">Terms of Use</button>
-            <button className="block transition hover:text-zinc-950" onClick={() => navigate('/manage-subscription')} type="button">Manage Subscription</button>
+            <button className="block min-h-10 py-2 text-left transition hover:text-zinc-950" onClick={() => navigate('/privacy')} type="button">Privacy Policy</button>
+            <button className="block min-h-10 py-2 text-left transition hover:text-zinc-950" onClick={() => navigate('/terms')} type="button">Terms of Use</button>
+            <button className="block min-h-10 py-2 text-left transition hover:text-zinc-950" onClick={() => navigate('/manage-subscription')} type="button">Manage Subscription</button>
           </div>
           <div className="space-y-3 text-sm font-bold text-zinc-500">
             <p className="font-black text-zinc-950">Company</p>
-            <button className="block transition hover:text-zinc-950" onClick={() => navigate('/contact')} type="button">Contact</button>
-            <button className="block transition hover:text-zinc-950" onClick={() => navigate('/support')} type="button">Support</button>
+            <button className="block min-h-10 py-2 text-left transition hover:text-zinc-950" onClick={() => navigate('/about')} type="button">About</button>
+            <button className="block min-h-10 py-2 text-left transition hover:text-zinc-950" onClick={() => navigate('/contact')} type="button">Contact</button>
+            <button className="block min-h-10 py-2 text-left transition hover:text-zinc-950" onClick={() => navigate('/support')} type="button">Support</button>
           </div>
         </div>
       </footer>
@@ -877,8 +924,8 @@ const legalPageContent: Record<
         body: 'Refund handling depends on the payment provider and applicable law. App-store purchases are usually handled by the store. Direct purchases should follow the refund policy shown at checkout.',
       },
       {
-        title: 'Current prototype status',
-        body: 'Payments are not active in this prototype. No subscription is created from this page until payment infrastructure is connected.',
+        title: 'Billing status',
+        body: 'No subscription is created unless a checkout screen clearly shows the plan, price, renewal date, and cancellation method before confirmation.',
       },
     ],
   },
@@ -934,10 +981,11 @@ const legalPageContent: Record<
 
 export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: Navigate }) {
   const page = legalPageContent[kind];
+  const [openSection, setOpenSection] = useState(page.sections[0]?.title ?? '');
 
   return (
     <main className="min-h-screen bg-[#fffef7] px-5 py-6 text-zinc-950 antialiased md:px-10 md:py-10">
-      <div className="mx-auto max-w-[980px]">
+      <div className="mx-auto max-w-[1320px]">
         <header className="flex items-center justify-between gap-4">
           <button
             className="flex h-11 items-center gap-2 rounded-full bg-white px-4 text-sm font-black shadow-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 active:scale-[0.98]"
@@ -952,29 +1000,197 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
           </button>
         </header>
 
-        <section className="mt-16 rounded-[32px] bg-white p-7 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05] md:p-12">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#7a7064]">{page.eyebrow}</p>
-          <h1 className="mt-4 max-w-[760px] text-5xl font-black leading-[0.98] tracking-[-0.055em] md:text-7xl">{page.title}</h1>
-          <p className="mt-6 max-w-[760px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">{page.lede}</p>
+        <section className="mt-12 overflow-hidden rounded-[36px] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05]">
+          <div className="grid lg:grid-cols-[340px_1fr]">
+            <aside className="border-b border-zinc-100 bg-[#fbfaf7] p-6 lg:sticky lg:top-8 lg:h-[calc(100vh-64px)] lg:border-b-0 lg:border-r lg:p-8">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#7a7064]">{page.eyebrow}</p>
+              <h1 className="mt-4 text-4xl font-black leading-[0.98] md:text-5xl">{page.title}</h1>
+              <p className="mt-5 text-sm font-semibold leading-6 text-[#5f574d]">{page.lede}</p>
+
+              <div className="mt-7 grid gap-2">
+                {page.sections.map((section, index) => {
+                  const selected = openSection === section.title;
+                  return (
+                    <button
+                      className={cn(
+                        'flex min-h-[48px] items-center justify-between gap-3 rounded-[16px] px-4 text-left text-sm font-black transition active:scale-[0.99]',
+                        selected ? 'bg-zinc-950 text-white shadow-[0_16px_34px_rgba(15,23,42,0.16)]' : 'bg-white text-zinc-600 ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
+                      )}
+                      key={section.title}
+                      onClick={() => {
+                        setOpenSection(section.title);
+                        document.getElementById(`legal-section-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                      }}
+                      type="button"
+                    >
+                      <span className="min-w-0 leading-tight">{section.title}</span>
+                      <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px]', selected ? 'bg-white text-zinc-950' : 'bg-[#f3f2ed] text-zinc-500')}>{index + 1}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-7 rounded-[24px] bg-white p-5 shadow-sm ring-1 ring-zinc-950/[0.05]">
+                <p className="text-sm font-black">Important</p>
+                <p className="mt-2 text-xs font-semibold leading-5 text-zinc-500">
+                  SensiBite is a wellness tracker for personal pattern memory. It is not emergency care, diagnosis, or guaranteed allergy safety.
+                </p>
+              </div>
+            </aside>
+
+            <section className="grid gap-4 p-5 md:p-8">
+              {page.sections.map((section, index) => {
+                const expanded = openSection === section.title;
+                return (
+                  <article
+                    className="scroll-mt-8 overflow-hidden rounded-[28px] bg-[#fbfaf7] shadow-[0_18px_45px_rgba(15,23,42,0.05)] ring-1 ring-zinc-950/[0.04]"
+                    id={`legal-section-${index}`}
+                    key={section.title}
+                  >
+                    <button
+                      aria-expanded={expanded}
+                      className="flex w-full items-center justify-between gap-5 p-6 text-left transition hover:bg-white/70 active:scale-[0.998] md:p-8"
+                      onClick={() => setOpenSection(expanded ? '' : section.title)}
+                      type="button"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Section {index + 1}</p>
+                        <h2 className="mt-2 text-2xl font-black md:text-3xl">{section.title}</h2>
+                      </div>
+                      <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-zinc-950/[0.05] transition', expanded && 'rotate-90 bg-zinc-950 text-white')}>
+                        <ChevronRight className="h-5 w-5" />
+                      </span>
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {expanded && (
+                        <motion.div
+                          animate={{ height: 'auto', opacity: 1 }}
+                          className="overflow-hidden"
+                          exit={{ height: 0, opacity: 0 }}
+                          initial={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                          <div className="px-6 pb-6 md:px-8 md:pb-8">
+                            <p className="text-base font-semibold leading-7 text-[#5f574d] md:text-lg md:leading-8">{section.body}</p>
+                            {section.items && (
+                              <ul className="mt-5 grid gap-3">
+                                {section.items.map((item) => (
+                                  <li className="flex gap-3 rounded-[18px] bg-white p-4 text-sm font-bold leading-6 text-zinc-700 ring-1 ring-zinc-950/[0.04] md:text-base" key={item}>
+                                    <Check className="mt-0.5 h-5 w-5 shrink-0 text-zinc-950" />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </article>
+                );
+              })}
+            </section>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+export function AboutPage({ navigate }: { navigate: Navigate }) {
+  const principles: Array<[typeof Camera, string, string]> = [
+    [Camera, 'Capture first', 'Food memory starts with the moment, not with a long form. A photo creates the first clean event.'],
+    [Activity, 'Check in later', 'Symptoms often arrive after the meal. SensiBite keeps the second signal simple enough to actually log.'],
+    [BarChart3, 'Learn from repeats', 'The product becomes useful when meals, timing, and reactions appear together more than once.'],
+  ];
+  const timeline: Array<[string, string, string]> = [
+    ['01', 'Meal event', 'A scan saves the food, time, score, and visible context.'],
+    ['02', 'Body response', 'A later check-in records how the user felt without forcing a diary entry.'],
+    ['03', 'Private timeline', 'Repeat signals become visible without digging through memory or old chats.'],
+  ];
+
+  return (
+    <main className="min-h-screen bg-[#fffef7] px-5 py-6 text-zinc-950 antialiased md:px-10 md:py-10">
+      <div className="mx-auto max-w-[1480px]">
+        <header className="flex items-center justify-between gap-4">
+          <button
+            className="flex min-h-11 items-center gap-2 rounded-full bg-white px-4 text-sm font-black shadow-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 active:scale-[0.98]"
+            onClick={() => navigate('/')}
+            type="button"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Home
+          </button>
+          <button className="min-h-11 rounded-full px-4 text-sm font-black" onClick={() => navigate('/auth')} type="button">
+            Get Started
+          </button>
+        </header>
+
+        <section className="grid min-h-[calc(100vh-110px)] items-center gap-10 py-16 lg:grid-cols-[0.92fr_1.08fr]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">About SensiBite</p>
+            <h1 className="mt-5 max-w-[760px] text-[48px] font-black leading-[1.02] md:text-[78px]">
+              Food memory for people who need proof, not guesses.
+            </h1>
+            <p className="mt-7 max-w-[680px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
+              SensiBite exists because the hard part is not knowing that your stomach feels off. The hard part is remembering exactly what happened before it became obvious.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[34px] bg-zinc-950 p-7 text-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] sm:col-span-2">
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-white/45">Product thesis</p>
+              <h2 className="mt-5 text-4xl font-black leading-tight">
+                The loop has to be faster than forgetting.
+              </h2>
+              <p className="mt-5 max-w-[760px] text-base font-semibold leading-7 text-white/62">
+                One scan and one later check-in can become a timeline. That is the behavioral wedge: less typing, less discipline, more useful memory.
+              </p>
+            </div>
+
+            {principles.map(([Icon, title, body]) => (
+              <article className="rounded-[30px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05]" key={title}>
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f1f0ea]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-6 text-2xl font-black">{title}</h3>
+                <p className="mt-3 text-sm font-semibold leading-6 text-zinc-500">{body}</p>
+              </article>
+            ))}
+
+            <article className="rounded-[30px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f1f0ea]">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <h3 className="mt-6 text-2xl font-black">Built with caution</h3>
+              <p className="mt-3 text-sm font-semibold leading-6 text-zinc-500">
+                SensiBite shows possible patterns. It avoids guaranteed safety claims and keeps health decisions in the user’s control.
+              </p>
+            </article>
+          </div>
         </section>
 
-        <section className="mt-6 grid gap-4">
-          {page.sections.map((section) => (
-            <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] ring-1 ring-zinc-950/[0.04] md:p-8" key={section.title}>
-              <h2 className="text-2xl font-black tracking-[-0.035em] md:text-3xl">{section.title}</h2>
-              <p className="mt-4 text-base font-semibold leading-7 text-[#5f574d] md:text-lg md:leading-8">{section.body}</p>
-              {section.items && (
-                <ul className="mt-5 space-y-3">
-                  {section.items.map((item) => (
-                    <li className="flex gap-3 text-sm font-bold leading-6 text-zinc-700 md:text-base" key={item}>
-                      <Check className="mt-0.5 h-5 w-5 shrink-0 text-zinc-950" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
-          ))}
+        <section className="grid gap-6 pb-20 lg:grid-cols-[0.72fr_1.28fr]">
+          <div className="rounded-[34px] bg-white p-7 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Operating system</p>
+            <h2 className="mt-4 text-4xl font-black leading-tight">The smallest useful behavior loop.</h2>
+            <p className="mt-5 text-base font-semibold leading-7 text-[#5f574d]">
+              The product is intentionally narrow: scan what you ate, tap how you felt, and let repeat context build over time.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            {timeline.map(([number, title, body]) => (
+              <article className="grid gap-4 rounded-[30px] bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05] sm:grid-cols-[88px_1fr] sm:items-center" key={number}>
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-950 text-xl font-black text-white">{number}</div>
+                <div>
+                  <h3 className="text-2xl font-black">{title}</h3>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-zinc-500">{body}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
       </div>
     </main>
@@ -983,30 +1199,25 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
 
 export function DashboardPage({ navigate, session }: { navigate: Navigate; session: Session }) {
   const initialName = session.user.user_metadata?.full_name ?? session.user.email?.split('@')[0] ?? 'SensiBite user';
-  const [feeling, setFeeling] = useState('Bloated');
+  const [storedProfile] = useState(() => readStoredProfile());
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle');
   const [scanResult, setScanResult] = useState<ImageScanPayload | null>(null);
   const [logs, setLogs] = useState<DashboardEntry[]>([]);
   const [dashboardError, setDashboardError] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
   const [selectedDay, setSelectedDay] = useState(5);
-  const [activeStatsIndex, setActiveStatsIndex] = useState(0);
-  const [dismissTrial, setDismissTrial] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [profileName, setProfileName] = useState(initialName);
   const [profileUsername, setProfileUsername] = useState('sensibite');
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [profileDraftName, setProfileDraftName] = useState(initialName);
   const [profileDraftUsername, setProfileDraftUsername] = useState('sensibite');
-  const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
-  const [manualLogOpen, setManualLogOpen] = useState(false);
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
-  const [manualFood, setManualFood] = useState('');
-  const [manualFeeling, setManualFeeling] = useState('Fine');
   const [language, setLanguage] = useState<'English' | 'Russian'>('English');
   const [trackingReminderOn, setTrackingReminderOn] = useState(false);
-  const [familyGroupCreated, setFamilyGroupCreated] = useState(false);
+  const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const syncErrorMessage = 'Unable to sync entries. Please check your connection.';
   const scanErrorMessage = 'Unable to analyze this right now. Please try again.';
@@ -1024,7 +1235,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       if (!active) return;
 
       if (error) {
-        setDashboardError(syncErrorMessage);
+        setLogs([]);
         return;
       }
 
@@ -1082,6 +1293,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     try {
       const result = await scanImageWithClientTimeout(file, {
         userLang: language,
+        userTriggers: getProfileScanTriggers(storedProfile),
         slowAfterMs: 1_800,
         hardTimeoutMs: 9_000,
       });
@@ -1097,48 +1309,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
 
   const openCamera = () => {
-    setCaptureSheetOpen(false);
     setResultSheetOpen(false);
     fileInputRef.current?.click();
-  };
-
-  const logFeeling = (nextFeeling: string) => {
-    setFeeling(nextFeeling);
-    saveEntry(`${nextFeeling} check-in saved`);
-  };
-
-  const saveManualLog = async () => {
-    const food = manualFood.trim();
-    if (!food) {
-      setDashboardError('Add a food name first.');
-      return;
-    }
-
-    setFeeling(manualFeeling);
-    setManualLogOpen(false);
-    setCaptureSheetOpen(false);
-    setActiveTab('home');
-    setScanState('scanning');
-    setResultSheetOpen(false);
-
-    try {
-      const scan = await scanFoodTextWithClientTimeout({
-        dishName: food,
-        productKey: food,
-        userTriggers: ['Fried food', 'Bread', 'Dairy', 'Soda', 'Late meals'],
-        userLang: language,
-      });
-      setScanResult(scan);
-      setScanState('done');
-      setResultSheetOpen(true);
-      await saveEntry(`${manualFeeling}: ${scan.result.productName} scored ${scan.result.score}/100`);
-    } catch {
-      setScanState('error');
-      setDashboardError(scanErrorMessage);
-      await saveEntry(`${manualFeeling}: ${food}`);
-    } finally {
-      setManualFood('');
-    }
   };
 
   const saveProfileDetails = () => {
@@ -1185,8 +1357,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const report = [
       'SensiBite Summary Report',
       `Name: ${profileName}`,
-      `Gut score: ${gutScoreOutOfTen}/10`,
-      `Current feeling: ${feeling}`,
+      `Gut score: ${gutScoreOutOfTen ?? 'N/A'}`,
       `Latest scan: ${scanResult?.result.productName ?? 'No scan yet'}`,
       `Recent logs: ${logs.map((item) => item.title).join(' | ') || 'No logs yet'}`,
     ].join('\n');
@@ -1213,79 +1384,75 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     navigate('/');
   };
 
-  const gutScoreOutOfTen = scanResult ? Math.round(scanResult.result.score / 10) : 7;
-  const gutScorePercent = gutScoreOutOfTen * 10;
+  const deleteAccount = async () => {
+    setDeleteLoading(true);
+    setDashboardError('');
+
+    try {
+      const { error } = await supabase.functions.invoke('delete-account', { body: {} });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      navigate('/');
+    } catch {
+      setDashboardError(copy.deleteError);
+      setDeleteLoading(false);
+      setDeleteSheetOpen(false);
+    }
+  };
+
+  const hasActivity = logs.length > 0 || Boolean(scanResult);
+  const isRussian = language === 'Russian';
+  const scanCount = logs.length;
+  const gutScoreOutOfTen = scanResult ? Math.max(1, Math.round(scanResult.result.score / 10)) : null;
+  const gutScorePercent = gutScoreOutOfTen ? gutScoreOutOfTen * 10 : 0;
+  const latestTitle = scanResult?.result.productName ?? logs[0]?.title ?? '';
+  const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
   const dashboardDays = [
-    { day: 'W', date: '27', progress: 84, state: 'done' },
-    { day: 'T', date: '28', progress: 62, state: 'done' },
-    { day: 'F', date: '29', progress: 45, state: 'done' },
-    { day: 'S', date: '30', progress: 70, state: 'done' },
-    { day: 'S', date: '31', progress: 38, state: 'done' },
-    { day: 'M', date: '1', progress: 56, state: 'today' },
+    { day: 'W', date: '27', progress: scanCount > 5 ? 100 : 0, state: scanCount > 5 ? 'done' : 'empty' },
+    { day: 'T', date: '28', progress: scanCount > 4 ? 100 : 0, state: scanCount > 4 ? 'done' : 'empty' },
+    { day: 'F', date: '29', progress: scanCount > 3 ? 100 : 0, state: scanCount > 3 ? 'done' : 'empty' },
+    { day: 'S', date: '30', progress: scanCount > 2 ? 100 : 0, state: scanCount > 2 ? 'done' : 'empty' },
+    { day: 'S', date: '31', progress: scanCount > 1 ? 100 : 0, state: scanCount > 1 ? 'done' : 'empty' },
+    { day: 'M', date: '1', progress: scanCount > 0 ? 100 : 0, state: 'today' },
     { day: 'T', date: '2', progress: 0, state: 'ahead' },
   ];
   const topDashboardCards = [
     {
-      value: '3x',
-      title: 'Bloat logs',
-      subtitle: 'This week',
-      color: '#8b5cf6',
-      progress: 72,
-      action: 'Bloated',
-      detail: 'Log bloated',
+      value: hasActivity ? String(scanCount) : 'N/A',
+      title: 'Scans',
+      subtitle: hasActivity ? 'Saved' : 'No data',
+      color: '#18181b',
+      progress: hasActivity ? Math.min(100, scanCount * 18) : 0,
+      action: 'Scan',
+      detail: hasActivity ? 'Open camera' : 'Scan first meal',
       interactive: false,
     },
     {
-      value: '2',
-      title: 'Likely triggers',
-      subtitle: 'Open analytics',
+      value: hasActivity ? '1+' : 'N/A',
+      title: 'Patterns',
+      subtitle: hasActivity ? 'Review' : 'Needs logs',
       color: '#71717a',
-      progress: 52,
+      progress: hasActivity ? 42 : 0,
       action: 'Progress',
       detail: 'View details',
       interactive: true,
     },
     {
-      value: `${gutScoreOutOfTen}/10`,
-      title: 'Gut score',
-      subtitle: 'Today',
-      color: '#eab308',
-      progress: gutScoreOutOfTen * 10,
+      value: gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : 'N/A',
+      title: 'Score',
+      subtitle: gutScoreOutOfTen ? 'Latest scan' : 'No score',
+      color: '#18181b',
+      progress: gutScorePercent,
       action: 'Progress',
-      detail: `${gutScoreOutOfTen} out of 10`,
+      detail: gutScoreOutOfTen ? `${gutScoreOutOfTen} out of 10` : 'Scan to unlock',
       interactive: false,
     },
   ];
   const navItems: Array<{ id: DashboardTab; label: string; icon: typeof Home }> = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'progress', label: 'Progress', icon: BarChart3 },
-    { id: 'groups', label: 'Groups', icon: Users },
-    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'home', label: isRussian ? 'Главная' : 'Home', icon: Home },
+    { id: 'progress', label: isRussian ? 'Паттерны' : 'Patterns', icon: BarChart3 },
+    { id: 'profile', label: isRussian ? 'Профиль' : 'Profile', icon: User },
   ];
-  const statSlides = [
-    {
-      label: 'Trigger trend',
-      value: '2 repeat foods',
-      title: 'Fried food and bread are your loudest signals.',
-      body: 'Both appear before discomfort more than once this week.',
-      accent: 'bg-zinc-400',
-    },
-    {
-      label: 'Best window',
-      value: 'Before 8 PM',
-      title: 'Earlier dinners look easier on your stomach.',
-      body: 'Late meals are showing up close to bloated check-ins.',
-      accent: 'bg-violet-400',
-    },
-    {
-      label: 'Consistency',
-      value: '5 of 7 days',
-      title: 'Your pattern map is getting useful.',
-      body: 'Two more clean check-ins will make this week easier to compare.',
-      accent: 'bg-yellow-400',
-    },
-  ];
-  const activeStats = statSlides[activeStatsIndex];
   const theme = {
     app: isDarkMode ? 'bg-[#050505] text-white' : 'bg-[#f8f8f8] text-zinc-950',
     card: isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.05]' : 'bg-white text-zinc-950 ring-zinc-950/[0.04]',
@@ -1297,7 +1464,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     faint: isDarkMode ? 'text-white/[0.35]' : 'text-zinc-400',
     line: isDarkMode ? 'border-white/10' : 'border-zinc-200',
   };
-  const isRussian = language === 'Russian';
   const copy = {
     aiResult: isRussian ? 'Результат AI' : 'AI result',
     verdict: isRussian ? 'Вердикт' : 'Verdict',
@@ -1308,14 +1474,26 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : 'SensiBite did not find a strong issue in this scan.',
     scanAgain: isRussian ? 'Сканировать еще' : 'Scan again',
     saveToTimeline: isRussian ? 'Сохранить' : 'Save to timeline',
-    manualLog: isRussian ? 'Ручной ввод' : 'Manual log',
-    food: isRussian ? 'Еда' : 'Food',
-    foodPlaceholder: isRussian ? 'например, куриный ролл' : 'e.g. chicken wrap',
-    saveLog: isRussian ? 'Сохранить' : 'Save log',
     profileDetails: isRussian ? 'Профиль' : 'Profile details',
     name: isRussian ? 'Имя' : 'Name',
     username: isRussian ? 'Username' : 'Username',
     saveProfile: isRussian ? 'Сохранить профиль' : 'Save profile',
+    logFood: isRussian ? 'Добавить еду' : 'Log food',
+    logFoodHelp: isRussian ? 'Сделайте фото, и AI сохранит еду, время и оценку.' : 'Take a photo, and AI saves the food, time, and score.',
+    takePhoto: isRussian ? 'Сделать фото' : 'Take photo',
+    takePhotoHelp: isRussian ? 'AI проверит еду и сохранит результат.' : 'AI checks the food and saves the result.',
+    fine: isRussian ? 'Норма' : 'Fine',
+    bloated: isRussian ? 'Вздутие' : 'Bloated',
+    pain: isRussian ? 'Боль' : 'Pain',
+    nausea: isRussian ? 'Тошнота' : 'Nausea',
+    deleteAccount: isRussian ? 'Удалить аккаунт' : 'Delete Account',
+    deleteTitle: isRussian ? 'Удалить аккаунт?' : 'Delete account?',
+    deleteBody: isRussian
+      ? 'Это удалит ваш аккаунт и выйдет из SensiBite на этом устройстве.'
+      : 'This permanently deletes your account and signs you out of SensiBite on this device.',
+    cancel: isRussian ? 'Отмена' : 'Cancel',
+    deleteConfirm: isRussian ? 'Удалить навсегда' : 'Delete permanently',
+    deleteError: isRussian ? 'Не удалось удалить аккаунт. Попробуйте позже.' : 'Unable to delete account. Please try again.',
   };
   const ratingLabel = (rating: ImageScanPayload['result']['overallRating']) => {
     if (!isRussian) return rating;
@@ -1342,87 +1520,91 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   const progressPage = (
     <div className="space-y-5">
-      <h1 className="text-[46px] font-black leading-none tracking-[-0.055em]">Progress</h1>
+      <h1 className="text-[44px] font-black leading-none">{isRussian ? 'Паттерны' : 'Patterns'}</h1>
+
+      <div className={cn(cardClass, 'overflow-hidden')}>
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0">
+            <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
+              {hasActivity ? (isRussian ? 'Последний результат' : 'Latest result') : (isRussian ? 'Пока пусто' : 'Nothing tracked yet')}
+            </p>
+            <h2 className="mt-3 text-3xl font-black leading-none">
+              {hasActivity ? (latestTitle || (isRussian ? 'Скан сохранен' : 'Scan saved')) : (isRussian ? 'Сделайте первый скан' : 'Start with one scan')}
+            </h2>
+            <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
+              {hasActivity
+                ? latestReason || (isRussian ? 'Новые сканы будут сравниваться с этим результатом.' : 'Future scans will compare against this first food event.')
+                : (isRussian ? 'После фото здесь появятся оценка, история и возможные повторяющиеся сигналы.' : 'After a photo, this page will show score, history, and possible repeat signals.')}
+            </p>
+          </div>
+          <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
+            <span className="text-3xl font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}` : 'N/A'}</span>
+            <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{isRussian ? 'балл' : 'score'}</span>
+          </div>
+        </div>
+
+        <button
+          className={cn('mt-6 h-14 w-full rounded-full text-base font-black transition active:scale-[0.98]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
+          onClick={openCamera}
+          type="button"
+        >
+          {hasActivity ? (isRussian ? 'Сканировать еще' : 'Scan another meal') : (isRussian ? 'Сделать первый скан' : 'Scan first meal')}
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
-        <button className={cn(cardClass, 'min-h-[160px] text-center transition active:scale-[0.98]')} onClick={() => logFeeling('Fine')} type="button">
-          <Flame className="mx-auto h-16 w-16 fill-orange-400 text-orange-400" />
-          <p className="mt-1 text-4xl font-black leading-none text-orange-200">1</p>
-          <p className={cn('mt-1 text-lg font-black', theme.muted)}>Day Streak</p>
-          <div className="mt-4 flex justify-center gap-2">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-              <span className="flex flex-col items-center gap-1 text-[11px] font-black text-white/[0.45]" key={`${day}-${index}`}>
-                <span>{day}</span>
-                <span className={cn('h-6 w-6 rounded-full', index === 1 ? 'bg-orange-400' : isDarkMode ? 'bg-white/[0.12]' : 'bg-zinc-200')} />
+        {[
+          [isRussian ? 'Сканы' : 'Scans', hasActivity ? String(scanCount) : 'N/A', isRussian ? 'сохранено' : 'saved', ScanLine],
+          [isRussian ? 'Серия' : 'Streak', hasActivity ? '1' : 'N/A', isRussian ? 'день' : 'day', Flame],
+          [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Learning' : 'N/A', isRussian ? 'после сканов' : 'after scans', Activity],
+          [isRussian ? 'Отчет' : 'Report', hasActivity ? 'Ready' : 'N/A', isRussian ? 'экспорт' : 'export', FileText],
+        ].map(([label, value, helper, Icon]) => (
+          <button
+            className={cn(cardClass, 'min-h-[138px] text-left transition active:scale-[0.98]')}
+            key={String(label)}
+            onClick={label === 'Report' || label === 'Отчет' ? exportSummaryReport : openCamera}
+            type="button"
+          >
+            <Icon className={cn('h-6 w-6', theme.muted)} />
+            <p className="mt-5 text-3xl font-black">{value as string}</p>
+            <p className={cn('mt-1 text-sm font-black', theme.muted)}>{label as string}</p>
+            <p className={cn('mt-1 text-xs font-semibold', theme.faint)}>{helper as string}</p>
+          </button>
+        ))}
+      </div>
+
+      <div className={cardClass}>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-black tracking-tight">{isRussian ? 'История еды' : 'Food history'}</h2>
+          <span className={cn('rounded-full px-3 py-1.5 text-xs font-black', theme.soft)}>{hasActivity ? `${scanCount}` : 'N/A'}</span>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {logs.length > 0 ? logs.slice(0, 5).map((item) => (
+            <button
+              className={cn('flex min-h-[64px] w-full items-center gap-4 rounded-[20px] px-4 text-left transition active:scale-[0.99]', theme.soft)}
+              key={item.id}
+              onClick={() => setResultSheetOpen(Boolean(scanResult))}
+              type="button"
+            >
+              <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950')}>
+                <Camera className="h-4 w-4" />
               </span>
-            ))}
-          </div>
-        </button>
-        <button className={cn(cardClass, 'min-h-[160px] text-center transition active:scale-[0.98]')} onClick={() => setActiveTab('groups')} type="button">
-          <Trophy className="mx-auto h-16 w-16 text-zinc-200 drop-shadow" />
-          <p className="mt-1 text-5xl font-black leading-none text-indigo-200">0</p>
-          <p className={cn('mt-1 text-lg font-black', theme.muted)}>Badges Earned</p>
-        </button>
-      </div>
-
-      <button className={cn(cardClass, 'w-full text-left transition active:scale-[0.99]')} onClick={() => setActiveTab('home')} type="button">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className={cn('text-base font-black', theme.muted)}>Current Gut Score</p>
-            <p className="mt-2 text-4xl font-black tracking-[-0.04em]">{gutScoreOutOfTen}/10</p>
-          </div>
-          <span className={cn('rounded-full px-4 py-2 text-sm font-black', isDarkMode ? 'bg-white/[0.07] text-white/[0.55]' : 'bg-zinc-100 text-zinc-500')}>Next check-in: 2h</span>
-        </div>
-        <div className={cn('mt-5 h-2 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-200')}>
-          <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${gutScorePercent}%` }} />
-        </div>
-        <div className="mt-4 flex justify-between text-base font-black">
-          <span>Start: 4/10</span>
-          <span>Goal: 9/10</span>
-        </div>
-        <p className={cn('mt-3 text-base font-semibold', theme.muted)}>Pattern confidence improves after 7 consistent logs.</p>
-      </button>
-
-      <div className={cardClass}>
-        <div className="flex items-center">
-          <h2 className="text-2xl font-black tracking-tight">Trigger Progress</h2>
-          <span className={cn('rounded-full px-4 py-2 text-sm font-black', isDarkMode ? 'bg-white/[0.07] text-white/70' : 'bg-zinc-100 text-zinc-600')}>
-            {gutScorePercent}% of goal
-          </span>
-        </div>
-        <div className="mt-8 h-56">
-          {[44, 42, 40, 38, 36].map((value) => (
-            <div className="relative h-11 border-t border-white/10" key={value}>
-              <span className={cn('absolute -top-3 left-0 text-sm font-bold', theme.muted)}>{value}</span>
-            </div>
-          ))}
-          <div className="relative -mt-36 ml-12 mr-2 h-1 rounded-full bg-white" />
-        </div>
-      </div>
-
-      <div className={cardClass}>
-        <h2 className="text-2xl font-black tracking-tight">Symptom Changes</h2>
-        <div className="mt-5 space-y-5">
-          {['3 day', '7 day', '14 day', '30 day', '90 day', 'All Time'].map((period) => (
-            <div className="grid grid-cols-[78px_1fr_80px_1fr] items-center gap-3 text-base font-black" key={period}>
-              <span className={theme.muted}>{period}</span>
-              <span className="h-6 w-10 rounded-sm bg-slate-700/70 ring-1 ring-blue-300/25" />
-              <span>0.0</span>
-              <span className={cn('flex items-center gap-1', theme.muted)}>No change</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className={cardClass}>
-        <h2 className="text-2xl font-black tracking-tight">Daily Average Logs</h2>
-        <p className="mt-5 text-5xl font-black tracking-[-0.05em]">3 <span className={cn('text-xl', theme.muted)}>logs</span></p>
-        <div className="mt-8 flex h-48 items-end gap-3 border-b border-dashed border-white/20">
-          {[18, 46, 22, 82, 35, 58, 40].map((height, index) => (
-            <button className="flex flex-1 flex-col items-center gap-3" key={`${height}-${index}`} onClick={() => setSelectedDay(index)} type="button">
-              <span className="w-full rounded-t-xl bg-[linear-gradient(180deg,#fb7185,#f6ad65)] transition-all duration-500" style={{ height: `${height}%` }} />
-              <span className={cn('text-xs font-black', theme.muted)}>{['S', 'M', 'T', 'W', 'T', 'F', 'S'][index]}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-black">{item.title}</span>
+                <span className={cn('mt-1 block text-xs font-semibold', theme.muted)}>{new Date(item.created_at).toLocaleDateString()}</span>
+              </span>
+              <ChevronRight className={cn('h-5 w-5', theme.muted)} />
             </button>
-          ))}
+          )) : (
+            <div className={cn('rounded-[24px] p-5 text-center', theme.soft)}>
+              <ScanLine className={cn('mx-auto h-8 w-8', theme.muted)} />
+              <p className="mt-3 text-base font-black">{isRussian ? 'Истории пока нет' : 'No history yet'}</p>
+              <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>
+                {isRussian ? 'Первый AI-скан создаст вашу временную ленту.' : 'Your first AI scan creates the timeline.'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1432,14 +1614,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     { label: 'Personal Details', icon: ClipboardList, action: openProfileEditor },
     { label: 'Preferences', icon: Target, action: () => setIsDarkMode((value) => !value) },
     { label: `Language: ${language}`, icon: Languages, action: toggleLanguage },
-    { label: 'Upgrade to Family Plan', icon: Users, action: () => navigate('/manage-subscription') },
+    { label: 'Manage Subscription', icon: ShieldCheck, action: () => navigate('/manage-subscription') },
   ];
   const trackingRows = [
-    { label: 'Manual check-ins', icon: Heart, action: () => logFeeling('Fine') },
-    { label: 'Edit trigger goals', icon: Target, action: () => setActiveTab('progress') },
-    { label: 'Goals & current baseline', icon: Flag, action: () => setActiveTab('home') },
+    { label: 'Open camera scan', icon: Camera, action: openCamera },
+    { label: 'Pattern timeline', icon: Activity, action: () => setActiveTab('progress') },
+    { label: 'Current baseline', icon: Flag, action: () => setActiveTab('home') },
     { label: trackingReminderOn ? 'Tracking reminders: On' : 'Tracking reminders: Off', icon: Bell, action: toggleTrackingReminder },
-    { label: 'Symptom history', icon: RefreshCcw, action: () => setActiveTab('progress') },
+    { label: 'Refresh history', icon: RefreshCcw, action: () => setDashboardError('Sync complete.') },
   ];
   const supportRows = [
     { label: 'Request a Feature', icon: Mail, action: () => navigate('/contact') },
@@ -1452,21 +1634,21 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const renderRow = ({ label, icon: Icon, action }: { label: string; icon: typeof Home; action: () => void }) => (
     <button className={cn('flex min-h-[66px] w-full items-center gap-4 border-b px-5 text-left last:border-b-0 transition active:scale-[0.99]', theme.line)} key={label} onClick={action} type="button">
       <Icon className="h-6 w-6 shrink-0" />
-      <span className="min-w-0 flex-1 text-xl font-black tracking-[-0.02em]">{label}</span>
+      <span className="min-w-0 flex-1 text-xl font-black">{label}</span>
       <ChevronRight className={cn('h-6 w-6 shrink-0', theme.muted)} />
     </button>
   );
 
   const profilePage = (
     <div className="space-y-7">
-      <h1 className="text-[46px] font-black leading-none tracking-[-0.055em]">Profile</h1>
+      <h1 className="text-[46px] font-black leading-none">Profile</h1>
       <button className={cn(cardClass, 'flex w-full items-center gap-5 text-left transition active:scale-[0.99]')} onClick={openProfileEditor} type="button">
         <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-black text-white">
           <User className="h-9 w-9" />
         </div>
         <div className="min-w-0 flex-1">
           <p className={cn('text-sm font-black', theme.muted)}>Premium</p>
-          <p className="truncate text-2xl font-black tracking-[-0.03em]">{profileName}</p>
+          <p className="truncate text-2xl font-black">{profileName}</p>
           <p className={cn('truncate text-lg font-bold', theme.muted)}>@{profileUsername}</p>
         </div>
         <ChevronRight className={cn('h-7 w-7', theme.muted)} />
@@ -1502,11 +1684,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Widgets</p>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {[
-            ['1', 'Day streak', Flame],
-            ['3', 'Check-ins', Heart],
-            ['2', 'Likely triggers', Activity],
+            [hasActivity ? '1' : 'N/A', 'Day streak', Flame],
+            [hasActivity ? String(scanCount) : 'N/A', 'Food scans', Camera],
+            [gutScoreOutOfTen ? `${gutScoreOutOfTen}` : 'N/A', 'Gut score', Activity],
           ].map(([value, label, Icon]) => (
-            <button className={cn('h-36 min-w-[170px] rounded-[26px] p-4 text-left transition active:scale-[0.98]', theme.card)} key={String(label)} onClick={() => setActiveTab(label === 'Day streak' ? 'progress' : 'home')} type="button">
+            <button className={cn('h-36 min-w-[170px] rounded-[26px] p-4 text-left transition active:scale-[0.98]', theme.card)} key={String(label)} onClick={() => setActiveTab(label === 'Food scans' ? 'home' : 'progress')} type="button">
               <Icon className="h-8 w-8" />
               <p className="mt-4 text-3xl font-black">{value as string}</p>
               <p className={cn('text-sm font-bold', theme.muted)}>{label as string}</p>
@@ -1543,9 +1725,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             <span className="flex-1 text-xl font-black">Logout</span>
             <ChevronRight className={cn('h-6 w-6', theme.muted)} />
           </button>
-          <button className="flex min-h-[66px] w-full items-center gap-4 px-5 text-left text-red-400 transition active:scale-[0.99]" onClick={signOut} type="button">
+          <button className="flex min-h-[66px] w-full items-center gap-4 px-5 text-left text-red-400 transition active:scale-[0.99]" onClick={() => setDeleteSheetOpen(true)} type="button">
             <AlertCircle className="h-6 w-6" />
-            <span className="flex-1 text-xl font-black">Delete Account</span>
+            <span className="flex-1 text-xl font-black">{copy.deleteAccount}</span>
             <ChevronRight className="h-6 w-6" />
           </button>
         </div>
@@ -1596,7 +1778,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               >
                 <span>{item.day}</span>
                 <span className="mt-2 text-[11px] font-medium">{item.date}</span>
-                {item.state !== 'ahead' && (
+                {item.progress > 0 && (
                   <span
                     className={cn('absolute -bottom-1 h-3 w-3 rounded-full border-2', isDarkMode ? 'border-[#050505]' : 'border-[#f8f8f8]')}
                     style={{
@@ -1621,17 +1803,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             >
               {activeTab === 'home' && (
               <>
-                <div className="mt-6 grid grid-cols-3 gap-3">
+                <div className="mt-5 grid grid-cols-3 gap-3">
                   {topDashboardCards.map((card) => (
                     <button
                       className={cn(
-                        'group flex min-h-[158px] flex-col justify-between rounded-[24px] p-3 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] sm:p-4',
+                        'group flex min-h-[132px] flex-col justify-between rounded-[24px] p-3 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] sm:p-4',
                         theme.card,
                         card.interactive && (isDarkMode ? 'ring-white/20 hover:ring-white/[0.45]' : 'ring-zinc-200 hover:ring-zinc-400'),
                       )}
                       key={card.title}
                       onClick={() => {
-                        if (card.action === 'Bloated') logFeeling('Bloated');
+                        if (card.action === 'Scan') openCamera();
                         if (card.action === 'Progress') setActiveTab('progress');
                       }}
                       type="button"
@@ -1653,20 +1835,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           <p className="text-[12px] font-black leading-tight">{card.title}</p>
                           <p className={cn('mt-1 text-[10px] font-bold leading-tight', theme.muted)}>{card.detail}</p>
                         </div>
-                        <div className={cn('relative h-[58px] w-[58px] shrink-0 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
-                          <div
-                            className="absolute inset-1 rounded-full"
-                            style={{
-                              background: `conic-gradient(${card.color} ${card.progress}%, ${isDarkMode ? '#303033' : '#eef0f2'} ${card.progress}% 100%)`,
-                            }}
-                          />
-                          <div className={cn('absolute inset-[9px] flex items-center justify-center rounded-full', isDarkMode ? 'bg-[#1b1b1d]' : 'bg-white')}>
-                            {card.interactive ? (
-                              <BarChart3 className="h-4 w-4 text-zinc-700" />
-                            ) : (
-                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: card.color }} />
-                            )}
-                          </div>
+                        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.08] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
+                          {card.interactive ? (
+                            <BarChart3 className="h-4 w-4 text-zinc-700" />
+                          ) : (
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: card.color }} />
+                          )}
                         </div>
                       </div>
                     </button>
@@ -1682,90 +1856,29 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
                         <p className="text-[14px] font-black">Gut Score</p>
-                        <p className="text-[14px] font-black">{gutScoreOutOfTen}/10</p>
+                        <p className="text-[14px] font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : 'N/A'}</p>
                       </div>
                       <div className={cn('mt-3 h-2 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
-                        <div className="h-full rounded-full bg-[#e5e7eb]" style={{ width: `${gutScoreOutOfTen * 10}%` }} />
+                        <div className="h-full rounded-full bg-zinc-950" style={{ width: `${gutScorePercent}%` }} />
                       </div>
                       <p className="mt-4 line-clamp-3 text-[12px] font-medium leading-[1.25] text-zinc-500">
                         {scanResult
                           ? `${scanResult.result.productName}: ${scanResult.result.flaggedChemicals[0]?.reason ?? 'SensiBite saved this result to your pattern memory.'}`
-                          : 'Late fried meals keep showing up before bloating. Try logging one clean dinner tonight to compare your pattern.'}
+                          : 'No score yet. Scan one meal to create your first baseline.'}
                       </p>
                     </div>
                     <div className={cn('relative h-[70px] w-[70px] shrink-0 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
                       <div
                         className="absolute inset-1 rounded-full"
-                        style={{ background: `conic-gradient(#e5e7eb ${gutScoreOutOfTen * 10}%, ${isDarkMode ? '#303033' : '#eef0f2'} ${gutScoreOutOfTen * 10}% 100%)` }}
+                        style={{ background: `conic-gradient(#18181b ${gutScorePercent}%, ${isDarkMode ? '#303033' : '#eef0f2'} ${gutScorePercent}% 100%)` }}
                       />
-                      <div className={cn('absolute inset-[10px] flex items-center justify-center rounded-full text-sm font-black', isDarkMode ? 'bg-[#1b1b1d]' : 'bg-white')}>{gutScoreOutOfTen}</div>
+                      <div className={cn('absolute inset-[10px] flex items-center justify-center rounded-full text-sm font-black', isDarkMode ? 'bg-[#1b1b1d]' : 'bg-white')}>{gutScoreOutOfTen ?? 'N/A'}</div>
                     </div>
                   </div>
                 </button>
 
-                <div className={cn('mt-4 rounded-[26px] p-4 shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-colors duration-700', theme.card)}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>Personal baseline</p>
-                      <p className="mt-2 text-[18px] font-black tracking-tight">Profile active</p>
-                      <p className={cn('mt-2 text-[12px] font-semibold leading-5', theme.muted)}>
-                        Your setup gives SensiBite context for timing, symptoms, and food patterns.
-                      </p>
-                    </div>
-                    <button
-                      className={cn('shrink-0 rounded-full px-3 py-2 text-[11px] font-black transition active:scale-[0.97]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
-                      onClick={openProfileEditor}
-                      type="button"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </div>
-
-                <div className={cn('mt-4 rounded-[26px] p-4 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-colors duration-700', theme.card)}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">{activeStats.label}</p>
-                      <p className="mt-1 text-[18px] font-black tracking-tight">{activeStats.value}</p>
-                    </div>
-                    <div className={cn('h-10 w-10 shrink-0 rounded-full', activeStats.accent)} />
-                  </div>
-                  <p className="mt-4 text-[13px] font-black leading-tight">{activeStats.title}</p>
-                  <p className="mt-2 text-[12px] font-semibold leading-5 text-zinc-500">{activeStats.body}</p>
-                  <div className="mt-4 flex justify-center gap-1.5">
-                    {statSlides.map((slide, index) => (
-                      <button
-                        aria-label={`Show ${slide.label}`}
-                        className={cn('h-2 rounded-full transition-all duration-300', activeStatsIndex === index ? (isDarkMode ? 'w-6 bg-white' : 'w-6 bg-zinc-950') : (isDarkMode ? 'w-2 bg-white/20' : 'w-2 bg-zinc-300'))}
-                        key={slide.label}
-                        onClick={() => setActiveStatsIndex(index)}
-                        type="button"
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {!dismissTrial && (
-                  <div className={cn('mt-4 rounded-[26px] p-4 shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-colors duration-700', isDarkMode ? 'bg-[#1b1b1d] ring-white/[0.05]' : 'bg-[linear-gradient(135deg,#fff1f2,#f8fafc)] ring-zinc-950/[0.04]')}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="inline-flex rounded-full bg-white px-3 py-1 text-[13px] font-black text-rose-500 shadow-sm">3 day trial</div>
-                        <p className="mt-3 text-[17px] font-black leading-tight">Your trial ends in 2 days</p>
-                        <p className="mt-1 text-[11px] font-semibold text-zinc-500">Unlock deeper trigger history and weekly pattern reports.</p>
-                      </div>
-                      <button
-                        className="rounded-full bg-zinc-950 px-3 py-2 text-[11px] font-black text-white transition active:scale-[0.97]"
-                        onClick={() => setDismissTrial(true)}
-                        type="button"
-                      >
-                        Hide
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-7">
-                  <p className="text-[20px] font-black tracking-tight">Food story</p>
+                <div className="mt-5">
+                  <p className="text-[20px] font-black tracking-tight">{isRussian ? 'Скан еды' : 'Food scan'}</p>
                   {scanState === 'scanning' && (
                     <div className="mt-4 rounded-[22px] bg-zinc-950 p-4 text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]">
                       <div className="flex items-center gap-4">
@@ -1782,12 +1895,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         </div>
                         <p className="text-[12px] font-black text-zinc-300">27%</p>
                       </div>
-                      <p className="mt-4 text-[11px] font-semibold text-white/[0.55]">You can switch tabs. SensiBite will keep processing this scan.</p>
+                      <p className="mt-4 text-[11px] font-semibold text-white/[0.55]">SensiBite is reading the image and preparing a result.</p>
                     </div>
                   )}
                   <button
                     className={cn('mt-4 w-full rounded-[26px] p-4 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-all duration-700 active:scale-[0.99]', theme.soft)}
-                    onClick={() => setCaptureSheetOpen(true)}
+                    onClick={openCamera}
                     type="button"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -1796,27 +1909,26 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           <Camera className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-[14px] font-black">{scanResult?.result.productName ?? logs[0]?.title ?? 'Late night burger'}</p>
+                          <p className="truncate text-[14px] font-black">{scanResult?.result.productName ?? logs[0]?.title ?? (isRussian ? 'Добавьте первый прием еды' : 'Add your first meal')}</p>
                           <p className="mt-2 flex items-center gap-1 text-[15px] font-black">
                             <Activity className="h-4 w-4 fill-zinc-950" />
-                            {scanResult ? `${scanResult.result.score}/100 score` : `${feeling} after eating`}
+                            {scanResult ? `${scanResult.result.score}/100 score` : (isRussian ? 'Сканировать фото' : 'Scan a food photo')}
                           </p>
                           <div className={cn('mt-3 flex items-center gap-3 text-[10px] font-medium', theme.muted)}>
                             <span className="inline-flex items-center gap-1">
                               <ScanLine className="h-3 w-3" />
-                              {scanState === 'scanning' ? 'Scanning' : 'AI checked'}
+                              {scanState === 'scanning' ? (isRussian ? 'Сканируем' : 'Scanning') : hasActivity ? 'AI checked' : (isRussian ? 'Начать' : 'Ready to scan')}
                             </span>
-                            <span className={cn('rounded-full px-2 py-1 font-black', isDarkMode ? 'bg-white/10' : 'bg-white')}>Intensity: Medium</span>
                           </div>
                         </div>
                       </div>
-                      <p className="shrink-0 text-[10px] font-bold text-zinc-500">10:35 PM</p>
+                      <p className="shrink-0 text-[10px] font-bold text-zinc-500">{hasActivity ? (isRussian ? 'Сохранено' : 'Saved') : (isRussian ? 'Новое' : 'New')}</p>
                     </div>
                     <div className={cn('mt-4 rounded-[18px] p-3', isDarkMode ? 'bg-white/[0.06]' : 'bg-white/80')}>
                       <p className={cn('text-[12px] font-semibold leading-5', theme.muted)}>
                         {scanResult
                           ? 'This scan is now part of your trigger timeline.'
-                          : 'Photo, time, feeling, and intensity stay together so the log tells a useful story.'}
+                          : 'Take a food photo and SensiBite will save the result here.'}
                       </p>
                     </div>
                   </button>
@@ -1824,30 +1936,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               </>
               )}
               {activeTab === 'progress' && progressPage}
-              {activeTab === 'groups' && (
-                <div className="space-y-5">
-                  <h1 className="text-[46px] font-black leading-none tracking-[-0.055em]">Groups</h1>
-                  <div className={cardClass}>
-                    <div className="flex items-center gap-4">
-                      <Users className="h-10 w-10" />
-                      <div>
-                        <h2 className="text-2xl font-black">Private family tracking</h2>
-                        <p className={cn('mt-2 text-base font-semibold leading-6', theme.muted)}>Share patterns with people who eat the same meals, without turning it into a public feed.</p>
-                      </div>
-                    </div>
-                    <button
-                      className={cn('mt-6 h-14 w-full rounded-full text-base font-black transition active:scale-[0.98]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
-                      onClick={() => {
-                        setFamilyGroupCreated(true);
-                        setDashboardError('Family group created.');
-                      }}
-                      type="button"
-                    >
-                      {familyGroupCreated ? 'Group active' : 'Create group'}
-                    </button>
-                  </div>
-                </div>
-              )}
               {activeTab === 'profile' && profilePage}
 
               {dashboardError && (
@@ -1873,7 +1961,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
         <div className="absolute inset-x-0 bottom-0 z-30 px-5 pb-[max(18px,env(safe-area-inset-bottom))] md:px-8">
           <div className="mx-auto flex max-w-[520px] items-center gap-3">
-            <div className={cn('grid h-[82px] flex-1 grid-cols-4 items-center rounded-full border px-3 shadow-[0_18px_44px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-colors duration-700', isDarkMode ? 'border-white/[0.12] bg-black/70' : 'border-zinc-200 bg-white/85')}>
+            <div className={cn('grid h-[82px] flex-1 grid-cols-3 items-center rounded-full border px-3 shadow-[0_18px_44px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-colors duration-700', isDarkMode ? 'border-white/[0.12] bg-black/70' : 'border-zinc-200 bg-white/85')}>
               {navItems.map(({ id, label, icon: Icon }) => {
                 const selected = activeTab === id;
                 return (
@@ -1899,9 +1987,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               })}
             </div>
             <button
-              aria-label="Open camera scan"
+              aria-label={copy.logFood}
               className={cn('flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-full shadow-[0_18px_44px_rgba(0,0,0,0.25)] ring-4 transition-all duration-300 active:scale-[0.94]', isDarkMode ? 'bg-white text-black ring-black' : 'bg-zinc-950 text-white ring-white')}
-              onClick={() => setCaptureSheetOpen(true)}
+              onClick={openCamera}
               type="button"
             >
               <Plus className="h-9 w-9 stroke-[3]" />
@@ -1910,110 +1998,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         </div>
 
         <AnimatePresence>
-          {captureSheetOpen && (
-            <motion.div
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex items-end bg-black/55 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
-              exit={{ opacity: 0 }}
-              initial={{ opacity: 0 }}
-              onClick={() => setCaptureSheetOpen(false)}
-            >
-              <motion.div
-                animate={{ y: 0 }}
-                className={cn('w-full rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1', theme.card)}
-                exit={{ y: 24 }}
-                initial={{ y: 24 }}
-                onClick={(event) => event.stopPropagation()}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <p className="text-2xl font-black tracking-[-0.035em]">Log food</p>
-                <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>Use the camera for AI scan, or type a quick manual entry.</p>
-                <div className="mt-5 grid gap-3">
-                  <button
-                    className={cn('flex min-h-[76px] items-center gap-4 rounded-[24px] p-4 text-left transition active:scale-[0.98]', theme.soft)}
-                    onClick={openCamera}
-                    type="button"
-                  >
-                    <span className={cn('flex h-12 w-12 items-center justify-center rounded-full', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}>
-                      <Camera className="h-5 w-5" />
-                    </span>
-                    <span>
-                      <span className="block text-lg font-black">Take photo</span>
-                      <span className={cn('mt-1 block text-sm font-semibold', theme.muted)}>AI checks the food and saves the result.</span>
-                    </span>
-                  </button>
-                  <button
-                    className={cn('flex min-h-[76px] items-center gap-4 rounded-[24px] p-4 text-left transition active:scale-[0.98]', theme.soft)}
-                    onClick={() => {
-                      setCaptureSheetOpen(false);
-                      setManualLogOpen(true);
-                    }}
-                    type="button"
-                  >
-                    <span className={cn('flex h-12 w-12 items-center justify-center rounded-full', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}>
-                      <ClipboardList className="h-5 w-5" />
-                    </span>
-                    <span>
-                      <span className="block text-lg font-black">{copy.manualLog}</span>
-                      <span className={cn('mt-1 block text-sm font-semibold', theme.muted)}>
-                        {isRussian ? 'Сохраните еду, когда не можете сделать фото.' : 'Save a meal when you cannot scan.'}
-                      </span>
-                    </span>
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-
-          {manualLogOpen && (
-            <motion.div
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex items-end bg-black/55 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
-              exit={{ opacity: 0 }}
-              initial={{ opacity: 0 }}
-              onClick={() => setManualLogOpen(false)}
-            >
-              <motion.div
-                animate={{ y: 0 }}
-                className={cn('w-full rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1', theme.card)}
-                exit={{ y: 24 }}
-                initial={{ y: 24 }}
-                onClick={(event) => event.stopPropagation()}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <p className="text-2xl font-black tracking-[-0.035em]">{copy.manualLog}</p>
-                <label className="mt-5 block">
-                  <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{copy.food}</span>
-                  <input
-                    className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
-                    onChange={(event) => setManualFood(event.target.value)}
-                    placeholder={copy.foodPlaceholder}
-                    value={manualFood}
-                  />
-                </label>
-                <div className="mt-4 grid grid-cols-4 gap-2">
-                  {['Fine', 'Bloated', 'Pain', 'Nausea'].map((option) => (
-                    <button
-                      className={cn('h-11 rounded-full text-xs font-black transition active:scale-[0.97]', manualFeeling === option ? (isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white') : theme.soft)}
-                      key={option}
-                      onClick={() => setManualFeeling(option)}
-                      type="button"
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  className={cn('mt-5 h-14 w-full rounded-full text-base font-black transition active:scale-[0.98]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
-                  onClick={saveManualLog}
-                  type="button"
-                >
-                  {copy.saveLog}
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-
           {profileSheetOpen && (
             <motion.div
               animate={{ opacity: 1 }}
@@ -2030,7 +2014,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 onClick={(event) => event.stopPropagation()}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
-                <p className="text-2xl font-black tracking-[-0.035em]">{copy.profileDetails}</p>
+                <p className="text-2xl font-black">{copy.profileDetails}</p>
                 <label className="mt-5 block">
                   <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{copy.name}</span>
                   <input
@@ -2079,7 +2063,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{copy.aiResult}</p>
-                    <h2 className="mt-2 text-3xl font-black leading-none tracking-[-0.05em]">{scanResult.result.productName}</h2>
+                    <h2 className="mt-2 text-3xl font-black leading-none">{scanResult.result.productName}</h2>
                   </div>
                   <button
                     aria-label="Close AI result"
@@ -2102,10 +2086,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className={cn('mt-5 grid grid-cols-[1fr_auto] items-center gap-4 rounded-[26px] p-5 ring-1', isDarkMode ? 'bg-[#101012] text-white ring-white/10' : 'bg-[#fbfaf7] text-zinc-950 ring-zinc-950/[0.04]')}>
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{copy.verdict}</p>
-                    <p className="mt-2 text-4xl font-black tracking-[-0.06em]">{ratingLabel(scanResult.result.overallRating)}</p>
+                    <p className="mt-2 text-4xl font-black">{ratingLabel(scanResult.result.overallRating)}</p>
                   </div>
                   <div className={cn('flex h-24 w-24 flex-col items-center justify-center rounded-full shadow-inner ring-1', isDarkMode ? 'bg-white/[0.08] ring-white/10' : 'bg-white ring-zinc-200')}>
-                    <p className="text-3xl font-black tracking-[-0.06em]">{scanResult.result.score}</p>
+                    <p className="text-3xl font-black">{scanResult.result.score}</p>
                     <p className="text-[10px] font-black uppercase text-zinc-400">{copy.score}</p>
                   </div>
                 </div>
@@ -2142,6 +2126,49 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     type="button"
                   >
                     {copy.saveToTimeline}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {deleteSheetOpen && (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-50 flex items-end bg-black/60 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onClick={() => !deleteLoading && setDeleteSheetOpen(false)}
+            >
+              <motion.div
+                animate={{ y: 0 }}
+                className={cn('w-full rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1', theme.card)}
+                exit={{ y: 24 }}
+                initial={{ y: 24 }}
+                onClick={(event) => event.stopPropagation()}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <h2 className="mt-5 text-3xl font-black">{copy.deleteTitle}</h2>
+                <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>{copy.deleteBody}</p>
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <button
+                    className={cn('h-14 rounded-full text-sm font-black transition active:scale-[0.98] disabled:opacity-50', theme.soft)}
+                    disabled={deleteLoading}
+                    onClick={() => setDeleteSheetOpen(false)}
+                    type="button"
+                  >
+                    {copy.cancel}
+                  </button>
+                  <button
+                    className="h-14 rounded-full bg-red-500 text-sm font-black text-white transition active:scale-[0.98] disabled:opacity-60"
+                    disabled={deleteLoading}
+                    onClick={deleteAccount}
+                    type="button"
+                  >
+                    {deleteLoading ? 'Deleting...' : copy.deleteConfirm}
                   </button>
                 </div>
               </motion.div>
@@ -2208,6 +2235,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
   useEffect(() => {
     if (currentStep.kind !== 'processing') return;
 
+    saveStoredProfile(profile);
     setProcessingInsightIndex(0);
     const interval = window.setInterval(() => {
       setProcessingInsightIndex((index) => (index + 1) % processingInsights.length);
@@ -2319,7 +2347,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
         return (
           <button
             className={cn(
-              'group flex min-h-[74px] w-full items-center justify-between rounded-[22px] border px-5 text-left text-[16px] font-black tracking-[-0.01em] transition duration-300 active:scale-[0.985]',
+              'group flex min-h-[74px] w-full items-center justify-between rounded-[22px] border px-5 text-left text-[16px] font-black transition duration-300 active:scale-[0.985]',
               selected
                 ? 'border-[#1c171d] bg-[#1c171d] text-white shadow-[0_24px_46px_rgba(28,23,29,0.20)]'
                 : 'border-zinc-100 bg-[#f7f6f2] text-zinc-800 shadow-[0_8px_24px_rgba(15,23,42,0.035)] hover:border-zinc-200 hover:bg-white',
@@ -2368,7 +2396,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
     return (
       <div className="mt-8 rounded-[32px] bg-[#f7f6f2] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.055)]">
         <div className="mx-auto flex h-32 w-32 flex-col items-center justify-center rounded-full bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-          <p className="text-5xl font-black tracking-[-0.06em] text-zinc-950">{profile.timelineWeeks}</p>
+          <p className="text-5xl font-black text-zinc-950">{profile.timelineWeeks}</p>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">weeks</p>
         </div>
         <p className="mt-5 text-center text-sm font-black text-zinc-500">First useful pattern estimate</p>
@@ -2442,7 +2470,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
           <label className="rounded-[26px] bg-[#f7f6f2] p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
             <span className="block text-xs font-black uppercase tracking-[0.12em] text-zinc-400">Age</span>
             <input
-              className="mt-2 w-full bg-transparent text-5xl font-black tracking-[-0.06em] outline-none"
+              className="mt-2 w-full bg-transparent text-5xl font-black outline-none"
               inputMode="numeric"
               max={99}
               min={13}
@@ -2454,7 +2482,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
           <label className="rounded-[26px] bg-[#f7f6f2] p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
             <span className="block text-xs font-black uppercase tracking-[0.12em] text-zinc-400">Height</span>
             <input
-              className="mt-2 w-full bg-transparent text-5xl font-black tracking-[-0.06em] outline-none"
+              className="mt-2 w-full bg-transparent text-5xl font-black outline-none"
               inputMode="numeric"
               onChange={(event) => {
                 const value = Number(event.target.value);
@@ -2468,7 +2496,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
           <label className="col-span-2 rounded-[26px] bg-[#f7f6f2] p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
             <span className="block text-xs font-black uppercase tracking-[0.12em] text-zinc-400">Weight</span>
             <input
-              className="mt-2 w-full bg-transparent text-6xl font-black tracking-[-0.07em] outline-none"
+              className="mt-2 w-full bg-transparent text-6xl font-black outline-none"
               inputMode="numeric"
               onChange={(event) => {
                 const value = Number(event.target.value);
@@ -2486,7 +2514,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
             <div>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Your BMI</p>
               <div className="mt-2 flex items-end gap-2">
-                <p className="text-6xl font-black leading-none tracking-[-0.075em]">{bmiDisplay}</p>
+                <p className="text-6xl font-black leading-none">{bmiDisplay}</p>
                 <p className="pb-1 text-sm font-black text-zinc-400">{bmiLabel}</p>
               </div>
             </div>
@@ -2513,46 +2541,43 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
 
   const renderStepContent = () => {
     if (currentStep.kind === 'intro') {
-      const testimonials = [
-        {
-          name: 'Amina, 24',
-          quote: 'I always forget what I ate once I feel normal again. This makes the pattern feel impossible to miss.',
-        },
-        {
-          name: 'Dana, 31',
-          quote: 'The check-in idea clicked immediately. I do not need a diet plan, I need something that remembers for me.',
-        },
-        {
-          name: 'Madina, 51',
-          quote: 'It made me realize why I never keep food notes. This feels fast enough to actually stay consistent.',
-        },
+      const introRows: Array<[typeof Camera, string, string]> = [
+        [Camera, 'Photo first', 'Save the meal and time before you forget.'],
+        [Activity, 'Feeling later', 'Tap the symptom when it actually happens.'],
+        [BarChart3, 'Pattern view', 'See repeat signals after enough real entries.'],
       ];
 
       return (
         <div className="flex min-h-[520px] flex-col">
           <div className="pt-4">
-            <h1 className="text-[38px] font-black leading-[0.96] tracking-[-0.055em] text-zinc-950">{currentStep.title}</h1>
+            <h1 className="text-[38px] font-black leading-[0.96] text-zinc-950">{currentStep.title}</h1>
             <p className="mt-3 text-[15px] font-semibold leading-6 text-zinc-500">{currentStep.subtitle}</p>
           </div>
 
-          <div className="mt-6 space-y-2.5">
-            {testimonials.map((testimonial) => (
-              <article
-                className="rounded-[22px] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05]"
-                key={testimonial.name}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex gap-1">
-                    {[0, 1, 2, 3, 4].map((star) => (
-                      <Star className="h-3.5 w-3.5 fill-zinc-950 text-zinc-950" key={star} />
-                    ))}
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#7a7064]">5.0 review</p>
+          <div className="mt-8 rounded-[34px] bg-white p-5 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05]">
+            <div className="rounded-[26px] bg-[#f7f6f2] p-5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Private memory</p>
+              <h2 className="mt-3 text-[28px] font-black leading-[1.02] text-zinc-950">
+                Build a profile that helps the scan understand you.
+              </h2>
+              <p className="mt-4 text-[14px] font-semibold leading-6 text-zinc-500">
+                SensiBite uses your answers to read food photos with better context, then connects later check-ins back to the meals that came before.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-2.5">
+              {introRows.map(([Icon, title, body]) => (
+                <div className="flex items-center gap-3 rounded-[22px] bg-[#fbfaf7] p-3 ring-1 ring-zinc-950/[0.04]" key={String(title)}>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-sm">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[15px] font-black text-zinc-950">{title}</span>
+                    <span className="mt-0.5 block text-[12px] font-semibold leading-5 text-zinc-500">{body}</span>
+                  </span>
                 </div>
-                <p className="mt-3 text-[14px] font-bold leading-5 text-zinc-900">"{testimonial.quote}"</p>
-                <p className="mt-3 text-[13px] font-black text-[#5f574d]">{testimonial.name}</p>
-              </article>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       );
@@ -2565,7 +2590,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
             <Sparkles className="h-10 w-10 animate-pulse" />
             <span className="absolute inset-0 rounded-full border-4 border-zinc-300/60 animate-ping" />
           </div>
-          <h1 className="mt-10 text-[34px] font-black leading-tight tracking-[-0.04em] text-zinc-950">{currentStep.title}</h1>
+          <h1 className="mt-10 text-[34px] font-black leading-tight text-zinc-950">{currentStep.title}</h1>
           <p className="mt-4 min-h-7 text-base font-black text-zinc-700">{processingInsights[processingInsightIndex]}</p>
           <div className="mt-8 w-full space-y-2">
             {[0, 1, 2].map((bar) => (
@@ -2584,7 +2609,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
           <div className="rounded-[30px] bg-[#f7f6fb] p-6">
             <div className="rounded-[24px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.08)]">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-700">Profile insight</p>
-              <h1 className="mt-5 text-[34px] font-black leading-[1.02] tracking-[-0.05em] text-zinc-950">{currentStep.title}</h1>
+              <h1 className="mt-5 text-[34px] font-black leading-[1.02] text-zinc-950">{currentStep.title}</h1>
               <p className="mt-5 text-base font-semibold leading-7 text-zinc-500">{currentStep.insight}</p>
               <div className="mt-7 rounded-[18px] bg-zinc-950 p-4 text-white">
                 <p className="text-sm font-black">Your starting profile</p>
@@ -2604,7 +2629,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
     return (
       <>
         <div>
-          <h1 className="text-[38px] font-black leading-[0.98] tracking-[-0.055em] text-zinc-950">{currentStep.title}</h1>
+          <h1 className="text-[38px] font-black leading-[0.98] text-zinc-950">{currentStep.title}</h1>
           {currentStep.subtitle && <p className="mt-4 text-base font-semibold leading-7 text-zinc-500">{currentStep.subtitle}</p>}
         </div>
         <div className="mt-9">
@@ -2623,30 +2648,46 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
         <div className="relative flex h-full flex-col overflow-hidden bg-[#fbfaf7] px-6 pb-8 pt-7 text-zinc-950">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(113,113,122,0.10),transparent_36%)]" />
           <button
-            aria-label="Back to landing"
+            aria-label={startAtLogin ? 'Back to landing' : 'Edit setup'}
             className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_12px_34px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05] transition active:scale-95"
-            onClick={() => navigate('/')}
+            onClick={() => {
+              if (startAtLogin) {
+                navigate('/');
+                return;
+              }
+
+              setSetupStep(Math.max(0, SETUP_TOTAL_STEPS - 2));
+            }}
             type="button"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
 
-          <div className="relative z-10 flex flex-1 flex-col justify-center pb-10 text-center">
+          <div className="relative z-10 flex flex-1 flex-col justify-center pb-8 text-center">
             <div className="mx-auto max-w-[360px]">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-zinc-950 text-white shadow-[0_20px_50px_rgba(15,23,42,0.18)]">
                 <Sparkles className="h-8 w-8" />
               </div>
-              <h1 className="mt-7 text-[42px] font-black leading-[0.98] tracking-[-0.055em]">
+              <h1 className="mt-7 text-[42px] font-black leading-[0.98]">
                 Welcome to
                 <br />
                 SensiBite
               </h1>
               <p className="mx-auto mt-4 text-base font-semibold leading-7 text-zinc-500">
-                Track meals, symptoms, and patterns with one simple account.
+                Save your profile, scan meals, and keep your private pattern timeline synced.
               </p>
 
+              <div className="mt-7 grid gap-2 text-left">
+                {['Private food memory', 'AI scan history', 'Pattern dashboard'].map((item) => (
+                  <div className="flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)] ring-1 ring-zinc-950/[0.04]" key={item}>
+                    <Check className="h-4 w-4 stroke-[3]" />
+                    <span className="text-sm font-black text-zinc-800">{item}</span>
+                  </div>
+                ))}
+              </div>
+
               <button
-                className="mt-9 flex h-16 w-full items-center justify-center gap-3 rounded-full bg-zinc-950 text-base font-black text-white shadow-[0_22px_55px_rgba(15,23,42,0.18)] transition hover:bg-zinc-800 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-7 flex h-16 w-full items-center justify-center gap-3 rounded-full bg-zinc-950 text-base font-black text-white shadow-[0_22px_55px_rgba(15,23,42,0.18)] transition hover:bg-zinc-800 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={authLoading}
                 onClick={handleGoogleSignIn}
                 type="button"

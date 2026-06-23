@@ -31,6 +31,7 @@ export type ProgressiveImageScan = {
 
 type ScanOptions = {
   userLang?: 'English' | 'Russian';
+  userTriggers?: string[];
   slowAfterMs?: number;
   hardTimeoutMs?: number;
   onSlow?: () => void;
@@ -41,7 +42,6 @@ type FoodTextScanOptions = ScanOptions & {
   labelText?: string;
   dishName?: string;
   productKey?: string;
-  userTriggers?: string[];
 };
 
 export async function scanImageWithClientTimeout(file: File, options: ScanOptions = {}): Promise<ImageScanResult> {
@@ -59,6 +59,7 @@ export async function scanImageWithClientTimeout(file: File, options: ScanOption
         body: {
           imageBase64: compressedImage.imageBase64,
           mimeType: compressedImage.mimeType,
+          userTriggers: options.userTriggers ?? [],
           userLang: options.userLang ?? 'English',
         },
       });
@@ -139,6 +140,7 @@ export function startProgressiveImageScan(file: File, options: ScanOptions = {})
         body: {
           imageBase64: compressedImage.imageBase64,
           mimeType: compressedImage.mimeType,
+          userTriggers: options.userTriggers ?? [],
           userLang: options.userLang ?? 'English',
         },
       });

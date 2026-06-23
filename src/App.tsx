@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { AuthPage, DashboardPage, LandingPage, LegalPage } from './components/ui/sensibite-site';
+import { AboutPage, AuthPage, DashboardPage, LandingPage, LegalPage } from './components/ui/sensibite-site';
 import { supabase } from './lib/supabase';
 
 export default function App() {
@@ -14,6 +14,17 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  const navigate = (nextPath: string, options: { replace?: boolean } = {}) => {
+    if (options.replace) {
+      window.history.replaceState({}, '', nextPath);
+    } else {
+      window.history.pushState({}, '', nextPath);
+    }
+
+    setPath(nextPath);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -21,11 +32,19 @@ export default function App() {
       if (!mounted) return;
       setSession(data.session);
       setAuthReady(true);
+
+      if (data.session && (window.location.hash.includes('access_token') || window.location.hash.includes('refresh_token'))) {
+        navigate('/dashboard', { replace: true });
+      }
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setAuthReady(true);
+
+      if (nextSession && (window.location.hash.includes('access_token') || window.location.hash.includes('refresh_token'))) {
+        navigate('/dashboard', { replace: true });
+      }
     });
 
     return () => {
@@ -34,11 +53,18 @@ export default function App() {
     };
   }, []);
 
-  const navigate = (nextPath: string) => {
-    window.history.pushState({}, '', nextPath);
-    setPath(nextPath);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  useEffect(() => {
+    if (!authReady) return;
+
+    if (session && (path === '/auth' || path === '/login')) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    if (!session && path === '/dashboard') {
+      navigate('/login', { replace: true });
+    }
+  }, [authReady, path, session]);
 
   if (!authReady) {
     return (
@@ -52,10 +78,18 @@ export default function App() {
   }
 
   if (path === '/auth') {
+    if (session) {
+      return <DashboardPage navigate={navigate} session={session} />;
+    }
+
     return <AuthPage navigate={navigate} startAtLogin={false} />;
   }
 
   if (path === '/login') {
+    if (session) {
+      return <DashboardPage navigate={navigate} session={session} />;
+    }
+
     return <AuthPage navigate={navigate} startAtLogin />;
   }
 
@@ -85,6 +119,10 @@ export default function App() {
 
   if (path === '/support') {
     return <LegalPage kind="support" navigate={navigate} />;
+  }
+
+  if (path === '/about') {
+    return <AboutPage navigate={navigate} />;
   }
 
   return <LandingPage navigate={navigate} />;

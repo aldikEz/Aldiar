@@ -74,6 +74,7 @@ type ScanPayload = {
 type ImagePayload = {
   data: string;
   mimeType: string;
+  triggers: string[];
 };
 
 type FoodTextPayload = {
@@ -279,7 +280,18 @@ function parseImagePayload(body: RequestBody): { payload?: ImagePayload; error?:
     return { error: 'Image data must be valid base64.' };
   }
 
-  return { payload: { data: base64, mimeType } };
+  return { payload: { data: base64, mimeType, triggers: parseUserTriggers(body.userTriggers) } };
+}
+
+function parseUserTriggers(value: unknown) {
+  return Array.isArray(value)
+    ? value
+        .filter((value): value is string => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, MAX_TRIGGER_COUNT)
+        .map((value) => value.slice(0, MAX_TRIGGER_LENGTH))
+    : [];
 }
 
 function parseFoodTextPayload(body: RequestBody): { payload?: FoodTextPayload; error?: string } {
@@ -294,14 +306,7 @@ function parseFoodTextPayload(body: RequestBody): { payload?: FoodTextPayload; e
 
   const rawProductKey = typeof body.productKey === 'string' ? body.productKey.trim() : text;
   const productKey = rawProductKey.replace(/\s+/g, ' ').slice(0, MAX_PRODUCT_KEY_LENGTH);
-  const triggers = Array.isArray(body.userTriggers)
-    ? body.userTriggers
-        .filter((value): value is string => typeof value === 'string')
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .slice(0, MAX_TRIGGER_COUNT)
-        .map((value) => value.slice(0, MAX_TRIGGER_LENGTH))
-    : [];
+  const triggers = parseUserTriggers(body.userTriggers);
 
   return {
     payload: {
@@ -407,10 +412,13 @@ async function handleTextRequest(req: Request, body: RequestBody) {
   return jsonResponse(req, { text: geminiResult.text });
 }
 
-function makeLabelPrompt(targetLang: string) {
+function makeLabelPrompt(targetLang: string, triggers: string[] = []) {
+  const triggerLine = triggers.length > 0 ? triggers.join(', ') : 'none provided';
+
   return `You are a careful product-label analysis engine.
 
 Analyze only the product label visible in the image. Extract the product name or best product classification, then evaluate ingredient safety for a general consumer.
+User possible triggers and profile context: ${triggerLine}
 
 Rules:
 - Return JSON only.
@@ -419,6 +427,7 @@ Rules:
 - Do not invent ingredients that are not visible or strongly inferable from the label.
 - If the image is unreadable, return productName as "Unreadable Label" and overallRating as "Caution".
 - For flaggedChemicals, return exactly 2 ingredients/additives or label concerns.
+- If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
 - If a concern is regulatory, state the jurisdiction briefly and factually.
 - Keep each reason under 12 words.
 - This is consumer information, not medical advice.
@@ -511,7 +520,9 @@ async function handleImageRequest(req: Request, body: RequestBody) {
 
   const targetLang = normalizeLanguage(body.userLang);
   const imageHash = await sha256Hex(`${image.payload.mimeType}:${image.payload.data}`);
-  const cachedScan = await readCachedScan(imageHash, targetLang);
+  const profileHash = image.payload.triggers.join('|');
+  const cacheKey = profileHash ? await sha256Hex(`${imageHash}:${targetLang}:${profileHash}`) : imageHash;
+  const cachedScan = await readCachedScan(cacheKey, targetLang);
 
   if (cachedScan) {
     return jsonResponse(req, cachedScan);
@@ -521,7 +532,7 @@ async function handleImageRequest(req: Request, body: RequestBody) {
     contents: [
       {
         parts: [
-          { text: makeLabelPrompt(targetLang) },
+          { text: makeLabelPrompt(targetLang, image.payload.triggers) },
           {
             inlineData: {
               mimeType: image.payload.mimeType,
@@ -545,7 +556,7 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   const parsed = parseModelJson(geminiResult.text);
   const scan = normalizeScanPayload(parsed, targetLang);
 
-  runAfterResponse(cacheScan(imageHash, targetLang, scan));
+  runAfterResponse(cacheScan(cacheKey, targetLang, scan));
 
   return jsonResponse(req, scan);
 }
@@ -660,7 +671,25 @@ function fallbackScanPayload(targetLang: string): ScanPayload {
 
 function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): ScanPayload {
   const productName = payload.productKey || payload.text;
-  const firstTrigger = localizeTriggerName(payload.triggers[0] ?? '', targetLang) || (targetLang === 'Russian' ? 'Возможный триггер' : 'Possible trigger');
+  const normalizedInput = `${payload.text} ${payload.productKey}`.toLowerCase();
+  const triggerSynonyms: Record<string, string[]> = {
+    'fried food': ['fried', 'fries', 'burger', 'nugget', 'crispy', 'deep fried'],
+    soda: ['soda', 'cola', 'sprite', 'fanta', 'carbonated', 'soft drink'],
+    dairy: ['milk', 'cream', 'cheese', 'yogurt', 'butter', 'dairy'],
+    bread: ['bread', 'bun', 'toast', 'flour', 'wheat', 'wrap'],
+    gluten: ['bread', 'bun', 'toast', 'flour', 'wheat', 'pasta'],
+    caffeine: ['coffee', 'espresso', 'energy drink', 'caffeine'],
+    'spicy food': ['spicy', 'chili', 'hot sauce', 'jalapeno'],
+    onion: ['onion'],
+    garlic: ['garlic'],
+  };
+  const matchedTriggers = payload.triggers.filter((trigger) => {
+    const normalizedTrigger = trigger.toLowerCase();
+    const synonyms = triggerSynonyms[normalizedTrigger] ?? [normalizedTrigger];
+    return synonyms.some((synonym) => normalizedInput.includes(synonym));
+  });
+  const firstRawTrigger = matchedTriggers[0] ?? payload.triggers[0] ?? '';
+  const firstTrigger = localizeTriggerName(firstRawTrigger, targetLang) || (targetLang === 'Russian' ? 'Возможный триггер' : 'Possible trigger');
   const secondTrigger =
     targetLang === 'Russian'
       ? payload.inputType === 'dish'
@@ -669,23 +698,43 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
       : payload.inputType === 'dish'
         ? 'Common preparation'
         : 'Label review';
+  const hasStrongMatch = matchedTriggers.length > 0;
+  const likelyFriedOrSoda = /\b(fried|fries|burger|nugget|crispy|soda|cola|fanta|sprite|soft drink)\b/i.test(normalizedInput);
+  const rating: Rating = hasStrongMatch && likelyFriedOrSoda ? 'Avoid' : hasStrongMatch ? 'Caution' : 'Caution';
+  const score = rating === 'Avoid' ? 82 : hasStrongMatch ? 68 : 55;
+  const firstReason =
+    targetLang === 'Russian'
+      ? hasStrongMatch
+        ? 'Совпадает с вашим сохраненным триггером.'
+        : 'Проверьте состав или уточните у ресторана.'
+      : hasStrongMatch
+        ? 'Matches a saved possible trigger.'
+        : 'Check ingredients or ask the restaurant.';
+  const secondReason =
+    targetLang === 'Russian'
+      ? rating === 'Avoid'
+        ? 'Похожий профиль часто вызывает реакцию.'
+        : 'Быстрая оценка без гарантии безопасности.'
+      : rating === 'Avoid'
+        ? 'Similar profile often causes reactions.'
+        : 'Quick estimate, not a safety guarantee.';
 
   if (targetLang === 'Russian') {
     return {
       result: {
         productName,
-        overallRating: 'Caution',
-        score: 55,
+        overallRating: rating,
+        score,
         flaggedChemicals: [
           {
             chemicalName: firstTrigger,
-            severity: 'Caution',
-            reason: 'Проверьте состав или уточните у ресторана.',
+            severity: rating,
+            reason: firstReason,
           },
           {
             chemicalName: secondTrigger,
-            severity: 'Caution',
-            reason: 'Быстрая оценка без гарантии безопасности.',
+            severity: rating === 'Avoid' ? 'Caution' : rating,
+            reason: secondReason,
           },
         ],
       },
@@ -695,18 +744,18 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
   return {
     result: {
       productName,
-      overallRating: 'Caution',
-      score: 55,
+      overallRating: rating,
+      score,
       flaggedChemicals: [
         {
           chemicalName: firstTrigger,
-          severity: 'Caution',
-          reason: 'Check ingredients or ask the restaurant.',
+          severity: rating,
+          reason: firstReason,
         },
         {
           chemicalName: secondTrigger,
-          severity: 'Caution',
-          reason: 'Quick estimate, not a safety guarantee.',
+          severity: rating === 'Avoid' ? 'Caution' : rating,
+          reason: secondReason,
         },
       ],
     },

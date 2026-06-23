@@ -214,7 +214,7 @@ export function CinematicHero({
               <div className="absolute left-1/2 top-3 z-50 h-[30px] w-[112px] -translate-x-1/2 rounded-full bg-black shadow-[0_2px_8px_rgba(0,0,0,0.35)]" />
 
               <div className="lock-layer absolute inset-0 px-6 pb-7 pt-[68px]">
-                <div className="lock-clock text-left text-[34px] font-black leading-none tracking-[-0.05em] text-white">
+                <div className="lock-clock text-left text-[34px] font-black leading-none text-white">
                   11:24 PM
                 </div>
 
@@ -245,7 +245,7 @@ export function CinematicHero({
                     <p className="m-0 text-[12px] font-semibold tracking-tight text-white/48">11:25 PM</p>
                     <h2 className="m-0 mt-1 text-[22px] font-black tracking-tight text-white">SensiBite</h2>
                   </div>
-                  <div className="h-10 w-10 rounded-[13px] bg-[linear-gradient(135deg,#0f172a_0%,#14b8a6_100%)] shadow-[0_10px_26px_rgba(20,184,166,0.24)]" />
+                  <div className="h-10 w-10 rounded-[13px] bg-[linear-gradient(135deg,#111827_0%,#52525b_100%)] shadow-[0_10px_26px_rgba(24,24,27,0.24)]" />
                 </div>
 
                 <div className="flex flex-col gap-4">
@@ -254,9 +254,9 @@ export function CinematicHero({
                   </div>
 
                   <div className="assistant-card rounded-[28px] border border-white/10 bg-white/[0.08] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
-                    <div className="mb-3 h-1.5 w-12 rounded-full bg-teal-300 shadow-[0_0_18px_rgba(45,212,191,0.55)]" />
+                    <div className="mb-3 h-1.5 w-12 rounded-full bg-white/70 shadow-[0_0_18px_rgba(255,255,255,0.28)]" />
                     <p className="m-0 text-[18px] font-semibold leading-snug tracking-tight text-white">
-                      Feeling bloated the 3rd time this week? You keep eating fried foods after 8 PM. Your stomach is tired of it.
+                      Bloating was logged after similar late fried meals three times this week. SensiBite saved the pattern.
                     </p>
                   </div>
                 </div>
