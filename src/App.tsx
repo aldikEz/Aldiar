@@ -70,7 +70,7 @@ export default function App() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#fbfbf8] text-zinc-950">
         <div className="text-center">
-          <p className="text-lg font-black tracking-tight">SensiBite AI</p>
+          <p className="text-lg font-black">SensiBite AI</p>
           <p className="mt-2 text-sm font-bold text-zinc-500">Loading your session...</p>
         </div>
       </main>

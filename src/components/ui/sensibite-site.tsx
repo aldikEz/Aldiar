@@ -24,7 +24,6 @@ import {
   ScanLine,
   ShieldCheck,
   Sparkles,
-  Star,
   Sun,
   Target,
   User,
@@ -361,154 +360,8 @@ function getProfileScanTriggers(profile: StoredSensiProfile | null) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value && value !== 'None')))).slice(0, 12);
 }
 
-function PhoneStatusBar({ dark = false }: { dark?: boolean }) {
-  return (
-    <div className={cn('relative h-12 text-[10px] font-black md:text-[11px]', dark ? 'text-white' : 'text-zinc-950')}>
-      <span className="absolute left-5 top-4 z-10 tabular-nums">11:24</span>
-      <span className="absolute left-1/2 top-3 h-[24px] w-[78px] -translate-x-1/2 rounded-full bg-black md:h-[27px] md:w-[92px]" />
-      <div className="absolute right-4 top-4 z-10 flex items-center">
-        <span className={cn('relative h-3.5 w-6 rounded-[5px] border', dark ? 'border-white/80' : 'border-zinc-950')}>
-          <span className={cn('absolute -right-[3px] top-1/2 h-1.5 w-[2px] -translate-y-1/2 rounded-r-sm', dark ? 'bg-white/80' : 'bg-zinc-950')} />
-          <span className={cn('absolute bottom-[2px] left-[2px] top-[2px] w-[15px] rounded-[3px]', dark ? 'bg-white' : 'bg-zinc-950')} />
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function MarketingPhone({
-  dark = false,
-  tilt = 'rotate-0',
-  result = false,
-  preview = 'scan',
-}: {
-  dark?: boolean;
-  tilt?: string;
-  result?: boolean;
-  preview?: IncludePreview;
-}) {
-  const previewContent: Record<IncludePreview, { label: string; title: string; metric: string; accent: string; body: string }> = {
-    scan: {
-      label: 'Result ready',
-      title: 'Fried chicken meal',
-      metric: 'High',
-      accent: 'Possible trigger',
-      body: 'Fried food is a possible repeat signal in evening meals.',
-    },
-    symptoms: {
-      label: 'Check-in saved',
-      title: 'Bloated after dinner',
-      metric: '3x',
-      accent: 'Repeat symptom',
-      body: 'Bloating was logged after similar fried meals this week.',
-    },
-    timeline: {
-      label: 'Pattern found',
-      title: 'Late fried meals',
-      metric: 'Late',
-      accent: 'Risk window',
-      body: 'Discomfort check-ins can be compared against meal timing.',
-    },
-    speed: {
-      label: 'Quick log',
-      title: 'One-tap memory',
-      metric: '3s',
-      accent: 'Logged',
-      body: 'A food event is saved before the detail disappears.',
-    },
-  };
-  const activePreview = previewContent[preview];
-
-  return (
-    <div
-      className={cn(
-        'relative w-[218px] shrink-0 rounded-[48px] bg-[linear-gradient(145deg,#d6d3cc,#8a8379_38%,#f8f7f2_54%,#5d5a55)] p-[6px] shadow-[0_38px_80px_rgba(15,23,42,0.26)] ring-1 ring-zinc-400/60 md:w-[244px]',
-        tilt,
-      )}
-    >
-      <div className="absolute -left-[4px] top-[104px] h-9 w-[3px] rounded-l bg-zinc-700" />
-      <div className="absolute -left-[4px] top-[151px] h-11 w-[3px] rounded-l bg-zinc-700" />
-      <div className="absolute -right-[4px] top-[136px] h-14 w-[3px] rounded-r bg-zinc-700" />
-      <div className={cn('h-[492px] overflow-hidden rounded-[42px] border-[8px] border-black md:h-[548px]', dark ? 'bg-[#14121a] text-white' : 'bg-[#fbfaf7] text-zinc-950')}>
-        <PhoneStatusBar dark={dark} />
-        {!result ? (
-          <>
-            <div className="relative mx-3 h-[238px] overflow-hidden rounded-[28px] md:h-[268px]">
-              <img
-                alt="Fried meal scan preview"
-                className="h-full w-full object-cover"
-                src="https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=900&auto=format&fit=crop"
-              />
-              <div className="absolute inset-7 rounded-[24px] border-2 border-white/[0.85] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]" />
-              <div className="absolute inset-x-10 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-zinc-200 shadow-[0_0_24px_rgba(228,228,231,0.75)]" />
-              <div className="absolute bottom-5 left-1/2 h-14 w-14 -translate-x-1/2 rounded-full border-4 border-white bg-white/25 backdrop-blur" />
-              <div className="absolute left-4 top-4 rounded-full bg-black/35 p-3 text-white backdrop-blur">
-                <ArrowLeft className="h-4 w-4" />
-              </div>
-              <div className="absolute bottom-5 left-4 rounded-full bg-black/55 px-3 py-2 text-[10px] font-black text-white backdrop-blur">
-                Scanning fried meal
-              </div>
-            </div>
-            <div className={cn('m-3 rounded-[22px] p-3.5', dark ? 'bg-white/[0.08]' : 'bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]')}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black text-zinc-400">Photo check</p>
-                  <p className="mt-1 text-base font-black md:text-lg">Late fried meal</p>
-                </div>
-                <div className="rounded-full bg-zinc-200 px-3 py-1 text-[11px] font-black text-zinc-950">Live</div>
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
-                <div className="h-full w-[68%] rounded-full bg-zinc-950" />
-              </div>
-              <p className="mt-2 text-[10px] font-black text-zinc-400 md:text-[11px]">Analyzing ingredients and your recent logs</p>
-            </div>
-          </>
-        ) : (
-          <div className="px-5 pt-4">
-            <div className="relative h-40 overflow-hidden rounded-[24px] md:h-44">
-              <img
-                alt={`${activePreview.title} preview`}
-                className="h-full w-full object-cover"
-                src="https://images.unsplash.com/photo-1562967914-608f82629710?q=80&w=900&auto=format&fit=crop"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-2 text-white">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/70">{activePreview.label}</p>
-                  <p className="mt-1 text-sm font-black leading-tight md:text-lg">{activePreview.title}</p>
-                </div>
-                <div className="hidden shrink-0 rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-zinc-950 md:block">11:25 PM</div>
-              </div>
-            </div>
-            <div className="mt-5 rounded-[24px] bg-zinc-950 p-4 text-white shadow-[0_16px_32px_rgba(15,23,42,0.16)]">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-black text-white/[0.55]">SensiBite memory</p>
-                <p className="text-[11px] font-black text-zinc-300">{activePreview.accent}</p>
-              </div>
-              <div className="mt-3 flex items-end justify-between">
-                <p className="text-5xl font-black">{activePreview.metric}</p>
-                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-zinc-100 ring-1 ring-white/[0.15]">
-                  <ScanLine className="h-5 w-5" />
-                </div>
-              </div>
-              <p className="mt-3 text-[12px] font-semibold leading-5 text-white/[0.68]">{activePreview.body}</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function LandingPage({ navigate }: { navigate: Navigate }) {
   const [activeIncludeIndex, setActiveIncludeIndex] = useState(0);
-  const loveReviews = [
-    ['Young adult, 24', 'I forget what I ate once I feel fine. This makes the follow-up simple.'],
-    ['Parent, 51', 'The questions made me realize I never keep notes long enough to see a pattern.'],
-    ['Student tester', 'It feels faster than writing a food diary, so I would actually use it.'],
-    ['Wellness user', 'The value is the timeline. Photos and check-ins finally stay together.'],
-    ['Early tester', 'It turns small moments into something I can look back at later.'],
-  ];
   const scrollToSection = (id: string) => {
     const target = document.getElementById(id);
     if (!target) return;
@@ -545,7 +398,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
     <main className="min-h-screen bg-[#fffef7] text-zinc-950 antialiased">
       <header className="sticky top-0 z-50 border-b border-black/5 bg-[#fffef7]/85 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] w-full max-w-[1680px] items-center justify-between px-5 md:h-[86px] md:px-10 xl:px-12">
-          <button className="flex items-center gap-2.5 text-2xl font-black tracking-tight md:text-4xl" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">
+          <button className="flex items-center gap-2.5 text-2xl font-black md:text-4xl" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">
             <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-zinc-950 text-white md:h-12 md:w-12 md:rounded-[14px]">
               <Sparkles className="h-5 w-5 md:h-7 md:w-7" />
             </span>
@@ -571,34 +424,91 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </header>
 
-      <section className="mx-auto grid min-h-[calc(100vh-76px)] w-full max-w-[1680px] items-center gap-8 overflow-hidden px-5 pb-14 pt-8 md:min-h-[calc(100vh-86px)] md:px-10 md:py-12 xl:grid-cols-[0.88fr_1.12fr] xl:px-12">
-        <div className="relative z-10 max-w-[720px]">
-          <h1 className="max-w-[820px] text-[42px] font-black leading-[1.01] sm:text-[58px] md:text-[76px] md: xl:text-[82px]">
-            Meet SensiBite
-            <br />
-            Spot triggers from food photos
-          </h1>
-          <p className="mt-6 max-w-[690px] text-[18px] font-semibold leading-8 text-[#5f574d] md:mt-7 md:text-[25px] md:leading-[1.42]">
-            Scan a meal, check in later, and see possible patterns without keeping a food diary.
+      <section className="mx-auto grid min-h-[calc(100svh-76px)] w-full max-w-[1680px] items-center gap-8 px-5 pb-10 pt-7 md:min-h-[calc(100svh-86px)] md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
+        <div className="relative z-10 max-w-[700px]">
+          <p className="mb-5 inline-flex min-h-10 items-center rounded-full bg-white px-4 text-sm font-black text-zinc-600 shadow-sm ring-1 ring-zinc-950/[0.06]">
+            Photo-first food memory
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row md:mt-9 md:gap-4">
+          <h1 className="max-w-[760px] text-[42px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:text-[84px]">
+            Spot the pattern before it disappears.
+          </h1>
+          <p className="mt-6 max-w-[660px] text-[18px] font-semibold leading-8 text-[#5f574d] md:text-[23px] md:leading-[1.42]">
+            Snap what you ate. Check in when you feel off. SensiBite connects the timing, meal, and symptom so repeat triggers stop slipping through.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row md:gap-4">
             <button
-              className="flex h-14 items-center justify-center rounded-[12px] bg-zinc-950 px-7 text-base font-black text-white transition active:scale-[0.98] md:h-16 md:px-8 md:text-lg"
+              className="flex h-14 items-center justify-center rounded-[14px] bg-zinc-950 px-7 text-base font-black text-white shadow-[0_18px_48px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 active:scale-[0.98] md:h-16 md:px-8 md:text-lg"
               onClick={() => navigate('/auth')}
               type="button"
             >
               Get Started
             </button>
+            <button
+              className="flex h-14 items-center justify-center rounded-[14px] bg-white px-7 text-base font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08] transition hover:-translate-y-0.5 active:scale-[0.98] md:h-16 md:px-8 md:text-lg"
+              onClick={() => scrollToSection('product')}
+              type="button"
+            >
+              See product
+            </button>
           </div>
         </div>
 
-        <div className="relative min-h-[530px] sm:min-h-[630px] xl:min-h-[650px]">
-          <div className="absolute left-1/2 top-10 h-[320px] w-[320px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(113,113,122,0.16),transparent_68%)] blur-2xl sm:h-[390px] sm:w-[390px] md:h-[430px] md:w-[430px]" />
-          <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 sm:top-14 sm:-translate-x-[74%] xl:left-[7%] xl:top-16 xl:translate-x-0">
-            <MarketingPhone tilt="-rotate-6" />
-          </div>
-          <div className="absolute right-1/2 top-0 z-10 hidden translate-x-[78%] sm:block xl:right-[5%] xl:translate-x-0">
-            <MarketingPhone result tilt="rotate-6" />
+        <div className="relative">
+          <div className="rounded-[34px] bg-zinc-950 p-4 text-white shadow-[0_34px_110px_rgba(15,23,42,0.20)] md:p-5">
+            <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="rounded-[28px] bg-white p-5 text-zinc-950 md:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Latest scan</p>
+                    <h2 className="mt-3 text-4xl font-black leading-none md:text-5xl">82/100</h2>
+                  </div>
+                  <span className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-black text-white">Avoid</span>
+                </div>
+                <div className="mt-6 overflow-hidden rounded-[24px]">
+                  <img
+                    alt="Fried meal scan preview"
+                    className="h-[220px] w-full object-cover md:h-[260px]"
+                    src="https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1200&auto=format&fit=crop"
+                  />
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {['Fried food matched watchlist', 'Late meal window detected'].map((item) => (
+                    <div className="rounded-[20px] bg-[#f6f5ef] p-4 text-sm font-black text-zinc-700" key={item}>{item}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-4">
+                <div className="rounded-[28px] bg-white/[0.08] p-5 ring-1 ring-white/10 md:p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">How it works</p>
+                  <div className="mt-5 grid gap-3">
+                    {[
+                      ['Photo', 'Meal saved with time and score.'],
+                      ['Check-in', 'Feeling logged when it actually happens.'],
+                      ['Pattern', 'Repeat signals become visible.'],
+                    ].map(([title, body], index) => (
+                      <div className="grid grid-cols-[40px_1fr] gap-4 rounded-[20px] bg-black/20 p-3.5 ring-1 ring-white/10" key={title}>
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-black text-zinc-950">{index + 1}</div>
+                        <div>
+                          <p className="text-base font-black">{title}</p>
+                          <p className="mt-1 text-sm font-semibold leading-5 text-white/55">{body}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-[28px] bg-white p-5 text-zinc-950 md:p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Pattern timeline</p>
+                  <div className="mt-5 flex h-28 items-end gap-3">
+                    {[32, 46, 40, 62, 58, 78, 92].map((height, index) => (
+                      <div className="flex flex-1 flex-col items-center gap-3" key={index}>
+                        <div className="w-full rounded-t-full bg-zinc-950" style={{ height: `${height}%` }} />
+                        <span className="text-[10px] font-black text-zinc-400">{index + 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -614,9 +524,77 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               </p>
           </div>
 
-          <div className="mt-14 grid items-start gap-12 lg:grid-cols-[0.78fr_1.22fr]">
-            <div className="flex justify-center lg:sticky lg:top-28">
-              <MarketingPhone preview={includeCards[activeIncludeIndex].preview} result />
+          <div className="mt-14 grid items-start gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+            <div className="lg:sticky lg:top-28">
+              <div className="overflow-hidden rounded-[34px] bg-zinc-950 p-5 text-white shadow-[0_26px_80px_rgba(15,23,42,0.16)] md:p-7">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-black text-white/55">Live product loop</p>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-zinc-950">{includeCards[activeIncludeIndex].title}</span>
+                </div>
+                <div className="mt-7 rounded-[28px] bg-white p-5 text-zinc-950">
+                  {includeCards[activeIncludeIndex].preview === 'scan' && (
+                    <>
+                      <div className="overflow-hidden rounded-[24px]">
+                        <img
+                          alt="Meal scan preview"
+                          className="h-56 w-full object-cover"
+                          src="https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop"
+                        />
+                      </div>
+                      <div className="mt-5 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Saved event</p>
+                          <p className="mt-2 text-3xl font-black">Late fried meal</p>
+                        </div>
+                        <span className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-black text-white">82</span>
+                      </div>
+                    </>
+                  )}
+                  {includeCards[activeIncludeIndex].preview === 'symptoms' && (
+                    <>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Check-in</p>
+                      <h3 className="mt-3 text-4xl font-black leading-tight">How do you feel now?</h3>
+                      <div className="mt-7 grid grid-cols-2 gap-3">
+                        {['Fine', 'Bloated', 'Pain', 'Nausea'].map((label) => (
+                          <div className={cn('rounded-[18px] px-4 py-4 text-center text-sm font-black', label === 'Bloated' ? 'bg-zinc-950 text-white' : 'bg-[#f4f3ef] text-zinc-600')} key={label}>
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {includeCards[activeIncludeIndex].preview === 'timeline' && (
+                    <>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Repeat pattern</p>
+                      <h3 className="mt-3 text-4xl font-black">3 signals</h3>
+                      <div className="mt-8 space-y-4">
+                        {['Burger after 8 PM', 'Fried food', 'Bloated later'].map((label, index) => (
+                          <div className="grid grid-cols-[34px_1fr] items-center gap-3" key={label}>
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-950 text-xs font-black text-white">{index + 1}</span>
+                            <div>
+                              <p className="text-sm font-black">{label}</p>
+                              <div className="mt-2 h-2 rounded-full bg-zinc-100">
+                                <div className="h-full rounded-full bg-zinc-950" style={{ width: `${58 + index * 14}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {includeCards[activeIncludeIndex].preview === 'speed' && (
+                    <>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Low effort loop</p>
+                      <h3 className="mt-3 text-4xl font-black leading-tight">Photo. Tap. Pattern.</h3>
+                      <div className="mt-7 grid gap-3">
+                        {['Capture food in seconds', 'Check in only when it matters', 'Let repeat context build quietly'].map((label) => (
+                          <div className="rounded-[18px] bg-[#f4f3ef] px-4 py-4 text-sm font-black text-zinc-700" key={label}>{label}</div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="grid gap-4">
               {includeCards.map(({ icon: Icon, title, body }, index) => {
@@ -740,28 +718,6 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             </div>
           </div>
 
-        </div>
-      </section>
-
-      <section className="overflow-hidden bg-[#fffef7] px-5 py-20 md:px-12">
-        <div className="mx-auto max-w-[1500px] text-center">
-          <h2 className="text-5xl font-black leading-[1.02] md:text-7xl">Early users get it fast</h2>
-          <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              {loveReviews.map(([name, quote]) => (
-                <article
-                  className="rounded-[26px] bg-white p-6 text-left shadow-[0_18px_45px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05]"
-                  key={name}
-                >
-                  <div className="flex gap-1">
-                    {[0, 1, 2, 3, 4].map((star) => (
-                      <Star className="h-4 w-4 fill-zinc-950 text-zinc-950" key={star} />
-                    ))}
-                  </div>
-                  <p className="mt-5 text-lg font-bold leading-7 text-zinc-950">"{quote}"</p>
-                  <p className="mt-5 text-sm font-black text-zinc-500">{name}</p>
-                </article>
-              ))}
-          </div>
         </div>
       </section>
 
@@ -995,7 +951,7 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
             <ArrowLeft className="h-4 w-4" />
             Home
           </button>
-          <button className="text-lg font-black tracking-tight" onClick={() => navigate('/')} type="button">
+          <button className="text-lg font-black" onClick={() => navigate('/')} type="button">
             SensiBite
           </button>
         </header>
@@ -1575,7 +1531,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
       <div className={cardClass}>
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-2xl font-black tracking-tight">{isRussian ? 'История еды' : 'Food history'}</h2>
+          <h2 className="text-2xl font-black">{isRussian ? 'История еды' : 'Food history'}</h2>
           <span className={cn('rounded-full px-3 py-1.5 text-xs font-black', theme.soft)}>{hasActivity ? `${scanCount}` : 'N/A'}</span>
         </div>
 
@@ -1736,8 +1692,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   );
 
   return (
-    <AppFrame darkMode={isDarkMode}>
-      <div className={cn('relative flex h-full w-full flex-col overflow-hidden px-5 pb-0 pt-6 transition-colors duration-700 md:px-7', theme.app)}>
+    <AppFrame darkMode={isDarkMode} fullScreen>
+      <div className={cn('relative flex h-full w-full flex-col overflow-hidden px-5 pb-0 pt-6 transition-colors duration-700 md:px-8 xl:px-10', theme.app)}>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-12%,rgba(255,255,255,0.08),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent_34%)]" />
         <div className="relative z-10 flex items-center justify-between">
           {activeTab === 'home' ? <div className="h-11 w-11" /> : (
@@ -1756,7 +1712,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         </div>
 
         {activeTab === 'home' && (
-          <div className="relative z-10 mt-6 grid grid-cols-7 gap-2">
+          <div className="relative z-10 mx-auto mt-6 grid w-full max-w-[1180px] grid-cols-7 gap-2">
             {dashboardDays.map((item, index) => (
               <button
                 className={cn(
@@ -1791,7 +1747,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           </div>
         )}
 
-        <div className="relative z-10 min-h-0 flex-1 overflow-y-auto pb-32 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative z-10 mx-auto min-h-0 w-full max-w-[1180px] flex-1 overflow-y-auto pb-32 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <AnimatePresence mode="wait">
             <motion.div
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -1803,7 +1759,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             >
               {activeTab === 'home' && (
               <>
-                <div className="mt-5 grid grid-cols-3 gap-3">
+                <div className="mt-5 grid grid-cols-3 gap-3 lg:gap-5">
                   {topDashboardCards.map((card) => (
                     <button
                       className={cn(
@@ -1820,7 +1776,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-[18px] font-black leading-none tracking-tight sm:text-[20px]">{card.value}</p>
+                          <p className="text-[18px] font-black leading-none sm:text-[20px]">{card.value}</p>
                           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-400">{card.subtitle}</p>
                         </div>
                         {card.interactive && (
@@ -1878,7 +1834,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 </button>
 
                 <div className="mt-5">
-                  <p className="text-[20px] font-black tracking-tight">{isRussian ? 'Скан еды' : 'Food scan'}</p>
+                  <p className="text-[20px] font-black">{isRussian ? 'Скан еды' : 'Food scan'}</p>
                   {scanState === 'scanning' && (
                     <div className="mt-4 rounded-[22px] bg-zinc-950 p-4 text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]">
                       <div className="flex items-center gap-4">
@@ -2192,10 +2148,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   );
 }
 
-function AppFrame({ children, darkMode = false }: { children: ReactNode; darkMode?: boolean }) {
+function AppFrame({ children, darkMode = false, fullScreen = false }: { children: ReactNode; darkMode?: boolean; fullScreen?: boolean }) {
   return (
     <main className={cn('min-h-dvh transition-colors duration-700', darkMode ? 'bg-[#050505] text-white' : 'bg-[#f6f6f4] text-zinc-950')}>
-      <section className={cn('relative mx-auto h-dvh w-full max-w-[560px] overflow-hidden shadow-none transition-colors duration-700', darkMode ? 'bg-[#050505]' : 'bg-white')}>
+      <section
+        className={cn(
+          'relative h-dvh w-full overflow-hidden shadow-none transition-colors duration-700',
+          fullScreen ? 'mx-0 max-w-none' : 'mx-auto max-w-[560px]',
+          darkMode ? 'bg-[#050505]' : 'bg-white',
+        )}
+      >
         {children}
       </section>
     </main>
@@ -2548,32 +2510,32 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
       ];
 
       return (
-        <div className="flex min-h-[520px] flex-col">
-          <div className="pt-4">
-            <h1 className="text-[38px] font-black leading-[0.96] text-zinc-950">{currentStep.title}</h1>
+        <div className="flex min-h-0 flex-col">
+          <div className="pt-2">
+            <h1 className="text-[34px] font-black leading-[0.98] text-zinc-950 sm:text-[38px]">{currentStep.title}</h1>
             <p className="mt-3 text-[15px] font-semibold leading-6 text-zinc-500">{currentStep.subtitle}</p>
           </div>
 
-          <div className="mt-8 rounded-[34px] bg-white p-5 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05]">
-            <div className="rounded-[26px] bg-[#f7f6f2] p-5">
+          <div className="mt-6 rounded-[30px] bg-white p-4 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05] sm:p-5">
+            <div className="rounded-[24px] bg-[#f7f6f2] p-4 sm:p-5">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Private memory</p>
-              <h2 className="mt-3 text-[28px] font-black leading-[1.02] text-zinc-950">
+              <h2 className="mt-3 text-[24px] font-black leading-[1.04] text-zinc-950 sm:text-[28px]">
                 Build a profile that helps the scan understand you.
               </h2>
-              <p className="mt-4 text-[14px] font-semibold leading-6 text-zinc-500">
+              <p className="mt-3 text-[13px] font-semibold leading-6 text-zinc-500 sm:text-[14px]">
                 SensiBite uses your answers to read food photos with better context, then connects later check-ins back to the meals that came before.
               </p>
             </div>
 
-            <div className="mt-4 grid gap-2.5">
+            <div className="mt-3 grid gap-2.5">
               {introRows.map(([Icon, title, body]) => (
-                <div className="flex items-center gap-3 rounded-[22px] bg-[#fbfaf7] p-3 ring-1 ring-zinc-950/[0.04]" key={String(title)}>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-sm">
+                <div className="flex items-center gap-3 rounded-[20px] bg-[#fbfaf7] p-2.5 ring-1 ring-zinc-950/[0.04] sm:p-3" key={String(title)}>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-sm sm:h-11 sm:w-11">
                     <Icon className="h-5 w-5" />
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[15px] font-black text-zinc-950">{title}</span>
-                    <span className="mt-0.5 block text-[12px] font-semibold leading-5 text-zinc-500">{body}</span>
+                    <span className="mt-0.5 hidden text-[12px] font-semibold leading-5 text-zinc-500 sm:block">{body}</span>
                   </span>
                 </div>
               ))}
@@ -2644,8 +2606,8 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
 
   if (setupComplete) {
     return (
-      <AppFrame>
-        <div className="relative flex h-full flex-col overflow-hidden bg-[#fbfaf7] px-6 pb-8 pt-7 text-zinc-950">
+      <AppFrame fullScreen>
+        <div className="relative mx-auto flex h-full w-full max-w-[680px] flex-col overflow-hidden bg-[#fbfaf7] px-6 pb-8 pt-7 text-zinc-950">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(113,113,122,0.10),transparent_36%)]" />
           <button
             aria-label={startAtLogin ? 'Back to landing' : 'Edit setup'}
@@ -2709,49 +2671,51 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
   }
 
   return (
-    <AppFrame>
-      <div className="absolute inset-x-0 top-0 z-30 h-1 bg-zinc-100">
-        <div className="h-full bg-zinc-950 transition-all duration-300" style={{ width: `${progress}%` }} />
-      </div>
-
-      <div className="flex h-full flex-col px-6 pb-7 pt-7">
-        <div className="flex items-center justify-between">
-          <button
-            aria-label="Go back"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f7f6fb] text-zinc-950 transition hover:bg-zinc-100 active:scale-95"
-            onClick={goBack}
-            type="button"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+    <AppFrame fullScreen>
+      <div className="relative mx-auto h-full w-full max-w-[680px] overflow-hidden bg-white">
+        <div className="absolute inset-x-0 top-0 z-30 h-1 bg-zinc-100">
+          <div className="h-full bg-zinc-950 transition-all duration-300" style={{ width: `${progress}%` }} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pb-7 pt-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <AnimatePresence mode="wait">
-            <motion.div
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -10, filter: 'blur(5px)' }}
-              initial={{ opacity: 0, y: 14, filter: 'blur(5px)' }}
-              key={currentStep.id}
-              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {renderStepContent()}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {currentStep.kind !== 'processing' && (
-          <div className="shrink-0 border-t border-zinc-100 bg-white pt-4">
+        <div className="flex h-full flex-col px-6 pb-7 pt-7">
+          <div className="flex items-center justify-between">
             <button
-              className="flex h-16 w-full items-center justify-center rounded-full bg-[#1c171d] text-base font-black text-white shadow-[0_18px_40px_rgba(28,23,29,0.18)] transition duration-300 hover:bg-zinc-900 active:scale-[0.99] disabled:bg-zinc-300 disabled:text-white disabled:shadow-none"
-              disabled={!canContinueOnboarding}
-              onClick={goForward}
+              aria-label="Go back"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f7f6fb] text-zinc-950 transition hover:bg-zinc-100 active:scale-95"
+              onClick={goBack}
               type="button"
             >
-              {currentStep.id === 'welcome' ? 'Start setup' : setupStep === SETUP_TOTAL_STEPS - 2 ? 'Build my profile' : 'Continue'}
+              <ArrowLeft className="h-5 w-5" />
             </button>
           </div>
-        )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto pb-7 pt-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -10, filter: 'blur(5px)' }}
+                initial={{ opacity: 0, y: 14, filter: 'blur(5px)' }}
+                key={currentStep.id}
+                transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {renderStepContent()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {currentStep.kind !== 'processing' && (
+            <div className="shrink-0 border-t border-zinc-100 bg-white pt-4">
+              <button
+                className="flex h-16 w-full items-center justify-center rounded-full bg-[#1c171d] text-base font-black text-white shadow-[0_18px_40px_rgba(28,23,29,0.18)] transition duration-300 hover:bg-zinc-900 active:scale-[0.99] disabled:bg-zinc-300 disabled:text-white disabled:shadow-none"
+                disabled={!canContinueOnboarding}
+                onClick={goForward}
+                type="button"
+              >
+                {currentStep.id === 'welcome' ? 'Start setup' : setupStep === SETUP_TOTAL_STEPS - 2 ? 'Build my profile' : 'Continue'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </AppFrame>
   );
