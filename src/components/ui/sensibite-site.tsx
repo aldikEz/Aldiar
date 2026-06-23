@@ -260,7 +260,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'dataPriority',
     title: 'What should the dashboard focus on first?',
-    options: ['Symptoms', 'Likely triggers', 'Gut score', 'Consistency streaks'],
+    options: ['Symptoms', 'Likely triggers', 'Pattern score', 'Consistency streaks'],
   },
   {
     id: 'investment',
@@ -1357,7 +1357,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const report = [
       'SensiBite Summary Report',
       `Name: ${profileName}`,
-      `Gut score: ${gutScoreOutOfTen ?? 'N/A'}`,
+      `Pattern score: ${gutScoreOutOfTen ?? 'N/A'}`,
       `Latest scan: ${scanResult?.result.productName ?? 'No scan yet'}`,
       `Recent logs: ${logs.map((item) => item.title).join(' | ') || 'No logs yet'}`,
     ].join('\n');
@@ -1686,7 +1686,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           {[
             [hasActivity ? '1' : 'N/A', 'Day streak', Flame],
             [hasActivity ? String(scanCount) : 'N/A', 'Food scans', Camera],
-            [gutScoreOutOfTen ? `${gutScoreOutOfTen}` : 'N/A', 'Gut score', Activity],
+            [gutScoreOutOfTen ? `${gutScoreOutOfTen}` : 'N/A', 'Pattern score', Activity],
           ].map(([value, label, Icon]) => (
             <button className={cn('h-36 min-w-[170px] rounded-[26px] p-4 text-left transition active:scale-[0.98]', theme.card)} key={String(label)} onClick={() => setActiveTab(label === 'Food scans' ? 'home' : 'progress')} type="button">
               <Icon className="h-8 w-8" />
@@ -1855,7 +1855,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-[14px] font-black">Gut Score</p>
+                        <p className="text-[14px] font-black">Pattern Score</p>
                         <p className="text-[14px] font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : 'N/A'}</p>
                       </div>
                       <div className={cn('mt-3 h-2 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
