@@ -104,6 +104,117 @@ const MAX_PRODUCT_KEY_LENGTH = 160;
 const MAX_TRIGGER_COUNT = 12;
 const MAX_TRIGGER_LENGTH = 40;
 
+type FoodRiskRule = {
+  id: string;
+  patterns: RegExp[];
+  rating: Rating;
+  maxScore: number;
+  concern: {
+    en: string;
+    ru: string;
+  };
+  reason: {
+    en: string;
+    ru: string;
+  };
+};
+
+const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
+  {
+    id: 'sugary-drink',
+    patterns: [
+      /\bfuse\s*tea\b/i,
+      /\biced?\s*tea\b/i,
+      /\bsweet(?:ened)?\s*tea\b/i,
+      /\bsoda\b/i,
+      /\bcola\b/i,
+      /\bfanta\b/i,
+      /\bsprite\b/i,
+      /\bpepsi\b/i,
+      /\bcoca[-\s]?cola\b/i,
+      /\bsoft\s*drink\b/i,
+      /\bcarbonated\b/i,
+      /\bsweetened\s*juice\b/i,
+    ],
+    rating: 'Avoid',
+    maxScore: 38,
+    concern: { en: 'Sugary drink', ru: 'Сладкий напиток' },
+    reason: { en: 'High sugar and acidity signal.', ru: 'Сигнал сахара и кислотности.' },
+  },
+  {
+    id: 'energy-drink',
+    patterns: [/\benergy\s*drink\b/i, /\bred\s*bull\b/i, /\bmonster\b/i, /\badrenaline\b/i, /\btaurine\b/i],
+    rating: 'Avoid',
+    maxScore: 35,
+    concern: { en: 'Energy drink', ru: 'Энергетик' },
+    reason: { en: 'Caffeine and acidity often irritate.', ru: 'Кофеин и кислоты часто раздражают.' },
+  },
+  {
+    id: 'candy-dessert',
+    patterns: [/\bcandy\b/i, /\bsweets?\b/i, /\bchocolate\s*bar\b/i, /\bgummy\b/i, /\bcaramel\b/i, /\btoffee\b/i, /\blollipop\b/i],
+    rating: 'Avoid',
+    maxScore: 42,
+    concern: { en: 'Candy or sweets', ru: 'Конфеты или сладости' },
+    reason: { en: 'Mostly sugar with low satiety.', ru: 'В основном сахар, мало сытости.' },
+  },
+  {
+    id: 'fried-snack',
+    patterns: [/\bchips?\b/i, /\bcrisps?\b/i, /\bcheetos\b/i, /\bdoritos\b/i, /\bpringles\b/i, /\bcrackers?\b/i, /\bdeep[-\s]?fried\b/i],
+    rating: 'Avoid',
+    maxScore: 42,
+    concern: { en: 'Fried snack', ru: 'Жареный снек' },
+    reason: { en: 'Fat, salt, and additives stack.', ru: 'Жир, соль и добавки вместе.' },
+  },
+  {
+    id: 'instant-noodles',
+    patterns: [/\binstant\s*noodles?\b/i, /\bramen\b/i, /\bnoodle\s*soup\b/i, /\bseasoning\s*packet\b/i],
+    rating: 'Avoid',
+    maxScore: 40,
+    concern: { en: 'Instant noodles', ru: 'Лапша быстрого приготовления' },
+    reason: { en: 'Usually sodium-heavy and additive-heavy.', ru: 'Обычно много соли и добавок.' },
+  },
+  {
+    id: 'processed-meat',
+    patterns: [/\bsausage\b/i, /\bsalami\b/i, /\bhot\s*dog\b/i, /\bbologna\b/i, /\bham\b/i, /\bpepperoni\b/i, /\bprocessed\s*meat\b/i, /\bnitrite\b/i, /\bnitrate\b/i],
+    rating: 'Caution',
+    maxScore: 50,
+    concern: { en: 'Processed meat', ru: 'Переработанное мясо' },
+    reason: { en: 'Salt and preservatives are common.', ru: 'Часто есть соль и консерванты.' },
+  },
+  {
+    id: 'bakery-pastry',
+    patterns: [/\bdonut\b/i, /\bdoughnut\b/i, /\bcroissant\b/i, /\bpastry\b/i, /\bcake\b/i, /\bcookie\b/i, /\bmuffin\b/i, /\bwafer\b/i],
+    rating: 'Caution',
+    maxScore: 48,
+    concern: { en: 'Sweet pastry', ru: 'Сладкая выпечка' },
+    reason: { en: 'Sugar, flour, and fat combine.', ru: 'Сахар, мука и жир вместе.' },
+  },
+  {
+    id: 'sugary-cereal',
+    patterns: [/\bcereal\b/i, /\bcorn\s*flakes\b/i, /\bchoco\b/i, /\bfrosted\b/i, /\bgranola\b/i, /\bmuesli\b/i],
+    rating: 'Caution',
+    maxScore: 52,
+    concern: { en: 'Sweet cereal', ru: 'Сладкий завтрак' },
+    reason: { en: 'Often marketed healthy despite sugar.', ru: 'Часто выглядит полезнее, чем есть.' },
+  },
+  {
+    id: 'heavy-sauce',
+    patterns: [/\bmayonnaise\b/i, /\bketchup\b/i, /\bsauce\b/i, /\bdressing\b/i, /\bglucose[-\s]?fructose\b/i, /\bcorn\s*syrup\b/i],
+    rating: 'Caution',
+    maxScore: 55,
+    concern: { en: 'Sauce additives', ru: 'Добавки в соусе' },
+    reason: { en: 'Hidden sugar, oils, or acids.', ru: 'Скрытый сахар, масла или кислоты.' },
+  },
+  {
+    id: 'ultra-processed',
+    patterns: [/\bultra[-\s]?processed\b/i, /\bflavourings?\b/i, /\bartificial\b/i, /\bpreservatives?\b/i, /\bemulsifiers?\b/i, /\bstabilizers?\b/i, /\bcolour(?:ing)?s?\b/i],
+    rating: 'Caution',
+    maxScore: 58,
+    concern: { en: 'Ultra-processed signals', ru: 'Сигналы ультра-обработки' },
+    reason: { en: 'Multiple additives reduce confidence.', ru: 'Много добавок снижает доверие.' },
+  },
+];
+
 declare const EdgeRuntime: { waitUntil?: (promise: Promise<unknown>) => void } | undefined;
 
 function runAfterResponse(promise: Promise<unknown>) {
@@ -430,8 +541,10 @@ Rules:
 - For flaggedChemicals, return 2 to 4 ingredients/additives/category concerns.
 - If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; they are at least "Caution".
-- If visible sugar is high, or the product is a sweetened beverage, score must be 0-55.
-- If the product is soda/energy drink/sweetened tea with sugar, caffeine, acid, sweeteners, or preservatives, use "Caution" or "Avoid".
+- If visible sugar is high, or the product is a sweetened beverage, score must be 0-45.
+- Major "Avoid" categories: sugary soda/iced tea, energy drinks, candy, fried chips/crisps, instant noodles, deep-fried snacks.
+- Major "Caution" categories: processed meats, sweet pastries, sugary cereals/granola, heavy sauces, additive-heavy ultra-processed foods.
+- If the product is soda/energy drink/sweetened tea with sugar, caffeine, acid, sweeteners, or preservatives, use "Avoid".
 - Only use "Safe" above 75 when the label clearly shows a simple, low-trigger product with no meaningful additives/sugar concerns.
 - Use "Avoid" for obvious strong trigger products: sugary soda/energy drinks, very high sugar, fried snacks, or user-trigger overlap.
 - Keep each reason under 12 words.
@@ -468,6 +581,8 @@ Rules:
 - Keep enum values exactly: "Safe", "Caution", "Avoid".
 - "Safe" means low likely trigger risk, "Caution" means medium, "Avoid" means high.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; score them 0-55 unless clearly unsweetened.
+- Major "Avoid" categories: sugary soda/iced tea, energy drinks, candy, fried chips/crisps, instant noodles, deep-fried snacks.
+- Major "Caution" categories: processed meats, sweet pastries, sugary cereals/granola, heavy sauces, additive-heavy ultra-processed foods.
 - For soda/energy drink/sweetened tea, flag sugar/caffeine/acidity/sweeteners/preservatives when relevant.
 - Do not diagnose, guarantee safety, or give medical advice.
 - Return 2 to 4 flaggedChemicals.
@@ -679,6 +794,24 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
   const concerns = [...scan.result.flaggedChemicals];
   let rating = scan.result.overallRating;
   let score = scan.result.score;
+  const matchedStrictRules = STRICT_FOOD_RISK_RULES.filter((rule) => hasAny(text, rule.patterns));
+
+  for (const rule of matchedStrictRules) {
+    if (rule.rating === 'Avoid') {
+      rating = 'Avoid';
+    } else if (rating === 'Safe') {
+      rating = 'Caution';
+    }
+
+    score = Math.min(score, rule.maxScore);
+    concerns.unshift(
+      makeConcern(
+        targetLang === 'Russian' ? rule.concern.ru : rule.concern.en,
+        targetLang === 'Russian' ? rule.reason.ru : rule.reason.en,
+        rule.rating,
+      ),
+    );
+  }
 
   const isSweetDrink = hasAny(text, [
     /\bfuse\s*tea\b/i,
@@ -706,13 +839,13 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
   const hasAcidSignal = hasAny(text, [/\bcitric\s*acid\b/i, /\bphosphoric\s*acid\b/i, /\bacidity\s*regulator\b/i, /\bacid\b/i]);
 
   if (isSweetDrink) {
-    rating = rating === 'Avoid' ? 'Avoid' : 'Caution';
-    score = Math.min(score, hasSugarSignal ? 45 : 55);
+    rating = 'Avoid';
+    score = Math.min(score, hasSugarSignal ? 38 : 50);
     concerns.unshift(
       makeConcern(
         targetLang === 'Russian' ? 'Сладкий напиток' : 'Sweetened drink',
         targetLang === 'Russian' ? 'Частый триггер сахара и кислотности.' : 'Common sugar and acidity trigger.',
-        'Caution',
+        'Avoid',
       ),
     );
   }
@@ -724,7 +857,7 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
       makeConcern(
         targetLang === 'Russian' ? 'Сахар' : 'Sugar',
         targetLang === 'Russian' ? 'Может усиливать вздутие у некоторых.' : 'Can worsen bloating for some.',
-        'Caution',
+        isSweetDrink ? 'Avoid' : 'Caution',
       ),
     );
   }
@@ -831,10 +964,13 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
         ? 'Common preparation'
         : 'Label review';
   const hasStrongMatch = matchedTriggers.length > 0;
+  const fallbackStrictRules = STRICT_FOOD_RISK_RULES.filter((rule) => hasAny(normalizedInput, rule.patterns));
+  const strictAvoid = fallbackStrictRules.some((rule) => rule.rating === 'Avoid');
+  const strictMaxScore = fallbackStrictRules.length > 0 ? Math.min(...fallbackStrictRules.map((rule) => rule.maxScore)) : 55;
   const likelyFriedOrSoda = /\b(fried|fries|burger|nugget|crispy|soda|cola|fanta|sprite|soft drink|iced tea|ice tea|sweetened tea|fuse tea|energy drink|carbonated)\b/i.test(normalizedInput);
   const likelySugarDrink = /\b(sugar|glucose|fructose|syrup|sweetened|iced tea|ice tea|fuse tea|soda|cola|soft drink|energy drink)\b/i.test(normalizedInput);
-  const rating: Rating = hasStrongMatch && likelyFriedOrSoda ? 'Avoid' : hasStrongMatch ? 'Caution' : 'Caution';
-  const score = rating === 'Avoid' ? 38 : likelySugarDrink ? 45 : hasStrongMatch ? 58 : 55;
+  const rating: Rating = strictAvoid || (hasStrongMatch && likelyFriedOrSoda) ? 'Avoid' : hasStrongMatch || fallbackStrictRules.length > 0 ? 'Caution' : 'Caution';
+  const score = Math.min(rating === 'Avoid' ? 38 : likelySugarDrink ? 45 : hasStrongMatch ? 58 : 55, strictMaxScore);
   const firstReason =
     targetLang === 'Russian'
       ? hasStrongMatch
