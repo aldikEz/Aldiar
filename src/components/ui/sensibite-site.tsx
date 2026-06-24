@@ -39,6 +39,11 @@ type DashboardEntry = {
   title: string;
   created_at: string;
 };
+type ProfileRow = {
+  user_id: string;
+  full_name: string;
+  username: string;
+};
 type GenderOption = 'Male' | 'Female' | 'Other';
 type SensiGoal = 'Find triggers' | 'Reduce bloating' | 'Build consistency';
 type UnitSystem = 'metric' | 'imperial';
@@ -373,6 +378,33 @@ function getBmiFromProfile(profile: StoredSensiProfile | null) {
     pointer,
     range: `${Math.round(profile.weightKg)} kg / ${Math.round(profile.heightCm)} cm`,
   };
+}
+
+function normalizeProfileName(value: string) {
+  return value.replace(/\s+/g, ' ').trim().slice(0, 80) || 'SensiBite user';
+}
+
+function usernameFromName(value: string) {
+  const cleaned = normalizeProfileName(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s_]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 20);
+
+  return cleaned.length >= 3 ? cleaned : `user_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeUsername(value: string) {
+  return value
+    .trim()
+    .replace(/^@/, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24);
 }
 
 const friedFoodPreviewUrl = 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop';
@@ -1219,7 +1251,8 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
 }
 
 export function DashboardPage({ navigate, session }: { navigate: Navigate; session: Session }) {
-  const initialName = session.user.user_metadata?.full_name ?? session.user.email?.split('@')[0] ?? 'SensiBite user';
+  const initialName = normalizeProfileName(session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'SensiBite user');
+  const initialUsername = usernameFromName(initialName);
   const [storedProfile] = useState(() => readStoredProfile());
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle');
   const [scanResult, setScanResult] = useState<ImageScanPayload | null>(null);
@@ -1228,10 +1261,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [profileName, setProfileName] = useState(initialName);
-  const [profileUsername, setProfileUsername] = useState('sensibite');
+  const [profileUsername, setProfileUsername] = useState(initialUsername);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [profileDraftName, setProfileDraftName] = useState(initialName);
-  const [profileDraftUsername, setProfileDraftUsername] = useState('sensibite');
+  const [profileDraftUsername, setProfileDraftUsername] = useState(initialUsername);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
   const [language] = useState<'English' | 'Russian'>('English');
@@ -1271,6 +1305,55 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function ensureProfile() {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id,full_name,username')
+        .eq('user_id', session.user.id)
+        .maybeSingle<ProfileRow>();
+
+      if (!active) return;
+
+      if (data) {
+        setProfileName(data.full_name);
+        setProfileUsername(data.username);
+        setProfileDraftName(data.full_name);
+        setProfileDraftUsername(data.username);
+        return;
+      }
+
+      const baseUsername = normalizeUsername(usernameFromName(initialName));
+      const candidate = await getAvailableUsername(baseUsername, session.user.id);
+      const nextProfile = {
+        user_id: session.user.id,
+        full_name: initialName,
+        username: candidate,
+      };
+
+      const { data: created } = await supabase
+        .from('profiles')
+        .upsert(nextProfile, { onConflict: 'user_id' })
+        .select('user_id,full_name,username')
+        .single<ProfileRow>();
+
+      if (!active || !created) return;
+
+      setProfileName(created.full_name);
+      setProfileUsername(created.username);
+      setProfileDraftName(created.full_name);
+      setProfileDraftUsername(created.username);
+    }
+
+    ensureProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [initialName, session.user.id]);
 
   useEffect(() => {
     return () => {
@@ -1421,19 +1504,79 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     await runImageScan(file);
   };
 
-  const saveProfileDetails = () => {
-    const nextName = profileDraftName.trim();
-    const nextUsername = profileDraftUsername.trim().replace(/^@/, '');
+  const getAvailableUsername = async (baseValue: string, userId: string) => {
+    const base = normalizeUsername(baseValue) || `user_${userId.slice(0, 6)}`;
+    const candidates = [base, `${base}_${userId.slice(0, 4)}`, `${base}_${Math.random().toString(36).slice(2, 6)}`].map((value) => value.slice(0, 24));
+
+    for (const candidate of candidates) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('username', candidate)
+        .maybeSingle<{ user_id: string }>();
+
+      if (!data || data.user_id === userId) return candidate;
+    }
+
+    return `user_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  };
+
+  const saveProfileDetails = async () => {
+    const nextName = normalizeProfileName(profileDraftName);
+    const nextUsername = normalizeUsername(profileDraftUsername);
 
     if (!nextName) {
       setDashboardError('Name cannot be empty.');
       return;
     }
 
-    setProfileName(nextName);
-    setProfileUsername(nextUsername || 'sensibite');
+    if (nextUsername.length < 3) {
+      setDashboardError('Username must be at least 3 characters.');
+      return;
+    }
+
+    setProfileSaving(true);
+    setDashboardError('');
+
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('username', nextUsername)
+      .maybeSingle<{ user_id: string }>();
+
+    if (existing && existing.user_id !== session.user.id) {
+      setProfileSaving(false);
+      setDashboardError('That username is already taken.');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          user_id: session.user.id,
+          full_name: nextName,
+          username: nextUsername,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      )
+      .select('user_id,full_name,username')
+      .single<ProfileRow>();
+
+    setProfileSaving(false);
+
+    if (error || !data) {
+      setDashboardError(error?.message?.includes('profiles_username_unique') ? 'That username is already taken.' : 'Unable to save profile.');
+      return;
+    }
+
+    setProfileName(data.full_name);
+    setProfileUsername(data.username);
+    setProfileDraftName(data.full_name);
+    setProfileDraftUsername(data.username);
     setProfileSheetOpen(false);
-    setDashboardError('Profile updated.');
+    setDashboardError('Profile saved.');
   };
 
   const signOut = async () => {
@@ -1803,6 +1946,24 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             >
               {activeTab === 'home' && (
               <>
+                <div className="mt-6 flex items-end justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
+                      {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+                    </p>
+                    <h1 className="mt-2 truncate text-[38px] font-black leading-none">
+                      {profileName.split(' ')[0] || 'SensiBite'}
+                    </h1>
+                  </div>
+                  <button
+                    className={cn('flex h-12 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-black shadow-sm ring-1 transition active:scale-[0.98]', theme.card)}
+                    onClick={openCamera}
+                    type="button"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Scan
+                  </button>
+                </div>
                 <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-5">
                   {topDashboardCards.map((card, index) => (
                     <button
@@ -1935,18 +2096,23 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </button>
                 </div>
 
-                <div className={cn('mt-5 rounded-[26px] p-4 shadow-[0_16px_36px_rgba(0,0,0,0.08)] ring-1 transition-colors duration-700', theme.card)}>
+                <div className={cn('mt-5 rounded-[28px] p-5 shadow-[0_18px_42px_rgba(0,0,0,0.10)] ring-1 transition-colors duration-700', theme.card)}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', theme.faint)}>
-                        {isRussian ? 'Старт' : 'Start here'}
+                        {isRussian ? 'Сегодня' : "Today's loop"}
                       </p>
-                      <h2 className="mt-2 text-[22px] font-black leading-tight">
-                        {hasActivity ? (isRussian ? 'Продолжайте строить паттерн' : 'Keep building the pattern') : (isRussian ? 'Первый скан создаст базу' : 'Your first scan creates the baseline')}
+                      <h2 className="mt-2 text-[25px] font-black leading-tight">
+                        {hasActivity ? (isRussian ? 'Закройте петлю самочувствия' : 'Close the feeling loop') : (isRussian ? 'Сканируйте один прием еды' : 'Scan one meal today')}
                       </h2>
+                      <p className={cn('mt-2 max-w-[420px] text-sm font-semibold leading-6', theme.muted)}>
+                        {hasActivity
+                          ? 'Tap how you felt after the last scan so SensiBite can connect cause and reaction.'
+                          : 'One photo now. One feeling check-in later. That is enough to start learning.'}
+                      </p>
                     </div>
                     <button
-                      className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.96]', theme.soft)}
+                      className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition active:scale-[0.96]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
                       onClick={openCamera}
                       type="button"
                       aria-label={copy.logFood}
@@ -1954,15 +2120,28 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       <Camera className="h-5 w-5" />
                     </button>
                   </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
                     {[
-                      [isRussian ? 'Фото еды' : 'Food photo', isRussian ? 'Сохраните еду и время.' : 'Save the meal and time.'],
-                      [isRussian ? 'Самочувствие' : 'Feel later', isRussian ? 'Отметьте реакцию позже.' : 'Check in when you react.'],
-                      [isRussian ? 'Паттерн' : 'Pattern', isRussian ? 'Повторы появятся здесь.' : 'Repeats appear here.'],
-                    ].map(([title, body]) => (
-                      <div className={cn('rounded-[18px] p-4', theme.soft)} key={title}>
+                      {
+                        title: isRussian ? 'Фото' : 'Photo',
+                        body: hasActivity ? (isRussian ? 'Готово' : 'Done') : (isRussian ? 'Сделать' : 'Do it'),
+                        icon: Camera,
+                      },
+                      {
+                        title: isRussian ? 'Самочувствие' : 'Feeling',
+                        body: selectedFeeling ?? (isRussian ? 'Позже' : 'Later'),
+                        icon: Activity,
+                      },
+                      {
+                        title: isRussian ? 'Паттерн' : 'Pattern',
+                        body: hasActivity ? (isRussian ? 'Учится' : 'Learning') : (isRussian ? 'Пусто' : 'Empty'),
+                        icon: BarChart3,
+                      },
+                    ].map(({ title, body, icon: Icon }) => (
+                      <div className={cn('rounded-[20px] p-4', theme.soft)} key={title}>
+                        <Icon className={cn('h-5 w-5', theme.muted)} />
                         <p className="text-sm font-black">{title}</p>
-                        <p className={cn('mt-1 text-xs font-semibold leading-5', theme.muted)}>{body}</p>
+                        <p className="mt-1 text-xl font-black leading-none">{body}</p>
                       </div>
                     ))}
                   </div>
@@ -2135,16 +2314,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <input
                     className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
                     placeholder="username"
-                    onChange={(event) => setProfileDraftUsername(event.target.value)}
+                    onChange={(event) => setProfileDraftUsername(normalizeUsername(event.target.value))}
                     value={profileDraftUsername}
                   />
+                  <span className={cn('mt-2 block text-xs font-semibold', theme.muted)}>Unique. 3-24 characters. Letters, numbers, underscore.</span>
                 </label>
                 <button
-                  className={cn('mt-5 h-14 w-full rounded-full text-base font-black transition active:scale-[0.98]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
+                  className={cn('mt-5 h-14 w-full rounded-full text-base font-black transition active:scale-[0.98] disabled:opacity-50', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
+                  disabled={profileSaving}
                   onClick={saveProfileDetails}
                   type="button"
                 >
-                  {copy.saveProfile}
+                  {profileSaving ? 'Saving...' : copy.saveProfile}
                 </button>
               </motion.div>
             </motion.div>
