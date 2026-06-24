@@ -17,7 +17,6 @@ import {
   LogOut,
   Mail,
   Moon,
-  Plus,
   ScanLine,
   ShieldCheck,
   Sparkles,
@@ -33,6 +32,8 @@ import IPhoneMockup from './iphone-mockup';
 type Navigate = (path: string, options?: { replace?: boolean }) => void;
 type DashboardTab = 'home' | 'progress' | 'profile';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
+type LandingPhoneVariant = 'scan' | 'feeling';
+type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
 type LegalPageKind = 'privacy' | 'terms' | 'subscription' | 'contact' | 'support';
 type DashboardEntry = {
   id: string;
@@ -375,10 +376,13 @@ function getBmiFromProfile(profile: StoredSensiProfile | null) {
   };
 }
 
-function LandingPhoneMockup({ className = '' }: { className?: string }) {
+const friedFoodPreviewUrl = 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop';
+
+function LandingPhoneMockup({ className = '', variant = 'scan' }: { className?: string; variant?: LandingPhoneVariant }) {
   const surface = 'bg-[#f8f8f8] text-zinc-950';
   const card = 'bg-white ring-zinc-950/[0.04]';
   const soft = 'bg-[#f2f1f8]';
+  const isFeeling = variant === 'feeling';
 
   return (
     <div className={cn('pointer-events-none select-none', className)}>
@@ -404,9 +408,9 @@ function LandingPhoneMockup({ className = '' }: { className?: string }) {
 
           <div className="mt-5 grid grid-cols-3 gap-2">
             {[
-              ['3', 'Scans'],
-              ['2', 'Patterns'],
-              ['7/10', 'Score'],
+              isFeeling ? ['8/10', 'Meal'] : ['3', 'Scans'],
+              isFeeling ? ['2h', 'Later'] : ['2', 'Patterns'],
+              isFeeling ? ['Bloated', 'Feel'] : ['7/10', 'Score'],
             ].map(([value, label]) => (
               <div className={cn('rounded-[18px] p-3 ring-1', card)} key={label}>
                 <p className="text-xl font-black leading-none">{value}</p>
@@ -415,27 +419,44 @@ function LandingPhoneMockup({ className = '' }: { className?: string }) {
             ))}
           </div>
 
-          <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-black">Pattern score</p>
-              <p className="text-sm font-black">7/10</p>
+          {isFeeling ? (
+            <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
+              <p className="text-sm font-black">How do you feel?</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {(['Fine', 'Bloated', 'Pain', 'Nausea'] as FeelingOption[]).map((label) => (
+                  <div className={cn('rounded-[16px] px-3 py-3 text-center text-xs font-black', label === 'Bloated' ? 'bg-zinc-950 text-white' : soft)} key={label}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] font-semibold leading-4 text-zinc-500">This check-in connects back to the scanned meal.</p>
             </div>
-            <div className={cn('mt-3 h-2 rounded-full', soft)}>
-              <div className="h-full w-[70%] rounded-full bg-zinc-950" />
+          ) : (
+            <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-black">Meal rating</p>
+                <p className="text-sm font-black">8/10</p>
+              </div>
+              <div className={cn('mt-3 h-2 rounded-full', soft)}>
+                <div className="h-full w-[80%] rounded-full bg-zinc-950" />
+              </div>
+              <p className="mt-3 text-[11px] font-semibold leading-4 text-zinc-500">Fried meal scanned and saved with time context.</p>
             </div>
-            <p className="mt-3 text-[11px] font-semibold leading-4 text-zinc-500">Late fried meals keep showing before bloated check-ins.</p>
-          </div>
+          )}
 
           <div className="mt-5">
             <p className="text-base font-black">Food scan</p>
             <div className={cn('mt-3 rounded-[24px] p-4 ring-1', soft)}>
               <div className="flex items-center gap-3">
                 <div className={cn('flex h-11 w-11 items-center justify-center rounded-full', card)}>
-                  <Camera className="h-4 w-4" />
+                  {isFeeling ? <Activity className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
                 </div>
-                <div>
-                  <p className="text-sm font-black">Late burger</p>
-                  <p className="mt-1 text-xs font-bold text-zinc-500">82/100 score</p>
+                <div className="min-w-0 flex-1">
+                  {!isFeeling && (
+                    <img alt="Fried food scan" className="mb-3 h-20 w-full rounded-[16px] object-cover" src={friedFoodPreviewUrl} />
+                  )}
+                  <p className="text-sm font-black">{isFeeling ? 'Feeling saved' : 'Fried chicken plate'}</p>
+                  <p className="mt-1 text-xs font-bold text-zinc-500">{isFeeling ? 'Bloated after scan' : '8/10 meal rating'}</p>
                 </div>
               </div>
             </div>
@@ -446,7 +467,7 @@ function LandingPhoneMockup({ className = '' }: { className?: string }) {
             <BarChart3 className="h-4 w-4 text-zinc-400" />
             <User className="h-4 w-4 text-zinc-400" />
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-950 text-white">
-              <Plus className="h-6 w-6" />
+              <Camera className="h-5 w-5" />
             </div>
           </div>
         </div>
@@ -550,10 +571,10 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
         <div className="relative min-h-[560px] overflow-hidden rounded-[38px] bg-[radial-gradient(circle_at_50%_34%,rgba(24,24,27,0.12),transparent_52%)] lg:min-h-[640px]">
           <div className="absolute left-[8%] top-10 z-20 sm:left-[17%] lg:left-[10%] xl:left-[14%]">
-            <LandingPhoneMockup />
+            <LandingPhoneMockup variant="scan" />
           </div>
           <div className="absolute right-[2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[5%] xl:right-[9%]">
-            <LandingPhoneMockup />
+            <LandingPhoneMockup variant="feeling" />
           </div>
         </div>
       </section>
@@ -583,7 +604,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                         <img
                           alt="Meal scan preview"
                           className="h-56 w-full object-cover"
-                          src="https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop"
+                          src={friedFoodPreviewUrl}
                         />
                       </div>
                       <div className="mt-5 flex items-center justify-between gap-4">
@@ -1215,9 +1236,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
   const [language, setLanguage] = useState<'English' | 'Russian'>('English');
+  const [selectedFeeling, setSelectedFeeling] = useState<FeelingOption | null>(null);
+  const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
+  const [cameraError, setCameraError] = useState('');
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const syncErrorMessage = 'Unable to sync entries. Please check your connection.';
   const scanErrorMessage = 'Unable to analyze this right now. Please try again.';
 
@@ -1253,6 +1279,56 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     };
   }, [scanPreviewUrl]);
 
+  useEffect(() => {
+    if (!cameraSheetOpen) {
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    setCameraError('');
+
+    async function startCamera() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError('Camera is not available in this browser. Upload a photo instead.');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 1280 },
+          },
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        cameraStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => undefined);
+        }
+      } catch {
+        setCameraError('Camera permission was blocked. Upload a photo instead.');
+      }
+    }
+
+    startCamera();
+
+    return () => {
+      cancelled = true;
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    };
+  }, [cameraSheetOpen]);
+
   const saveEntry = async (title: string) => {
     const optimisticEntry: DashboardEntry = {
       id: crypto.randomUUID(),
@@ -1283,6 +1359,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setActiveTab('home');
     setScanState('scanning');
     setDashboardError('');
+    setSelectedFeeling(null);
     setResultSheetOpen(false);
     setScanPreviewUrl((current) => {
       if (current) URL.revokeObjectURL(current);
@@ -1309,7 +1386,40 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   const openCamera = () => {
     setResultSheetOpen(false);
+    setCameraSheetOpen(true);
+  };
+
+  const openFilePicker = () => {
+    setCameraSheetOpen(false);
     fileInputRef.current?.click();
+  };
+
+  const captureCameraFrame = async () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) {
+      setCameraError('Camera is still loading. Try again in a second.');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1080;
+    canvas.height = video.videoHeight || 1080;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setCameraError('Unable to capture this frame. Upload a photo instead.');
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+    if (!blob) {
+      setCameraError('Unable to capture this frame. Upload a photo instead.');
+      return;
+    }
+
+    const file = new File([blob], `sensibite-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    setCameraSheetOpen(false);
+    await runImageScan(file);
   };
 
   const saveProfileDetails = () => {
@@ -1940,12 +2050,84 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               onClick={openCamera}
               type="button"
             >
-              <Plus className="h-9 w-9 stroke-[3]" />
+              <Camera className="h-8 w-8 stroke-[3]" />
             </button>
           </div>
         </div>
 
         <AnimatePresence>
+          {cameraSheetOpen && (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-50 flex flex-col bg-black text-white"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+            >
+              <div className="relative min-h-0 flex-1 overflow-hidden">
+                <video
+                  autoPlay
+                  className="h-full w-full object-cover"
+                  muted
+                  playsInline
+                  ref={videoRef}
+                />
+                <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-5 pb-12 pt-[max(18px,env(safe-area-inset-top))]">
+                  <button
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/12 backdrop-blur-xl transition active:scale-95"
+                    onClick={() => setCameraSheetOpen(false)}
+                    type="button"
+                    aria-label="Close camera"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                  <div className="text-center">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">SensiBite camera</p>
+                    <p className="mt-1 text-sm font-black">Frame the meal</p>
+                  </div>
+                  <button
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/12 backdrop-blur-xl transition active:scale-95"
+                    onClick={openFilePicker}
+                    type="button"
+                    aria-label="Upload photo"
+                  >
+                    <ScanLine className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="pointer-events-none absolute inset-x-10 top-1/2 aspect-square -translate-y-1/2 rounded-[34px] border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]" />
+
+                {cameraError && (
+                  <div className="absolute inset-x-5 top-28 rounded-[22px] bg-white p-4 text-zinc-950 shadow-2xl">
+                    <p className="text-sm font-black">Camera unavailable</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-zinc-500">{cameraError}</p>
+                    <button className="mt-3 h-11 w-full rounded-full bg-zinc-950 text-sm font-black text-white" onClick={openFilePicker} type="button">
+                      Upload food photo
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="shrink-0 bg-black px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-5">
+                <div className="mx-auto flex max-w-[420px] items-center justify-between">
+                  <button className="h-14 rounded-full px-5 text-sm font-black text-white/65 transition hover:text-white" onClick={openFilePicker} type="button">
+                    Upload
+                  </button>
+                  <button
+                    className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_0_0_8px_rgba(255,255,255,0.16)] transition active:scale-95"
+                    onClick={captureCameraFrame}
+                    type="button"
+                    aria-label="Capture food photo"
+                  >
+                    <Camera className="h-9 w-9 stroke-[2.8]" />
+                  </button>
+                  <button className="h-14 rounded-full px-5 text-sm font-black text-white/65 transition hover:text-white" onClick={() => setCameraSheetOpen(false)} type="button">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {profileSheetOpen && (
             <motion.div
               animate={{ opacity: 1 }}
@@ -2035,11 +2217,55 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{copy.verdict}</p>
                     <p className="mt-2 text-4xl font-black">{ratingLabel(scanResult.result.overallRating)}</p>
+                    <p className={cn('mt-2 text-sm font-bold', theme.muted)}>{Math.max(1, Math.round(scanResult.result.score / 10))}/10 meal rating</p>
                   </div>
                   <div className={cn('flex h-24 w-24 flex-col items-center justify-center rounded-full shadow-inner ring-1', isDarkMode ? 'bg-white/[0.08] ring-white/10' : 'bg-white ring-zinc-200')}>
                     <p className="text-3xl font-black">{scanResult.result.score}</p>
                     <p className="text-[10px] font-black uppercase text-zinc-400">{copy.score}</p>
                   </div>
+                </div>
+
+                <div className={cn('mt-5 rounded-[26px] p-5 ring-1', theme.soft)}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Самочувствие' : 'Feeling check-in'}</p>
+                      <h3 className="mt-2 text-2xl font-black leading-tight">{isRussian ? 'Как вы себя чувствуете?' : 'How do you feel after this?'}</h3>
+                    </div>
+                    {selectedFeeling && (
+                      <span className={cn('rounded-full px-3 py-1 text-xs font-black', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]')}>
+                        {isRussian ? 'Выбрано' : 'Selected'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {(['Fine', 'Bloated', 'Pain', 'Nausea'] as FeelingOption[]).map((feeling) => {
+                      const active = selectedFeeling === feeling;
+                      return (
+                        <button
+                          className={cn(
+                            'h-12 rounded-[16px] text-sm font-black transition duration-200 active:scale-[0.97]',
+                            active
+                              ? isDarkMode
+                                ? 'bg-white text-zinc-950'
+                                : 'bg-zinc-950 text-white'
+                              : isDarkMode
+                                ? 'bg-white/[0.06] text-white/70 hover:text-white'
+                                : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
+                          )}
+                          key={feeling}
+                          onClick={() => setSelectedFeeling(feeling)}
+                          type="button"
+                        >
+                          {feeling}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className={cn('mt-3 text-xs font-semibold leading-5', theme.muted)}>
+                    {selectedFeeling
+                      ? `${selectedFeeling} will be connected to ${scanResult.result.productName}.`
+                      : 'Pick one feeling so this scan can become a useful pattern later.'}
+                  </p>
                 </div>
 
                 <div className="mt-5 space-y-3">
@@ -2070,7 +2296,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </button>
                   <button
                     className={cn('h-14 rounded-full text-sm font-black transition active:scale-[0.98]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
-                    onClick={() => setResultSheetOpen(false)}
+                    onClick={async () => {
+                      if (selectedFeeling) {
+                        await saveEntry(`${selectedFeeling} after ${scanResult.result.productName}`);
+                      }
+                      setDashboardError(selectedFeeling ? `${selectedFeeling} connected to this scan.` : 'Scan saved to timeline.');
+                      setResultSheetOpen(false);
+                    }}
                     type="button"
                   >
                     {copy.saveToTimeline}
