@@ -86,7 +86,7 @@ const onboardingSteps: OnboardingStep[] = [
     id: 'welcome',
     kind: 'intro',
     title: 'You are closer than you think.',
-    subtitle: 'Answer a few fast questions. SensiBite will keep the food memory part simple for you.',
+    subtitle: 'Answer a few fast questions. SensiBite will make every scan feel more personal from the start.',
   },
   {
     id: 'goal',
@@ -140,14 +140,16 @@ const onboardingSteps: OnboardingStep[] = [
     id: 'diet-type',
     kind: 'single',
     field: 'dietType',
-    title: 'What diet fits you best?',
+    title: 'What eating style fits you best?',
+    subtitle: 'Solid. This helps SensiBite avoid generic advice.',
     options: ['No specific diet', 'High protein', 'Vegetarian', 'Vegan', 'Low carb', 'Halal', 'Low FODMAP'],
   },
   {
     id: 'meal-rhythm',
     kind: 'single',
     field: 'mealRhythm',
-    title: 'What does your eating rhythm look like?',
+    title: 'What does a normal day look like?',
+    subtitle: 'This tells the AI whether timing might matter.',
     options: ['Regular meals', 'I snack a lot', 'I skip meals', 'Late meals often'],
   },
   {
@@ -155,13 +157,15 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'restaurantFrequency',
     title: 'How often do you eat out?',
+    subtitle: 'Good to know. Restaurant food often hides sauces, oils, and timing patterns.',
     options: ['Rarely', '1-2 times weekly', '3-5 times weekly', 'Almost daily'],
   },
   {
     id: 'late-food',
     kind: 'single',
     field: 'lateFood',
-    title: 'How often do you eat after 8 PM?',
+    title: 'How often do late meals happen?',
+    subtitle: 'Good detail. Late food can change what patterns mean.',
     options: ['Rarely', 'Sometimes', 'Often', 'Almost every night'],
   },
   {
@@ -169,6 +173,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'stressImpact',
     title: 'Does stress affect your stomach?',
+    subtitle: 'This helps separate food patterns from stressful-day noise.',
     options: ['Not really', 'Sometimes', 'Clearly yes', 'I am not sure'],
   },
   {
@@ -176,6 +181,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'sleepImpact',
     title: 'Does poor sleep change your digestion?',
+    subtitle: 'Nice detail. Sleep can change how the same meal feels.',
     options: ['No', 'A little', 'A lot', 'I never noticed'],
   },
   {
@@ -183,6 +189,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'hydration',
     title: 'How is your water intake?',
+    subtitle: 'Simple context, but useful for reading patterns later.',
     options: ['Low', 'Average', 'Good', 'Very high'],
   },
   {
@@ -190,13 +197,15 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'caffeine',
     title: 'How much caffeine do you drink?',
+    subtitle: 'This can matter for stomach sensitivity and energy drinks.',
     options: ['None', '1 cup', '2-3 cups', 'Energy drinks'],
   },
   {
     id: 'soda',
     kind: 'single',
     field: 'carbonation',
-    title: 'How often do you drink soda or sparkling drinks?',
+    title: 'How often do fizzy drinks show up?',
+    subtitle: 'Great signal. Soda and carbonation are common pattern noise.',
     options: ['Rarely', 'Sometimes', 'Often', 'Daily'],
   },
   {
@@ -204,34 +213,39 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'spiceTolerance',
     title: 'How do spicy foods treat you?',
+    subtitle: 'This gives SensiBite a personal sensitivity baseline.',
     options: ['Fine', 'Sometimes bad', 'Usually bad', 'I avoid them'],
   },
   {
     id: 'dairy',
     kind: 'single',
     field: 'dairyPattern',
-    title: 'What happens after dairy?',
+    title: 'How does dairy usually go?',
+    subtitle: 'You are giving the AI useful personal context.',
     options: ['Usually fine', 'Sometimes bloated', 'Often bloated', 'I avoid dairy'],
   },
   {
     id: 'bread',
     kind: 'single',
     field: 'breadPattern',
-    title: 'What happens after bread or floury food?',
+    title: 'How do bread or floury foods feel?',
+    subtitle: 'This is one of the highest-signal questions.',
     options: ['Usually fine', 'Heavy stomach', 'Bloating', 'I avoid it'],
   },
   {
     id: 'fried',
     kind: 'single',
     field: 'friedPattern',
-    title: 'What happens after fried food?',
-    options: ['Usually fine', 'Sometimes bad', 'Often bad', 'Guaranteed regret'],
+    title: 'How does fried food usually feel?',
+    subtitle: 'Useful. This helps the scanner judge junk food harder for you.',
+    options: ['Usually fine', 'Sometimes bad', 'Often bad', 'I avoid it'],
   },
   {
     id: 'consistency',
     kind: 'single',
     field: 'consistency',
-    title: 'Why do food diaries fail for you?',
+    title: 'Why do trackers usually fail?',
+    subtitle: 'Honest answers make the app easier to stick with.',
     options: ['I forget', 'Too much typing', 'No useful result', 'I never tried'],
   },
   {
@@ -239,13 +253,14 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'motivation',
     title: 'What would keep you coming back?',
+    subtitle: 'Perfect. The dashboard should match what feels useful to you.',
     options: ['Fast check-ins', 'Pattern callouts', 'Streaks', 'Clear food ratings'],
   },
   {
     id: 'timeline',
     kind: 'timeline',
-    title: 'How fast do you want clarity?',
-    subtitle: 'SensiBite estimates when your first repeat patterns should become visible.',
+    title: 'How patient should SensiBite be?',
+    subtitle: 'Patterns need repeat signals. Choose a pace you will actually keep.',
   },
   {
     id: 'basics',
@@ -265,8 +280,9 @@ const onboardingSteps: OnboardingStep[] = [
     id: 'data-priority',
     kind: 'single',
     field: 'dataPriority',
-    title: 'What should the dashboard focus on first?',
-    options: ['Symptoms', 'Likely triggers', 'Pattern score', 'Consistency streaks'],
+    title: 'What should the app show first?',
+    subtitle: 'Nice. This keeps your dashboard focused instead of noisy.',
+    options: ['Symptoms', 'Likely triggers', 'Scan ratings', 'Consistency'],
   },
   {
     id: 'investment',
@@ -287,10 +303,29 @@ const personalizationStepIds = new Set([
   'goal',
   'symptoms',
   'symptom-time',
+  'tracking-style',
   'suspected-foods',
   'allergies',
+  'diet-type',
+  'meal-rhythm',
+  'restaurant-frequency',
+  'late-food',
+  'stress',
+  'sleep',
+  'water',
+  'caffeine',
+  'soda',
+  'spice',
+  'dairy',
+  'bread',
+  'fried',
+  'consistency',
+  'motivation',
+  'timeline',
   'basics',
   'checkins',
+  'data-priority',
+  'investment',
   'processing',
 ]);
 const setupSteps = onboardingSteps.filter((step) => personalizationStepIds.has(step.id));
@@ -299,18 +334,20 @@ const SENSIBITE_PROFILE_STORAGE_KEY = 'sensibite-profile-v1';
 
 type StoredSensiProfile = Pick<
   SetupProfile,
-  'age' | 'allergies' | 'checkInsPerDay' | 'dietType' | 'gender' | 'goal' | 'heightCm' | 'symptoms' | 'timelineWeeks' | 'triggers' | 'unitSystem' | 'weightKg'
+  'age' | 'allergies' | 'answers' | 'checkInsPerDay' | 'dietType' | 'gender' | 'goal' | 'heightCm' | 'multiAnswers' | 'symptoms' | 'timelineWeeks' | 'triggers' | 'unitSystem' | 'weightKg'
 >;
 
 function toStoredProfile(profile: SetupProfile): StoredSensiProfile {
   return {
     age: profile.age,
     allergies: profile.allergies,
+    answers: profile.answers,
     checkInsPerDay: profile.checkInsPerDay,
     dietType: profile.dietType,
     gender: profile.gender,
     goal: profile.goal,
     heightCm: profile.heightCm,
+    multiAnswers: profile.multiAnswers,
     symptoms: profile.symptoms,
     timelineWeeks: profile.timelineWeeks,
     triggers: profile.triggers,
@@ -335,11 +372,20 @@ function readStoredProfile(): StoredSensiProfile | null {
     return {
       age: typeof parsed.age === 'number' ? parsed.age : 24,
       allergies: Array.isArray(parsed.allergies) ? parsed.allergies.filter((value): value is string => typeof value === 'string') : [],
+      answers: isRecord(parsed.answers) ? Object.fromEntries(Object.entries(parsed.answers).filter(([, value]) => typeof value === 'string')) as Record<string, string> : {},
       checkInsPerDay: typeof parsed.checkInsPerDay === 'number' ? parsed.checkInsPerDay : 2,
       dietType: typeof parsed.dietType === 'string' ? parsed.dietType : 'No specific diet',
       gender: parsed.gender === 'Male' || parsed.gender === 'Other' ? parsed.gender : 'Female',
       goal: parsed.goal === 'Reduce bloating' || parsed.goal === 'Build consistency' ? parsed.goal : 'Find triggers',
       heightCm: typeof parsed.heightCm === 'number' ? parsed.heightCm : 170,
+      multiAnswers: isRecord(parsed.multiAnswers)
+        ? Object.fromEntries(
+            Object.entries(parsed.multiAnswers).map(([key, value]) => [
+              key,
+              Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [],
+            ]),
+          )
+        : {},
       symptoms: Array.isArray(parsed.symptoms) ? parsed.symptoms.filter((value): value is string => typeof value === 'string') : [],
       timelineWeeks: typeof parsed.timelineWeeks === 'number' ? parsed.timelineWeeks : 6,
       triggers: Array.isArray(parsed.triggers) ? parsed.triggers.filter((value): value is string => typeof value === 'string') : [],
@@ -358,6 +404,8 @@ function getProfileScanTriggers(profile: StoredSensiProfile | null) {
     ...(profile?.symptoms ?? []),
     profile?.dietType,
     profile?.goal,
+    ...Object.entries(profile?.answers ?? {}).map(([key, value]) => `${key}: ${value}`),
+    ...Object.entries(profile?.multiAnswers ?? {}).flatMap(([key, values]) => values.map((value) => `${key}: ${value}`)),
   ];
 
   return Array.from(new Set(values.filter((value): value is string => Boolean(value && value !== 'None')))).slice(0, 12);
@@ -405,6 +453,10 @@ function normalizeUsername(value: string) {
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 24);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isUnreadableScan(scan: ImageScanPayload, usedFallback = false) {
@@ -594,13 +646,13 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       <section className="mx-auto grid min-h-[calc(100svh-76px)] w-full max-w-[1680px] items-center gap-8 px-5 pb-10 pt-7 md:min-h-[calc(100svh-86px)] md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
         <div className="relative z-10 max-w-[700px]">
           <p className="mb-5 inline-flex min-h-10 items-center rounded-full bg-white px-4 text-sm font-black text-zinc-600 shadow-sm ring-1 ring-zinc-950/[0.06]">
-            Photo-first food memory
+            Scan once. Check in later.
           </p>
           <h1 className="max-w-[760px] text-[42px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:text-[84px]">
-            Spot the pattern before it disappears.
+            Find the food pattern faster.
           </h1>
           <p className="mt-6 max-w-[660px] text-[18px] font-semibold leading-8 text-[#5f574d] md:text-[23px] md:leading-[1.42]">
-            Snap what you ate. Check in when you feel off. SensiBite connects the timing, meal, and symptom so repeat triggers stop slipping through.
+            Take a photo when you eat. Tap how you felt later. SensiBite turns those tiny moments into a private timeline you can actually use.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row md:gap-4">
             <button
@@ -615,7 +667,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               onClick={() => scrollToSection('product')}
               type="button"
             >
-              See product
+              How it works
             </button>
           </div>
         </div>
@@ -634,10 +686,10 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         <div className="mx-auto max-w-[1480px]">
           <div className="mx-auto max-w-[960px] text-center">
               <h2 className="mx-auto max-w-[850px] text-5xl font-black leading-[1.02] md:text-7xl">
-                One photo now. Clearer patterns later.
+                One scan, one check-in, then a pattern.
               </h2>
               <p className="mx-auto mt-6 max-w-[820px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
-                SensiBite removes the heavy part of food tracking. Scan what you ate, check in when your body reacts, and let the timeline build itself.
+                SensiBite keeps the loop short enough for real life: capture the meal, log the reaction, and let repeated signals surface naturally.
               </p>
           </div>
 
@@ -746,12 +798,12 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         <div className="mx-auto max-w-[1500px]">
           <div className="mx-auto max-w-[1120px] text-center">
             <h2 className="text-[48px] font-black leading-[0.98] md:text-[86px]">
-              More than tracking meals.
+              Track the reaction,
               <br />
-              See what keeps showing up.
+              not just the meal.
             </h2>
             <p className="mx-auto mt-7 max-w-[850px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
-              SensiBite turns photos, check-ins, and timing into one clear picture, so repeated meals stop disappearing from memory.
+              A meal photo is only half the story. SensiBite links what you ate with when you felt fine, bloated, nauseous, or in pain.
             </p>
             <div className="mx-auto mt-10 grid max-w-[1040px] gap-3 text-left md:grid-cols-3">
               {[
@@ -842,7 +894,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         <div className="mx-auto grid max-w-[1500px] gap-8 border-t border-zinc-200 pt-10 md:grid-cols-[1fr_auto_auto]">
           <div>
             <p className="text-2xl font-black">SensiBite</p>
-            <p className="mt-4 max-w-[360px] text-sm font-semibold leading-6 text-zinc-500">Private food memory for meals, check-ins, and possible repeat patterns.</p>
+            <p className="mt-4 max-w-[360px] text-sm font-semibold leading-6 text-zinc-500">Private meal scans, symptom check-ins, and possible repeat patterns.</p>
           </div>
           <div className="space-y-3 text-sm font-bold text-zinc-500">
             <p className="font-black text-zinc-950">Legal</p>
@@ -2933,12 +2985,12 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
 
           <div className="mt-6 rounded-[30px] bg-white p-4 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05] sm:p-5">
             <div className="rounded-[24px] bg-[#f7f6f2] p-4 sm:p-5">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Private memory</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Personal scan context</p>
               <h2 className="mt-3 text-[24px] font-black leading-[1.04] text-zinc-950 sm:text-[28px]">
-                Build a profile that helps the scan understand you.
+                Give the AI a better starting point.
               </h2>
               <p className="mt-3 text-[13px] font-semibold leading-6 text-zinc-500 sm:text-[14px]">
-                SensiBite uses your answers to read food photos with better context, then connects later check-ins back to the meals that came before.
+                Your answers help SensiBite judge scans with your symptoms, habits, and avoided foods in mind.
               </p>
             </div>
 
