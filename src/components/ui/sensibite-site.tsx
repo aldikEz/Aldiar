@@ -873,7 +873,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               </div>
 
               <div className="mt-7 rounded-[26px] bg-[#fbfaf7] p-5 text-zinc-950 ring-1 ring-zinc-950/[0.04]">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Pattern score</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Pattern clarity</p>
                 <div className="mt-4 flex items-end justify-between gap-4">
                   <div>
                     <p className="text-6xl font-black leading-none">6/10</p>
@@ -1061,7 +1061,7 @@ const legalPageContent: Record<
     sections: [
       {
         title: 'General contact',
-        body: 'Use this page for product questions, demo requests, feedback, and non-urgent account questions. You can also contact support@sensibite.ai.',
+        body: 'Use this page for product questions, feedback, and non-urgent account questions. You can also contact support@sensibite.ai.',
       },
       {
         title: 'Privacy requests',
@@ -1687,42 +1687,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const isRussian = language === 'Russian';
   const scanCount = visibleLogs.length;
   const gutScoreOutOfTen = scanResult ? Math.max(1, Math.round(scanResult.result.score / 10)) : null;
-  const gutScorePercent = gutScoreOutOfTen ? gutScoreOutOfTen * 10 : 0;
   const latestTitle = scanResult?.result.productName ?? visibleLogs[0]?.title ?? '';
   const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
   const profileBmi = getBmiFromProfile(storedProfile);
-  const topDashboardCards = [
-    {
-      value: String(scanCount),
-      title: 'Scans',
-      subtitle: hasActivity ? 'Saved' : 'Start here',
-      color: '#18181b',
-      progress: hasActivity ? Math.min(100, scanCount * 18) : 0,
-      action: 'Scan',
-      detail: hasActivity ? 'Open camera' : 'Scan first',
-      interactive: false,
-    },
-    {
-      value: hasActivity ? '1+' : 'None',
-      title: 'Patterns',
-      subtitle: hasActivity ? 'Review' : 'Needs scans',
-      color: '#71717a',
-      progress: hasActivity ? 42 : 0,
-      action: 'Progress',
-      detail: hasActivity ? 'View details' : 'Build it',
-      interactive: true,
-    },
-    {
-      value: gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : '--',
-      title: 'Score',
-      subtitle: gutScoreOutOfTen ? 'Latest scan' : 'No score',
-      color: '#18181b',
-      progress: gutScorePercent,
-      action: 'Progress',
-      detail: gutScoreOutOfTen ? `${gutScoreOutOfTen} out of 10` : 'First scan',
-      interactive: false,
-    },
-  ];
   const navItems: Array<{ id: DashboardTab; label: string; icon: typeof Home }> = [
     { id: 'home', label: isRussian ? 'Главная' : 'Home', icon: Home },
     { id: 'progress', label: isRussian ? 'Паттерны' : 'Patterns', icon: BarChart3 },
@@ -1785,7 +1752,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const dashboardNoticeIsSuccess =
     dashboardError.includes('updated') ||
     dashboardError.includes('changed') ||
-    dashboardError.includes('created');
+    dashboardError.includes('created') ||
+    dashboardError.includes('saved');
   const dashboardNoticeTitle = dashboardNoticeIsSuccess ? dashboardError.replace('.', '') : dashboardError === scanErrorMessage ? 'Scan issue' : 'Notice';
 
   const progressPage = (
@@ -1796,19 +1764,19 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0">
             <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
-              {hasActivity ? (isRussian ? 'Последний результат' : 'Latest result') : (isRussian ? 'Пока пусто' : 'Nothing tracked yet')}
+              {hasActivity ? (isRussian ? 'Последний результат' : 'Latest result') : (isRussian ? 'Первый шаг' : 'First step')}
             </p>
             <h2 className="mt-3 text-3xl font-black leading-none">
-              {hasActivity ? (latestTitle || (isRussian ? 'Скан сохранен' : 'Scan saved')) : (isRussian ? 'Сделайте первый скан' : 'Start with one scan')}
+              {hasActivity ? (latestTitle || (isRussian ? 'Скан сохранен' : 'Scan saved')) : (isRussian ? 'Сканируйте этикетку' : 'Scan a label')}
             </h2>
             <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
               {hasActivity
                 ? latestReason || (isRussian ? 'Новые сканы будут сравниваться с этим результатом.' : 'Future scans will compare against this first food event.')
-                : (isRussian ? 'После фото здесь появятся оценка, история и возможные повторяющиеся сигналы.' : 'After a photo, this page will show score, history, and possible repeat signals.')}
+                : (isRussian ? 'Сделайте четкое фото состава. Размытые фото не будут сохраняться.' : 'Take a clear ingredient photo. Blurry scans will be rejected instead of polluting your history.')}
             </p>
           </div>
           <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
-            <span className="text-3xl font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}` : 'N/A'}</span>
+            <span className="text-3xl font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}` : '--'}</span>
             <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{isRussian ? 'балл' : 'score'}</span>
           </div>
         </div>
@@ -1818,7 +1786,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           onClick={openCamera}
           type="button"
         >
-          {hasActivity ? (isRussian ? 'Сканировать еще' : 'Scan another meal') : (isRussian ? 'Сделать первый скан' : 'Scan first meal')}
+          {hasActivity ? (isRussian ? 'Сканировать еще' : 'Scan another label') : (isRussian ? 'Открыть камеру' : 'Open camera')}
         </button>
       </div>
 
@@ -1867,9 +1835,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           )) : (
             <div className={cn('rounded-[24px] p-5 text-center', theme.soft)}>
               <ScanLine className={cn('mx-auto h-8 w-8', theme.muted)} />
-              <p className="mt-3 text-base font-black">{isRussian ? 'Истории пока нет' : 'No history yet'}</p>
+              <p className="mt-3 text-base font-black">{isRussian ? 'История начнется после скана' : 'History starts after one scan'}</p>
               <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>
-                {isRussian ? 'Первый AI-скан создаст вашу временную ленту.' : 'Your first AI scan creates the timeline.'}
+                {isRussian ? 'Здесь будут только ваши сохраненные результаты.' : 'Only your saved scan results appear here.'}
               </p>
             </div>
           )}
@@ -1888,7 +1856,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             </p>
           </div>
           <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
-            <span className="text-3xl font-black">{profileBmi?.display ?? 'N/A'}</span>
+            <span className="text-3xl font-black">{profileBmi?.display ?? '--'}</span>
             <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{profileBmi?.category ?? (isRussian ? 'нет' : 'none')}</span>
           </div>
         </div>
@@ -2016,7 +1984,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           </button>
         </div>
 
-        <div className="relative z-10 mx-auto min-h-0 w-full max-w-[1180px] flex-1 overflow-y-auto pb-32 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative z-10 mx-auto min-h-0 w-full max-w-[760px] flex-1 overflow-y-auto pb-32 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <AnimatePresence mode="wait">
             <motion.div
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -2046,83 +2014,27 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     Scan
                   </button>
                 </div>
-                <div className="hidden">
-                  {topDashboardCards.map((card, index) => (
-                    <button
-                      className={cn(
-                        'group flex min-h-[132px] flex-col justify-between rounded-[24px] p-3 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] sm:p-4',
-                        theme.card,
-                        index === 0 && 'col-span-2 sm:col-span-1',
-                        card.interactive && (isDarkMode ? 'ring-white/20 hover:ring-white/[0.45]' : 'ring-zinc-200 hover:ring-zinc-400'),
-                      )}
-                      key={card.title}
-                      onClick={() => {
-                        if (card.action === 'Scan') openCamera();
-                        if (card.action === 'Progress') setActiveTab('progress');
-                      }}
-                      type="button"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[18px] font-black leading-none sm:text-[20px]">{card.value}</p>
-                          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-400">{card.subtitle}</p>
-                        </div>
-                        {card.interactive && (
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 transition group-hover:bg-zinc-950 group-hover:text-white">
-                            <ChevronRight className="h-4 w-4" />
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-end justify-between gap-2">
-                        <div>
-                          <p className="text-[12px] font-black leading-tight">{card.title}</p>
-                          <p className={cn('mt-1 text-[10px] font-bold leading-tight', theme.muted)}>{card.detail}</p>
-                        </div>
-                        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.08] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
-                          {card.interactive ? (
-                            <BarChart3 className="h-4 w-4 text-zinc-700" />
-                          ) : (
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: card.color }} />
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  className={cn('hidden', theme.card)}
-                  onClick={() => setActiveTab('progress')}
-                  type="button"
-                >
+                <section className={cn('mt-8 rounded-[36px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.14)] ring-1 transition-colors duration-700', theme.card)}>
                   <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[14px] font-black">Pattern score</p>
-                        <p className="text-[14px] font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : 'Scan first'}</p>
-                      </div>
-                      <div className={cn('mt-3 h-2 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
-                        <div className="h-full rounded-full bg-zinc-950" style={{ width: `${gutScorePercent}%` }} />
-                      </div>
-                      <p className="mt-4 line-clamp-3 text-[12px] font-medium leading-[1.25] text-zinc-500">
-                        {scanResult
-                          ? `${scanResult.result.productName}: ${scanResult.result.flaggedChemicals[0]?.reason ?? 'SensiBite saved this result to your pattern memory.'}`
-                          : 'Take one food photo to create your first baseline.'}
+                    <div className="min-w-0">
+                      <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
+                        {hasActivity ? (isRussian ? 'Последний скан' : 'Latest scan') : (isRussian ? 'Начните здесь' : 'Start here')}
+                      </p>
+                      <h2 className="mt-3 text-[34px] font-black leading-[0.98]">
+                        {hasActivity ? (latestTitle || 'Scan saved') : (isRussian ? 'Сфотографируйте этикетку' : 'Scan the label')}
+                      </h2>
+                      <p className={cn('mt-3 max-w-[520px] text-sm font-semibold leading-6', theme.muted)}>
+                        {hasActivity
+                          ? latestReason || 'Result saved. Add a later feeling check-in when your body reacts.'
+                          : 'Fill the camera square with the ingredients. If the label is blurry, SensiBite will ask you to retake it instead of saving junk data.'}
                       </p>
                     </div>
-                    <div className={cn('relative h-[70px] w-[70px] shrink-0 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
-                      <div
-                        className="absolute inset-1 rounded-full"
-                        style={{ background: `conic-gradient(#18181b ${gutScorePercent}%, ${isDarkMode ? '#303033' : '#eef0f2'} ${gutScorePercent}% 100%)` }}
-                      />
-                      <div className={cn('absolute inset-[10px] flex items-center justify-center rounded-full text-sm font-black', isDarkMode ? 'bg-[#1b1b1d]' : 'bg-white')}>{gutScoreOutOfTen ?? '--'}</div>
+                    <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-[#f2f1f8] ring-zinc-950/[0.04]')}>
+                      <Camera className="h-7 w-7" />
+                      <span className={cn('mt-1 text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>AI</span>
                     </div>
                   </div>
-                </button>
 
-                <div className="mt-8">
-                  <p className="text-[20px] font-black">{isRussian ? 'Снимок еды' : 'Snap food'}</p>
                   {scanState === 'scanning' && (
                     <div className={cn('mt-4 rounded-[22px] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] ring-1', isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.06]' : 'bg-white text-zinc-950 ring-zinc-950/[0.05]')}>
                       <div className="flex items-center gap-4">
@@ -2143,91 +2055,38 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     </div>
                   )}
                   <button
-                    className={cn('mt-4 w-full rounded-[32px] p-5 text-left shadow-[0_22px_54px_rgba(0,0,0,0.12)] ring-1 transition-all duration-700 active:scale-[0.99]', theme.soft)}
+                    className={cn('mt-5 flex min-h-[86px] w-full items-center justify-between gap-4 rounded-[28px] p-5 text-left shadow-[0_18px_46px_rgba(0,0,0,0.14)] ring-1 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.985]', isDarkMode ? 'bg-white text-zinc-950 ring-white/10' : 'bg-zinc-950 text-white ring-zinc-950')}
                     onClick={openCamera}
                     type="button"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-4">
-                        <div className={cn('flex h-14 w-14 items-center justify-center rounded-full shadow-[0_8px_18px_rgba(15,23,42,0.07)]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950')}>
-                          <Camera className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-[18px] font-black">{scanResult?.result.productName ?? (isRussian ? 'Сфотографируйте этикетку' : 'Take a label photo')}</p>
-                          <p className="mt-2 flex items-center gap-1 text-[15px] font-black">
-                            <Activity className="h-4 w-4 fill-zinc-950" />
-                            {scanResult ? `${scanResult.result.score}/100 score` : (isRussian ? 'Откроется камера' : 'Camera opens instantly')}
-                          </p>
-                          <div className={cn('mt-3 flex items-center gap-3 text-[10px] font-medium', theme.muted)}>
-                            <span className="inline-flex items-center gap-1">
-                              <ScanLine className="h-3 w-3" />
-                              {scanState === 'scanning' ? (isRussian ? 'Сканируем' : 'Scanning') : hasActivity ? 'Last scan saved' : (isRussian ? 'Наведите на состав' : 'Point at the ingredients')}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="shrink-0 text-[10px] font-bold text-zinc-500">{hasActivity ? (isRussian ? 'Сохранено' : 'Saved') : (isRussian ? 'Новое' : 'New')}</p>
+                    <div className="flex min-w-0 items-center gap-4">
+                      <span className={cn('flex h-14 w-14 shrink-0 items-center justify-center rounded-full', isDarkMode ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-950')}>
+                        <Camera className="h-6 w-6" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[20px] font-black">{scanResult ? 'Scan another label' : 'Open camera'}</span>
+                        <span className={cn('mt-1 block text-sm font-bold', isDarkMode ? 'text-zinc-600' : 'text-white/68')}>
+                          {scanResult ? `${scanResult.result.score}/100 latest score` : 'Ingredients first. No blurry saves.'}
+                        </span>
+                      </span>
                     </div>
-                    <div className={cn('mt-4 rounded-[18px] p-3', isDarkMode ? 'bg-white/[0.06]' : 'bg-white/80')}>
-                      <p className={cn('text-[12px] font-semibold leading-5', theme.muted)}>
-                        {scanResult
-                          ? 'Saved. Add how you felt later to build the pattern.'
-                          : 'Snap the label. Get a simple rating. Retake if the text is blurry.'}
-                      </p>
-                    </div>
+                    <ChevronRight className="h-6 w-6 shrink-0" />
                   </button>
-                </div>
 
-                <div className={cn('hidden', theme.card)}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', theme.faint)}>
-                        {isRussian ? 'Сегодня' : "Today's loop"}
-                      </p>
-                      <h2 className="mt-2 text-[25px] font-black leading-tight">
-                        {hasActivity ? (isRussian ? 'Закройте петлю самочувствия' : 'Close the feeling loop') : (isRussian ? 'Сканируйте один прием еды' : 'Scan one meal today')}
-                      </h2>
-                      <p className={cn('mt-2 max-w-[420px] text-sm font-semibold leading-6', theme.muted)}>
-                        {hasActivity
-                          ? 'Tap how you felt after the last scan so SensiBite can connect cause and reaction.'
-                          : 'One photo now. One feeling check-in later. That is enough to start learning.'}
-                      </p>
-                    </div>
-                    <button
-                      className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition active:scale-[0.96]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
-                      onClick={openCamera}
-                      type="button"
-                      aria-label={copy.logFood}
-                    >
-                      <Camera className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-5 grid grid-cols-3 gap-2">
                     {[
-                      {
-                        title: isRussian ? 'Фото' : 'Photo',
-                        body: hasActivity ? (isRussian ? 'Готово' : 'Done') : (isRussian ? 'Сделать' : 'Do it'),
-                        icon: Camera,
-                      },
-                      {
-                        title: isRussian ? 'Самочувствие' : 'Feeling',
-                        body: selectedFeeling ?? (isRussian ? 'Позже' : 'Later'),
-                        icon: Activity,
-                      },
-                      {
-                        title: isRussian ? 'Паттерн' : 'Pattern',
-                        body: hasActivity ? (isRussian ? 'Учится' : 'Learning') : (isRussian ? 'Пусто' : 'Empty'),
-                        icon: BarChart3,
-                      },
-                    ].map(({ title, body, icon: Icon }) => (
-                      <div className={cn('rounded-[20px] p-4', theme.soft)} key={title}>
+                      [Camera, 'Scan', hasActivity ? `${scanCount} saved` : 'First meal'],
+                      [Activity, 'Feel', selectedFeeling ?? 'Later'],
+                      [BarChart3, 'Pattern', hasActivity ? 'Learning' : 'Waiting'],
+                    ].map(([Icon, title, body]) => (
+                      <div className={cn('min-h-[86px] rounded-[22px] p-3 ring-1', theme.soft)} key={String(title)}>
                         <Icon className={cn('h-5 w-5', theme.muted)} />
-                        <p className="text-sm font-black">{title}</p>
-                        <p className="mt-1 text-xl font-black leading-none">{body}</p>
+                        <p className="mt-3 text-sm font-black">{title as string}</p>
+                        <p className={cn('mt-1 truncate text-xs font-bold', theme.muted)}>{body as string}</p>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
               </>
               )}
               {activeTab === 'progress' && progressPage}
@@ -2768,6 +2627,30 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
   const bmiDisplay = bmi > 0 ? bmi.toFixed(1) : '--';
   const bmiPointer = Math.min(100, Math.max(0, ((Math.min(40, Math.max(15, bmi || 15)) - 15) / 25) * 100));
   const bmiLabel = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Balanced' : bmi < 30 ? 'Elevated' : 'High';
+  const stepEncouragement: Record<string, string> = {
+    goal: 'Good. This tells SensiBite what to optimize first.',
+    symptoms: 'Useful signal. Symptoms are what make the scan personal.',
+    'symptom-time': 'Timing matters. This helps connect the right meal later.',
+    'tracking-style': 'That is exactly what this flow is designed to reduce.',
+    'suspected-foods': 'These become your first personal watchlist.',
+    allergies: 'Hard avoids stay separate from softer pattern hints.',
+    'diet-type': 'This keeps ratings from sounding generic.',
+    'meal-rhythm': 'Meal rhythm helps separate habit from ingredient.',
+    'restaurant-frequency': 'Restaurant context changes how hidden ingredients are judged.',
+    'late-food': 'Late meals can change what the same food feels like.',
+    stress: 'This helps avoid blaming food for every bad day.',
+    sleep: 'Sleep context makes the pattern map more honest.',
+    water: 'Small baseline details prevent noisy conclusions.',
+    caffeine: 'Caffeine context is important for drinks and stomach sensitivity.',
+    soda: 'Carbonation and sugar get treated as real signals.',
+    spice: 'Spice tolerance changes how aggressive the scan should be.',
+    dairy: 'Dairy context is high-signal for a lot of users.',
+    bread: 'Bread and flour patterns are worth tracking separately.',
+    fried: 'Fried-food sensitivity will make scan ratings stricter.',
+    consistency: 'The product should fit your weak point, not fight it.',
+    motivation: 'The dashboard will feel better when it matches this.',
+    'data-priority': 'Good. SensiBite will keep the main screen focused.',
+  };
 
   const renderSingleChoice = (step: OnboardingStep) => (
     <div className="space-y-3">
@@ -3061,7 +2944,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
           <h1 className="text-[38px] font-black leading-[0.98] text-zinc-950">{currentStep.title}</h1>
           {currentStep.subtitle && <p className="mt-4 text-base font-semibold leading-7 text-zinc-500">{currentStep.subtitle}</p>}
           <p className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05]">
-            Good pace. This answer makes your scans more personal.
+            {stepEncouragement[currentStep.id] ?? 'Good. This answer makes your scans more personal.'}
           </p>
         </div>
         <div className="mt-9">
@@ -3106,11 +2989,11 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
                 SensiBite
               </h1>
               <p className="mx-auto mt-4 text-base font-semibold leading-7 text-zinc-500">
-                Save your profile, scan meals, and keep your private pattern timeline synced.
+                Sign in to keep your scans, check-ins, and personal food patterns in one private place.
               </p>
 
               <div className="mt-7 grid gap-2 text-left">
-                {['Private food memory', 'AI scan history', 'Pattern dashboard'].map((item) => (
+                {['Clear label scans', 'Personal trigger context', 'Private pattern timeline'].map((item) => (
                   <div className="flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)] ring-1 ring-zinc-950/[0.04]" key={item}>
                     <Check className="h-4 w-4 stroke-[3]" />
                     <span className="text-sm font-black text-zinc-800">{item}</span>
