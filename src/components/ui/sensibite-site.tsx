@@ -375,18 +375,18 @@ function getBmiFromProfile(profile: StoredSensiProfile | null) {
   };
 }
 
-function LandingPhoneMockup({ className = '', dark = false }: { className?: string; dark?: boolean }) {
-  const surface = dark ? 'bg-[#050505] text-white' : 'bg-[#f8f8f8] text-zinc-950';
-  const card = dark ? 'bg-[#1b1b1d] ring-white/[0.06]' : 'bg-white ring-zinc-950/[0.04]';
-  const soft = dark ? 'bg-white/[0.07]' : 'bg-[#f2f1f8]';
+function LandingPhoneMockup({ className = '' }: { className?: string }) {
+  const surface = 'bg-[#f8f8f8] text-zinc-950';
+  const card = 'bg-white ring-zinc-950/[0.04]';
+  const soft = 'bg-[#f2f1f8]';
 
   return (
     <div className={cn('pointer-events-none select-none', className)}>
       <IPhoneMockup
         model="15-pro"
-        color={dark ? 'space-black' : 'natural-titanium'}
+        color="natural-titanium"
         scale={0.66}
-        screenBg={dark ? '#050505' : '#f8f8f8'}
+        screenBg="#f8f8f8"
         showHomeIndicator={false}
         safeArea={false}
         shadow="0 34px 90px rgba(15,23,42,0.22), 0 10px 28px rgba(15,23,42,0.12)"
@@ -553,7 +553,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             <LandingPhoneMockup />
           </div>
           <div className="absolute right-[2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[5%] xl:right-[9%]">
-            <LandingPhoneMockup dark />
+            <LandingPhoneMockup />
           </div>
         </div>
       </section>
@@ -571,12 +571,12 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
           <div className="mt-14 grid items-start gap-6 lg:grid-cols-[0.82fr_1.18fr]">
             <div className="lg:sticky lg:top-28">
-              <div className="overflow-hidden rounded-[34px] bg-zinc-950 p-5 text-white shadow-[0_26px_80px_rgba(15,23,42,0.16)] md:p-7">
+              <div className="overflow-hidden rounded-[34px] bg-white p-5 text-zinc-950 shadow-[0_26px_80px_rgba(15,23,42,0.10)] ring-1 ring-zinc-950/[0.06] md:p-7">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-black text-white/55">Live product loop</p>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-zinc-950">{includeCards[activeIncludeIndex].title}</span>
+                  <p className="text-sm font-black text-zinc-500">Product loop</p>
+                  <span className="rounded-full bg-[#f4f3ef] px-3 py-1 text-xs font-black text-zinc-950">{includeCards[activeIncludeIndex].title}</span>
                 </div>
-                <div className="mt-7 rounded-[28px] bg-white p-5 text-zinc-950">
+                <div className="mt-7 rounded-[28px] bg-[#fbfaf7] p-5 text-zinc-950 ring-1 ring-zinc-950/[0.04]">
                   {includeCards[activeIncludeIndex].preview === 'scan' && (
                     <>
                       <div className="overflow-hidden rounded-[24px]">
@@ -601,7 +601,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                       <h3 className="mt-3 text-4xl font-black leading-tight">How do you feel now?</h3>
                       <div className="mt-7 grid grid-cols-2 gap-3">
                         {['Fine', 'Bloated', 'Pain', 'Nausea'].map((label) => (
-                          <div className={cn('rounded-[18px] px-4 py-4 text-center text-sm font-black', label === 'Bloated' ? 'bg-zinc-950 text-white' : 'bg-[#f4f3ef] text-zinc-600')} key={label}>
+                          <div className={cn('rounded-[18px] px-4 py-4 text-center text-sm font-black', label === 'Bloated' ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.12]' : 'bg-[#f4f3ef] text-zinc-600')} key={label}>
                             {label}
                           </div>
                         ))}
@@ -615,7 +615,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                       <div className="mt-8 space-y-4">
                         {['Burger after 8 PM', 'Fried food', 'Bloated later'].map((label, index) => (
                           <div className="grid grid-cols-[34px_1fr] items-center gap-3" key={label}>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-950 text-xs font-black text-white">{index + 1}</span>
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]">{index + 1}</span>
                             <div>
                               <p className="text-sm font-black">{label}</p>
                               <div className="mt-2 h-2 rounded-full bg-zinc-100">
@@ -656,7 +656,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                   key={title}
                   type="button"
                 >
-                  <div className={cn('flex h-16 w-16 items-center justify-center rounded-[22px]', selected ? 'bg-zinc-950 text-white' : 'bg-[#f1f0ea] text-zinc-950')}>
+                  <div className={cn('flex h-16 w-16 items-center justify-center rounded-[22px] transition duration-300', selected ? 'bg-white text-zinc-950 shadow-[0_14px_34px_rgba(15,23,42,0.12)] ring-1 ring-zinc-950/[0.10]' : 'bg-[#f1f0ea] text-zinc-950')}>
                     <Icon className="h-6 w-6" />
                   </div>
                   <div>
@@ -689,7 +689,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               ].map(([title, body], index) => (
                 <div className="rounded-[24px] bg-[#fbfaf7] p-5 shadow-[0_16px_38px_rgba(15,23,42,0.06)] ring-1 ring-zinc-950/[0.05]" key={title}>
                   <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-sm font-black text-white">{index + 1}</div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]">{index + 1}</div>
                     <div>
                       <h3 className="text-xl font-black">{title}</h3>
                       <p className="mt-2 text-sm font-semibold leading-6 text-zinc-500">{body}</p>
@@ -1140,12 +1140,12 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[34px] bg-zinc-950 p-7 text-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] sm:col-span-2">
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-white/45">Product thesis</p>
+            <div className="rounded-[34px] bg-white p-7 text-zinc-950 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05] sm:col-span-2">
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-zinc-400">Product thesis</p>
               <h2 className="mt-5 text-4xl font-black leading-tight">
                 The loop has to be faster than forgetting.
               </h2>
-              <p className="mt-5 max-w-[760px] text-base font-semibold leading-7 text-white/62">
+              <p className="mt-5 max-w-[760px] text-base font-semibold leading-7 text-[#5f574d]">
                 One scan and one later check-in can become a timeline. That is the behavioral wedge: less typing, less discipline, more useful memory.
               </p>
             </div>
@@ -1795,22 +1795,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className="mt-5">
                   <p className="text-[20px] font-black">{isRussian ? 'Скан еды' : 'Food scan'}</p>
                   {scanState === 'scanning' && (
-                    <div className="mt-4 rounded-[22px] bg-zinc-950 p-4 text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]">
+                    <div className={cn('mt-4 rounded-[22px] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] ring-1', isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.06]' : 'bg-white text-zinc-950 ring-zinc-950/[0.05]')}>
                       <div className="flex items-center gap-4">
-                        <div className="relative h-14 w-14 overflow-hidden rounded-[18px] bg-white/10">
-                          <div className="absolute inset-0 bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.25),transparent)] animate-pulse" />
-                          <div className="absolute inset-3 rounded-full border-4 border-white/[0.15] border-t-zinc-300" />
+                        <div className={cn('relative h-14 w-14 overflow-hidden rounded-[18px]', isDarkMode ? 'bg-white/10' : 'bg-[#f2f1f8]')}>
+                          <div className={cn('absolute inset-0 animate-pulse bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.76),transparent)]', isDarkMode && 'opacity-35')} />
+                          <div className={cn('absolute inset-3 rounded-full border-4', isDarkMode ? 'border-white/[0.15] border-t-zinc-300' : 'border-zinc-200 border-t-zinc-950')} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[14px] font-black">Analyzing food...</p>
                           <div className="mt-3 space-y-2">
-                            <div className="h-2 w-full rounded-full bg-white/[0.18]" />
-                            <div className="h-2 w-2/3 rounded-full bg-white/[0.18]" />
+                            <div className={cn('h-2 w-full rounded-full', isDarkMode ? 'bg-white/[0.18]' : 'bg-zinc-100')} />
+                            <div className={cn('h-2 w-2/3 rounded-full', isDarkMode ? 'bg-white/[0.18]' : 'bg-zinc-100')} />
                           </div>
                         </div>
-                        <p className="text-[12px] font-black text-zinc-300">27%</p>
+                        <p className={cn('text-[12px] font-black', theme.muted)}>27%</p>
                       </div>
-                      <p className="mt-4 text-[11px] font-semibold text-white/[0.55]">SensiBite is reading the image and preparing a result.</p>
+                      <p className={cn('mt-4 text-[11px] font-semibold', theme.muted)}>SensiBite is reading the image and preparing a result.</p>
                     </div>
                   )}
                   <button
@@ -1847,6 +1847,39 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       </p>
                     </div>
                   </button>
+                </div>
+
+                <div className={cn('mt-5 rounded-[26px] p-4 shadow-[0_16px_36px_rgba(0,0,0,0.08)] ring-1 transition-colors duration-700', theme.card)}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', theme.faint)}>
+                        {isRussian ? 'Старт' : 'Start here'}
+                      </p>
+                      <h2 className="mt-2 text-[22px] font-black leading-tight">
+                        {hasActivity ? (isRussian ? 'Продолжайте строить паттерн' : 'Keep building the pattern') : (isRussian ? 'Первый скан создаст базу' : 'Your first scan creates the baseline')}
+                      </h2>
+                    </div>
+                    <button
+                      className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.96]', theme.soft)}
+                      onClick={openCamera}
+                      type="button"
+                      aria-label={copy.logFood}
+                    >
+                      <Camera className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    {[
+                      [isRussian ? 'Фото еды' : 'Food photo', isRussian ? 'Сохраните еду и время.' : 'Save the meal and time.'],
+                      [isRussian ? 'Самочувствие' : 'Feel later', isRussian ? 'Отметьте реакцию позже.' : 'Check in when you react.'],
+                      [isRussian ? 'Паттерн' : 'Pattern', isRussian ? 'Повторы появятся здесь.' : 'Repeats appear here.'],
+                    ].map(([title, body]) => (
+                      <div className={cn('rounded-[18px] p-4', theme.soft)} key={title}>
+                        <p className="text-sm font-black">{title}</p>
+                        <p className={cn('mt-1 text-xs font-semibold leading-5', theme.muted)}>{body}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </>
               )}
