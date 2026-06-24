@@ -36,6 +36,7 @@ type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
 type LegalPageKind = 'privacy' | 'terms' | 'subscription' | 'contact' | 'support';
 type DashboardEntry = {
   id: string;
+  user_id?: string;
   title: string;
   created_at: string;
 };
@@ -79,59 +80,61 @@ type OnboardingStep = {
 
 const genderOptions: GenderOption[] = ['Male', 'Female', 'Other'];
 const goalOptions: SensiGoal[] = ['Find triggers', 'Reduce bloating', 'Build consistency'];
-const triggerOptions = ['Fried food', 'Bread', 'Dairy', 'Soda', 'Late meals', 'Spicy food'];
 const processingInsights = ['Calculating digestive thresholds...', 'Mapping symptom timing...', 'Building your trigger baseline...', 'Preparing your SensiBite profile...'];
 const onboardingSteps: OnboardingStep[] = [
   {
     id: 'welcome',
     kind: 'intro',
-    title: 'Eat. Feel. Remember.',
-    subtitle: 'SensiBite helps you remember which meals may make you feel bad later.',
+    title: 'You are closer than you think.',
+    subtitle: 'Answer a few fast questions. SensiBite will keep the food memory part simple for you.',
   },
   {
     id: 'goal',
     kind: 'single',
     field: 'goal',
-    title: 'What do you want SensiBite to solve first?',
-    subtitle: 'Pick the outcome you would actually come back for.',
+    title: 'What should SensiBite help with first?',
+    subtitle: 'Good choice already: you are turning confusion into a system.',
     options: goalOptions,
   },
   {
     id: 'symptoms',
     kind: 'multi',
     field: 'symptoms',
-    title: 'What keeps showing up after food?',
-    subtitle: 'Choose every one that feels familiar.',
-    options: ['Bloating', 'Pain', 'Nausea', 'Gas', 'Acid reflux', 'Low energy', 'Constipation', 'Urgency'],
+    title: 'What do you notice most often?',
+    subtitle: 'You do not need perfect answers. Pick what happens enough to remember.',
+    options: ['Bloating', 'Pain', 'Nausea', 'Gas', 'Acid reflux', 'Low energy'],
   },
   {
     id: 'symptom-time',
     kind: 'single',
     field: 'symptomTime',
-    title: 'When do you usually notice it?',
-    options: ['Right after eating', '1-2 hours later', 'At night', 'The next morning'],
+    title: 'When does it usually hit?',
+    subtitle: 'This timing helps SensiBite connect the right meal later.',
+    options: ['Right after eating', '1-2 hours later', 'At night', 'Next morning'],
   },
   {
     id: 'tracking-style',
     kind: 'single',
     field: 'trackingStyle',
-    title: 'What happens when you try tracking?',
-    options: ['I do not track', 'Notes app sometimes', 'I ask AI then forget', 'A tracker app'],
+    title: 'What usually stops tracking?',
+    subtitle: 'Honest answer. This is exactly what the app is designed around.',
+    options: ['I forget', 'Too much typing', 'No clear pattern', 'I never tried'],
   },
   {
     id: 'suspected-foods',
     kind: 'multi',
     field: 'triggers',
-    title: 'Which foods already feel suspicious?',
-    subtitle: 'These become your first watchlist.',
-    options: triggerOptions,
+    title: 'Which foods feel suspicious?',
+    subtitle: 'Nice. These become your first watchlist.',
+    options: ['Fried food', 'Bread', 'Dairy', 'Soda', 'Late meals', 'Spicy food'],
   },
   {
     id: 'allergies',
     kind: 'multi',
     field: 'allergies',
-    title: 'Any allergies or hard avoids?',
-    options: ['Dairy', 'Gluten', 'Peanuts', 'Tree nuts', 'Eggs', 'Soy', 'Fish', 'None'],
+    title: 'Any hard avoids?',
+    subtitle: 'If none, tap None. Keeping this clean is better than overthinking it.',
+    options: ['Dairy', 'Gluten', 'Peanuts', 'Tree nuts', 'Eggs', 'Soy', 'None'],
   },
   {
     id: 'diet-type',
@@ -247,15 +250,16 @@ const onboardingSteps: OnboardingStep[] = [
   {
     id: 'basics',
     kind: 'basics',
-    title: 'Profile basics',
-    subtitle: 'One screen. Fast inputs. This calibrates your starting baseline.',
+    title: 'Last basics. You are doing great.',
+    subtitle: 'One screen. This helps personalize the baseline without making tracking heavy.',
   },
   {
     id: 'checkins',
     kind: 'single',
     field: 'checkInsPerDay',
-    title: 'How often should SensiBite check in?',
-    options: ['1x daily', '2x daily', '3x daily', 'Only after meals'],
+    title: 'How light should check-ins feel?',
+    subtitle: 'The best system is the one you will actually keep using.',
+    options: ['1x daily', '2x daily', 'Only after meals'],
   },
   {
     id: 'data-priority',
@@ -283,12 +287,8 @@ const personalizationStepIds = new Set([
   'goal',
   'symptoms',
   'symptom-time',
-  'tracking-style',
   'suspected-foods',
   'allergies',
-  'diet-type',
-  'meal-rhythm',
-  'late-food',
   'basics',
   'checkins',
   'processing',
@@ -405,6 +405,26 @@ function normalizeUsername(value: string) {
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 24);
+}
+
+function isUnreadableScan(scan: ImageScanPayload, usedFallback = false) {
+  const text = [
+    scan.result.productName,
+    scan.result.overallRating,
+    ...scan.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    usedFallback ||
+    text.includes('unreadable') ||
+    text.includes('blurry label') ||
+    text.includes('blurry text') ||
+    text.includes('slow scan') ||
+    text.includes('quick fallback') ||
+    text.includes('нечита')
+  );
 }
 
 const friedFoodPreviewUrl = 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop';
@@ -1286,7 +1306,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     async function loadEntries() {
       const { data, error } = await supabase
         .from('entries')
-        .select('id,title,created_at')
+        .select('id,user_id,title,created_at')
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(6);
 
@@ -1414,6 +1435,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const saveEntry = async (title: string) => {
     const optimisticEntry: DashboardEntry = {
       id: crypto.randomUUID(),
+      user_id: session.user.id,
       title,
       created_at: new Date().toISOString(),
     };
@@ -1422,8 +1444,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
     const { data, error } = await supabase
       .from('entries')
-      .insert({ title })
-      .select('id,title,created_at')
+      .insert({ title, user_id: session.user.id })
+      .select('id,user_id,title,created_at')
       .single();
 
     if (error) {
@@ -1455,6 +1477,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         slowAfterMs: 1_800,
         hardTimeoutMs: 9_000,
       });
+
+      if (isUnreadableScan(result.scan, result.usedFallback)) {
+        setScanResult(null);
+        setScanState('error');
+        setResultSheetOpen(false);
+        setDashboardError('Could not read the label clearly. Retake the photo with the label flat, closer, and in brighter light.');
+        return;
+      }
 
       setScanResult(result.scan);
       setScanState('done');
@@ -1964,7 +1994,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     Scan
                   </button>
                 </div>
-                <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-5">
+                <div className="hidden">
                   {topDashboardCards.map((card, index) => (
                     <button
                       className={cn(
@@ -2010,7 +2040,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 </div>
 
                 <button
-                  className={cn('mt-4 w-full rounded-[26px] p-4 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-all duration-700 active:scale-[0.99]', theme.card)}
+                  className={cn('hidden', theme.card)}
                   onClick={() => setActiveTab('progress')}
                   type="button"
                 >
@@ -2039,8 +2069,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </div>
                 </button>
 
-                <div className="mt-5">
-                  <p className="text-[20px] font-black">{isRussian ? 'Скан еды' : 'Food scan'}</p>
+                <div className="mt-8">
+                  <p className="text-[20px] font-black">{isRussian ? 'Снимок еды' : 'Snap food'}</p>
                   {scanState === 'scanning' && (
                     <div className={cn('mt-4 rounded-[22px] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] ring-1', isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.06]' : 'bg-white text-zinc-950 ring-zinc-950/[0.05]')}>
                       <div className="flex items-center gap-4">
@@ -2061,7 +2091,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     </div>
                   )}
                   <button
-                    className={cn('mt-4 w-full rounded-[26px] p-4 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-all duration-700 active:scale-[0.99]', theme.soft)}
+                    className={cn('mt-4 w-full rounded-[32px] p-5 text-left shadow-[0_22px_54px_rgba(0,0,0,0.12)] ring-1 transition-all duration-700 active:scale-[0.99]', theme.soft)}
                     onClick={openCamera}
                     type="button"
                   >
@@ -2071,15 +2101,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           <Camera className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-[14px] font-black">{scanResult?.result.productName ?? logs[0]?.title ?? (isRussian ? 'Добавьте первый прием еды' : 'Add your first meal')}</p>
+                          <p className="truncate text-[18px] font-black">{scanResult?.result.productName ?? (isRussian ? 'Сфотографируйте этикетку' : 'Take a label photo')}</p>
                           <p className="mt-2 flex items-center gap-1 text-[15px] font-black">
                             <Activity className="h-4 w-4 fill-zinc-950" />
-                            {scanResult ? `${scanResult.result.score}/100 score` : (isRussian ? 'Сканировать фото' : 'Scan a food photo')}
+                            {scanResult ? `${scanResult.result.score}/100 score` : (isRussian ? 'Откроется камера' : 'Camera opens instantly')}
                           </p>
                           <div className={cn('mt-3 flex items-center gap-3 text-[10px] font-medium', theme.muted)}>
                             <span className="inline-flex items-center gap-1">
                               <ScanLine className="h-3 w-3" />
-                              {scanState === 'scanning' ? (isRussian ? 'Сканируем' : 'Scanning') : hasActivity ? 'AI checked' : (isRussian ? 'Начать' : 'Ready to scan')}
+                              {scanState === 'scanning' ? (isRussian ? 'Сканируем' : 'Scanning') : hasActivity ? 'Last scan saved' : (isRussian ? 'Наведите на состав' : 'Point at the ingredients')}
                             </span>
                           </div>
                         </div>
@@ -2089,14 +2119,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <div className={cn('mt-4 rounded-[18px] p-3', isDarkMode ? 'bg-white/[0.06]' : 'bg-white/80')}>
                       <p className={cn('text-[12px] font-semibold leading-5', theme.muted)}>
                         {scanResult
-                          ? 'This scan is now part of your trigger timeline.'
-                          : 'Take a food photo and SensiBite will save the result here.'}
+                          ? 'Saved. Add how you felt later to build the pattern.'
+                          : 'Snap the label. Get a simple rating. Retake if the text is blurry.'}
                       </p>
                     </div>
                   </button>
                 </div>
 
-                <div className={cn('mt-5 rounded-[28px] p-5 shadow-[0_18px_42px_rgba(0,0,0,0.10)] ring-1 transition-colors duration-700', theme.card)}>
+                <div className={cn('hidden', theme.card)}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', theme.faint)}>
@@ -2237,7 +2267,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </button>
                   <div className="text-center">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">SensiBite camera</p>
-                    <p className="mt-1 text-sm font-black">Frame the meal</p>
+                    <p className="mt-1 text-sm font-black">Fill the square with the label</p>
                   </div>
                   <button
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white/12 backdrop-blur-xl transition active:scale-95"
@@ -2249,7 +2279,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </button>
                 </div>
 
-                <div className="pointer-events-none absolute inset-x-10 top-1/2 aspect-square -translate-y-1/2 rounded-[34px] border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]" />
+                <div className="pointer-events-none absolute inset-x-10 top-1/2 aspect-square -translate-y-1/2 rounded-[34px] border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]">
+                  <div className="absolute inset-x-5 top-5 rounded-full bg-black/38 px-4 py-2 text-center text-xs font-black backdrop-blur-md">
+                    Keep ingredients sharp and flat
+                  </div>
+                </div>
 
                 {cameraError && (
                   <div className="absolute inset-x-5 top-28 rounded-[22px] bg-white p-4 text-zinc-950 shadow-2xl">
@@ -2974,6 +3008,9 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
         <div>
           <h1 className="text-[38px] font-black leading-[0.98] text-zinc-950">{currentStep.title}</h1>
           {currentStep.subtitle && <p className="mt-4 text-base font-semibold leading-7 text-zinc-500">{currentStep.subtitle}</p>}
+          <p className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05]">
+            Good pace. This answer makes your scans more personal.
+          </p>
         </div>
         <div className="mt-9">
           {currentStep.kind === 'single' && renderSingleChoice(currentStep)}
