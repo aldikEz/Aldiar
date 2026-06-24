@@ -376,6 +376,10 @@ function getBmiFromProfile(profile: StoredSensiProfile | null) {
 }
 
 function LandingPhoneMockup({ className = '', dark = false }: { className?: string; dark?: boolean }) {
+  const surface = dark ? 'bg-[#050505] text-white' : 'bg-[#f8f8f8] text-zinc-950';
+  const card = dark ? 'bg-[#1b1b1d] ring-white/[0.06]' : 'bg-white ring-zinc-950/[0.04]';
+  const soft = dark ? 'bg-white/[0.07]' : 'bg-[#f2f1f8]';
+
   return (
     <div className={cn('pointer-events-none select-none', className)}>
       <IPhoneMockup
@@ -387,11 +391,65 @@ function LandingPhoneMockup({ className = '', dark = false }: { className?: stri
         safeArea={false}
         shadow="0 34px 90px rgba(15,23,42,0.22), 0 10px 28px rgba(15,23,42,0.12)"
       >
-        <img
-          alt="SensiBite dashboard mobile screen"
-          className="h-full w-full object-cover"
-          src="/assets/sensibite-dashboard-mobile.png"
-        />
+        <div className={cn('flex h-full w-full flex-col px-5 pb-5 pt-12', surface)}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase text-zinc-400">Today</p>
+              <p className="mt-1 text-2xl font-black">SensiBite</p>
+            </div>
+            <div className={cn('flex h-10 w-10 items-center justify-center rounded-full', card)}>
+              <Moon className="h-4 w-4" />
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            {[
+              ['3', 'Scans'],
+              ['2', 'Patterns'],
+              ['7/10', 'Score'],
+            ].map(([value, label]) => (
+              <div className={cn('rounded-[18px] p-3 ring-1', card)} key={label}>
+                <p className="text-xl font-black leading-none">{value}</p>
+                <p className="mt-2 text-[10px] font-black uppercase text-zinc-400">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-black">Pattern score</p>
+              <p className="text-sm font-black">7/10</p>
+            </div>
+            <div className={cn('mt-3 h-2 rounded-full', soft)}>
+              <div className="h-full w-[70%] rounded-full bg-zinc-950" />
+            </div>
+            <p className="mt-3 text-[11px] font-semibold leading-4 text-zinc-500">Late fried meals keep showing before bloated check-ins.</p>
+          </div>
+
+          <div className="mt-5">
+            <p className="text-base font-black">Food scan</p>
+            <div className={cn('mt-3 rounded-[24px] p-4 ring-1', soft)}>
+              <div className="flex items-center gap-3">
+                <div className={cn('flex h-11 w-11 items-center justify-center rounded-full', card)}>
+                  <Camera className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-black">Late burger</p>
+                  <p className="mt-1 text-xs font-bold text-zinc-500">82/100 score</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto flex items-center justify-between rounded-full bg-white px-4 py-3 text-zinc-950 shadow-[0_14px_36px_rgba(15,23,42,0.12)]">
+            <Home className="h-4 w-4" />
+            <BarChart3 className="h-4 w-4 text-zinc-400" />
+            <User className="h-4 w-4 text-zinc-400" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-950 text-white">
+              <Plus className="h-6 w-6" />
+            </div>
+          </div>
+        </div>
       </IPhoneMockup>
     </div>
   );
@@ -496,10 +554,6 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </div>
           <div className="absolute right-[2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[5%] xl:right-[9%]">
             <LandingPhoneMockup dark />
-          </div>
-          <div className="absolute bottom-8 left-6 right-6 z-30 rounded-[28px] bg-white/85 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)] ring-1 ring-zinc-950/[0.06] backdrop-blur-xl sm:left-auto sm:w-[360px]">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Live dashboard</p>
-            <p className="mt-2 text-2xl font-black leading-tight text-zinc-950">Real scans, real check-ins, one private timeline.</p>
           </div>
         </div>
       </section>
@@ -1152,7 +1206,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [logs, setLogs] = useState<DashboardEntry[]>([]);
   const [dashboardError, setDashboardError] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
-  const [selectedDay, setSelectedDay] = useState(5);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [profileName, setProfileName] = useState(initialName);
   const [profileUsername, setProfileUsername] = useState('sensibite');
@@ -1312,44 +1365,35 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const latestTitle = scanResult?.result.productName ?? visibleLogs[0]?.title ?? '';
   const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
   const profileBmi = getBmiFromProfile(storedProfile);
-  const dashboardDays = [
-    { day: 'W', date: '27', progress: scanCount > 5 ? 100 : 0, state: scanCount > 5 ? 'done' : 'empty' },
-    { day: 'T', date: '28', progress: scanCount > 4 ? 100 : 0, state: scanCount > 4 ? 'done' : 'empty' },
-    { day: 'F', date: '29', progress: scanCount > 3 ? 100 : 0, state: scanCount > 3 ? 'done' : 'empty' },
-    { day: 'S', date: '30', progress: scanCount > 2 ? 100 : 0, state: scanCount > 2 ? 'done' : 'empty' },
-    { day: 'S', date: '31', progress: scanCount > 1 ? 100 : 0, state: scanCount > 1 ? 'done' : 'empty' },
-    { day: 'M', date: '1', progress: scanCount > 0 ? 100 : 0, state: 'today' },
-    { day: 'T', date: '2', progress: 0, state: 'ahead' },
-  ];
   const topDashboardCards = [
     {
-      value: hasActivity ? String(scanCount) : 'N/A',
+      value: String(scanCount),
       title: 'Scans',
-      subtitle: hasActivity ? 'Saved' : 'No data',
+      subtitle: hasActivity ? 'Saved' : 'Start here',
       color: '#18181b',
       progress: hasActivity ? Math.min(100, scanCount * 18) : 0,
       action: 'Scan',
-      detail: hasActivity ? 'Open camera' : 'Scan first meal',
+      detail: hasActivity ? 'Open camera' : 'Scan first',
       interactive: false,
     },
     {
-      value: hasActivity ? '1+' : 'N/A',
+      value: hasActivity ? '1+' : 'None',
       title: 'Patterns',
-      subtitle: hasActivity ? 'Review' : 'Needs logs',
+      subtitle: hasActivity ? 'Review' : 'Needs scans',
       color: '#71717a',
       progress: hasActivity ? 42 : 0,
       action: 'Progress',
-      detail: 'View details',
+      detail: hasActivity ? 'View details' : 'Build it',
       interactive: true,
     },
     {
-      value: gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : 'N/A',
+      value: gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : '--',
       title: 'Score',
       subtitle: gutScoreOutOfTen ? 'Latest scan' : 'No score',
       color: '#18181b',
       progress: gutScorePercent,
       action: 'Progress',
-      detail: gutScoreOutOfTen ? `${gutScoreOutOfTen} out of 10` : 'Scan to unlock',
+      detail: gutScoreOutOfTen ? `${gutScoreOutOfTen} out of 10` : 'First scan',
       interactive: false,
     },
   ];
@@ -1454,10 +1498,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
       <div className="grid grid-cols-2 gap-4">
         {[
-          [isRussian ? 'Сканы' : 'Scans', hasActivity ? String(scanCount) : 'N/A', isRussian ? 'сохранено' : 'saved', ScanLine],
-          [isRussian ? 'Серия' : 'Streak', hasActivity ? '1' : 'N/A', isRussian ? 'день' : 'day', Flame],
-          [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Learning' : 'N/A', isRussian ? 'после сканов' : 'after scans', Activity],
-          [isRussian ? 'База' : 'Baseline', hasActivity ? 'Set' : 'N/A', isRussian ? 'после первого скана' : 'after first scan', Target],
+          [isRussian ? 'Сканы' : 'Scans', String(scanCount), isRussian ? 'сохранено' : 'saved', ScanLine],
+          [isRussian ? 'Серия' : 'Streak', hasActivity ? '1' : '0', isRussian ? 'день' : 'day', Flame],
+          [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Learning' : 'None', isRussian ? 'после сканов' : 'after scans', Activity],
+          [isRussian ? 'База' : 'Baseline', hasActivity ? 'Set' : 'Empty', isRussian ? 'после первого скана' : 'after first scan', Target],
         ].map(([label, value, helper, Icon]) => (
           <button
             className={cn(cardClass, 'min-h-[138px] text-left transition active:scale-[0.98]')}
@@ -1476,7 +1520,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       <div className={cardClass}>
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-2xl font-black">{isRussian ? 'История еды' : 'Food history'}</h2>
-          <span className={cn('rounded-full px-3 py-1.5 text-xs font-black', theme.soft)}>{hasActivity ? `${scanCount}` : 'N/A'}</span>
+          <span className={cn('rounded-full px-3 py-1.5 text-xs font-black', theme.soft)}>{String(scanCount)}</span>
         </div>
 
         <div className="mt-5 space-y-3">
@@ -1661,42 +1705,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           </button>
         </div>
 
-        {activeTab === 'home' && (
-          <div className="relative z-10 mx-auto mt-6 grid w-full max-w-[1180px] grid-cols-7 gap-2">
-            {dashboardDays.map((item, index) => (
-              <button
-                className={cn(
-                  'relative flex h-[54px] flex-col items-center justify-center rounded-full border text-[12px] font-black leading-none transition-all duration-300 active:scale-[0.98]',
-                  selectedDay === index
-                    ? isDarkMode
-                      ? 'border-white/20 bg-white/[0.12] text-white shadow-[0_10px_24px_rgba(0,0,0,0.3)]'
-                      : 'border-zinc-950 bg-white text-zinc-950 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
-                    : item.state === 'ahead'
-                      ? cn('border-dashed bg-transparent', isDarkMode ? 'border-white/10 text-white/25' : 'border-zinc-200 text-zinc-300')
-                      : cn(isDarkMode ? 'border-white/10 bg-white/[0.06] text-white/70' : 'border-zinc-200 bg-white/70 text-zinc-700'),
-                )}
-                key={`${item.day}-${item.date}`}
-                onClick={() => {
-                  setSelectedDay(index);
-                  setActiveTab('home');
-                }}
-                type="button"
-              >
-                <span>{item.day}</span>
-                <span className="mt-2 text-[11px] font-medium">{item.date}</span>
-                {item.progress > 0 && (
-                  <span
-                    className={cn('absolute -bottom-1 h-3 w-3 rounded-full border-2', isDarkMode ? 'border-[#050505]' : 'border-[#f8f8f8]')}
-                    style={{
-                      background: `conic-gradient(#71717a ${item.progress}%, ${isDarkMode ? '#303033' : '#e5e7eb'} ${item.progress}% 100%)`,
-                    }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className="relative z-10 mx-auto min-h-0 w-full max-w-[1180px] flex-1 overflow-y-auto pb-32 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <AnimatePresence mode="wait">
             <motion.div
@@ -1709,12 +1717,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             >
               {activeTab === 'home' && (
               <>
-                <div className="mt-5 grid grid-cols-3 gap-3 lg:gap-5">
-                  {topDashboardCards.map((card) => (
+                <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-5">
+                  {topDashboardCards.map((card, index) => (
                     <button
                       className={cn(
                         'group flex min-h-[132px] flex-col justify-between rounded-[24px] p-3 text-left shadow-[0_16px_36px_rgba(0,0,0,0.10)] ring-1 transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] sm:p-4',
                         theme.card,
+                        index === 0 && 'col-span-2 sm:col-span-1',
                         card.interactive && (isDarkMode ? 'ring-white/20 hover:ring-white/[0.45]' : 'ring-zinc-200 hover:ring-zinc-400'),
                       )}
                       key={card.title}
@@ -1761,8 +1770,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-[14px] font-black">Pattern Score</p>
-                        <p className="text-[14px] font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : 'N/A'}</p>
+                        <p className="text-[14px] font-black">Pattern score</p>
+                        <p className="text-[14px] font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}/10` : 'Scan first'}</p>
                       </div>
                       <div className={cn('mt-3 h-2 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
                         <div className="h-full rounded-full bg-zinc-950" style={{ width: `${gutScorePercent}%` }} />
@@ -1770,7 +1779,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       <p className="mt-4 line-clamp-3 text-[12px] font-medium leading-[1.25] text-zinc-500">
                         {scanResult
                           ? `${scanResult.result.productName}: ${scanResult.result.flaggedChemicals[0]?.reason ?? 'SensiBite saved this result to your pattern memory.'}`
-                          : 'No score yet. Scan one meal to create your first baseline.'}
+                          : 'Take one food photo to create your first baseline.'}
                       </p>
                     </div>
                     <div className={cn('relative h-[70px] w-[70px] shrink-0 rounded-full', isDarkMode ? 'bg-white/[0.08]' : 'bg-zinc-100')}>
@@ -1778,7 +1787,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         className="absolute inset-1 rounded-full"
                         style={{ background: `conic-gradient(#18181b ${gutScorePercent}%, ${isDarkMode ? '#303033' : '#eef0f2'} ${gutScorePercent}% 100%)` }}
                       />
-                      <div className={cn('absolute inset-[10px] flex items-center justify-center rounded-full text-sm font-black', isDarkMode ? 'bg-[#1b1b1d]' : 'bg-white')}>{gutScoreOutOfTen ?? 'N/A'}</div>
+                      <div className={cn('absolute inset-[10px] flex items-center justify-center rounded-full text-sm font-black', isDarkMode ? 'bg-[#1b1b1d]' : 'bg-white')}>{gutScoreOutOfTen ?? '--'}</div>
                     </div>
                   </div>
                 </button>
