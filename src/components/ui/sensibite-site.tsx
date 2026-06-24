@@ -331,6 +331,7 @@ const personalizationStepIds = new Set([
 const setupSteps = onboardingSteps.filter((step) => personalizationStepIds.has(step.id));
 const SETUP_TOTAL_STEPS = setupSteps.length;
 const SENSIBITE_PROFILE_STORAGE_KEY = 'sensibite-profile-v1';
+const SENSIBITE_PENDING_PROFILE_KEY = 'sensibite-profile-pending';
 
 type StoredSensiProfile = Pick<
   SetupProfile,
@@ -356,17 +357,21 @@ function toStoredProfile(profile: SetupProfile): StoredSensiProfile {
   };
 }
 
-function saveStoredProfile(profile: SetupProfile) {
+function profileStorageKey(userId?: string) {
+  return userId ? `${SENSIBITE_PROFILE_STORAGE_KEY}:${userId}` : SENSIBITE_PROFILE_STORAGE_KEY;
+}
+
+function saveStoredProfile(profile: SetupProfile, userId?: string) {
   try {
-    window.localStorage.setItem(SENSIBITE_PROFILE_STORAGE_KEY, JSON.stringify(toStoredProfile(profile)));
+    window.localStorage.setItem(profileStorageKey(userId), JSON.stringify(toStoredProfile(profile)));
   } catch {
     // Local storage can be disabled; the app still works without profile context.
   }
 }
 
-function readStoredProfile(): StoredSensiProfile | null {
+function readStoredProfile(userId?: string): StoredSensiProfile | null {
   try {
-    const raw = window.localStorage.getItem(SENSIBITE_PROFILE_STORAGE_KEY);
+    const raw = window.localStorage.getItem(profileStorageKey(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredSensiProfile>;
     return {
@@ -394,6 +399,24 @@ function readStoredProfile(): StoredSensiProfile | null {
     };
   } catch {
     return null;
+  }
+}
+
+function readPendingStoredProfile() {
+  try {
+    if (window.localStorage.getItem(SENSIBITE_PENDING_PROFILE_KEY) !== '1') return null;
+    return readStoredProfile();
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingStoredProfile() {
+  try {
+    window.localStorage.removeItem(SENSIBITE_PENDING_PROFILE_KEY);
+    window.localStorage.removeItem(SENSIBITE_PROFILE_STORAGE_KEY);
+  } catch {
+    // Ignore storage cleanup failures.
   }
 }
 
@@ -1325,7 +1348,7 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
 export function DashboardPage({ navigate, session }: { navigate: Navigate; session: Session }) {
   const initialName = normalizeProfileName(session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'SensiBite user');
   const initialUsername = usernameFromName(initialName);
-  const [storedProfile] = useState(() => readStoredProfile());
+  const [storedProfile, setStoredProfile] = useState<StoredSensiProfile | null>(() => readStoredProfile(session.user.id));
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle');
   const [scanResult, setScanResult] = useState<ImageScanPayload | null>(null);
   const [logs, setLogs] = useState<DashboardEntry[]>([]);
@@ -1383,6 +1406,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     let active = true;
 
     async function ensureProfile() {
+      const pendingProfile = readPendingStoredProfile();
+      if (pendingProfile) {
+        try {
+          window.localStorage.setItem(profileStorageKey(session.user.id), JSON.stringify(pendingProfile));
+        } catch {
+          // If storage fails, keep using the in-memory profile for this session.
+        }
+        clearPendingStoredProfile();
+        if (active) setStoredProfile(pendingProfile);
+      }
+
       const { data } = await supabase
         .from('profiles')
         .select('user_id,full_name,username')
@@ -1515,13 +1549,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       .single();
 
     if (error) {
+      setLogs((items) => items.filter((item) => item.id !== optimisticEntry.id));
       setDashboardError(syncErrorMessage);
-      return;
+      return false;
     }
 
     if (data) {
       setLogs((items) => items.map((item) => (item.id === optimisticEntry.id ? data : item)));
     }
+
+    return true;
   };
 
   const runImageScan = async (file: File | undefined) => {
@@ -2396,9 +2433,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     disabled={!selectedFeeling}
                     onClick={async () => {
                       if (!selectedFeeling) return;
-                      await saveEntry(`${selectedFeeling} check-in saved: ${scanResult.result.productName}`);
-                      setDashboardError(`${selectedFeeling} connected to this scan.`);
-                      setResultSheetOpen(false);
+                      const saved = await saveEntry(`${selectedFeeling} check-in saved: ${scanResult.result.productName}`);
+                      if (saved) {
+                        setDashboardError(`${selectedFeeling} connected to this scan.`);
+                        setResultSheetOpen(false);
+                      }
                     }}
                     type="button"
                   >
@@ -2519,6 +2558,11 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
     if (currentStep.kind !== 'processing') return;
 
     saveStoredProfile(profile);
+    try {
+      window.localStorage.setItem(SENSIBITE_PENDING_PROFILE_KEY, '1');
+    } catch {
+      // The setup still works if browser storage is unavailable.
+    }
     setProcessingInsightIndex(0);
     const interval = window.setInterval(() => {
       setProcessingInsightIndex((index) => (index + 1) % processingInsights.length);
