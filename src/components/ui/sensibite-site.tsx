@@ -11,8 +11,6 @@ import {
   Check,
   ChevronRight,
   ClipboardList,
-  FileText,
-  Flag,
   Flame,
   Home,
   Languages,
@@ -20,14 +18,12 @@ import {
   Mail,
   Moon,
   Plus,
-  RefreshCcw,
   ScanLine,
   ShieldCheck,
   Sparkles,
   Sun,
   Target,
   User,
-  UserPlus,
 } from 'lucide-react';
 import { scanImageWithClientTimeout, type ImageScanPayload } from '../../lib/imageScanClient';
 import { supabase } from '../../lib/supabase';
@@ -1171,7 +1167,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
   const [language, setLanguage] = useState<'English' | 'Russian'>('English');
-  const [trackingReminderOn, setTrackingReminderOn] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1292,49 +1287,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     });
   };
 
-  const toggleTrackingReminder = () => {
-    setTrackingReminderOn((current) => {
-      const next = !current;
-      setDashboardError(next ? 'Daily check-in reminder enabled.' : 'Daily check-in reminder disabled.');
-      return next;
-    });
-  };
-
-  const copyReferralCode = async () => {
-    try {
-      await navigator.clipboard?.writeText('SENSIBITE10');
-      setDashboardError('Referral code copied.');
-    } catch {
-      setDashboardError('Referral code: SENSIBITE10');
-    }
-  };
-
-  const exportSummaryReport = () => {
-    const report = [
-      'SensiBite Summary Report',
-      `Name: ${profileName}`,
-      `Pattern score: ${gutScoreOutOfTen ?? 'N/A'}`,
-      `Latest scan: ${scanResult?.result.productName ?? 'No scan yet'}`,
-      `Recent logs: ${logs.map((item) => item.title).join(' | ') || 'No logs yet'}`,
-    ].join('\n');
-    const url = URL.createObjectURL(new Blob([report], { type: 'text/plain;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'sensibite-summary.txt';
-    link.click();
-    URL.revokeObjectURL(url);
-    setDashboardError('Summary report downloaded.');
-  };
-
-  const openSocial = (label: string) => {
-    const urls: Record<string, string> = {
-      Instagram: 'https://instagram.com/',
-      TikTok: 'https://tiktok.com/',
-      X: 'https://x.com/',
-    };
-    window.open(urls[label] ?? 'https://sensibite.ai/', '_blank', 'noopener,noreferrer');
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     navigate('/');
@@ -1356,12 +1308,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }
   };
 
-  const hasActivity = logs.length > 0 || Boolean(scanResult);
+  const visibleLogs = logs.filter((item) => !/check-in saved/i.test(item.title));
+  const hasActivity = visibleLogs.length > 0 || Boolean(scanResult);
   const isRussian = language === 'Russian';
-  const scanCount = logs.length;
+  const scanCount = visibleLogs.length;
   const gutScoreOutOfTen = scanResult ? Math.max(1, Math.round(scanResult.result.score / 10)) : null;
   const gutScorePercent = gutScoreOutOfTen ? gutScoreOutOfTen * 10 : 0;
-  const latestTitle = scanResult?.result.productName ?? logs[0]?.title ?? '';
+  const latestTitle = scanResult?.result.productName ?? visibleLogs[0]?.title ?? '';
   const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
   const dashboardDays = [
     { day: 'W', date: '27', progress: scanCount > 5 ? 100 : 0, state: scanCount > 5 ? 'done' : 'empty' },
@@ -1464,13 +1417,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setProfileSheetOpen(true);
   };
   const dashboardNoticeIsSuccess =
-    dashboardError === 'Sync complete.' ||
     dashboardError.includes('updated') ||
     dashboardError.includes('changed') ||
-    dashboardError.includes('enabled') ||
-    dashboardError.includes('disabled') ||
-    dashboardError.includes('copied') ||
-    dashboardError.includes('downloaded') ||
     dashboardError.includes('created');
   const dashboardNoticeTitle = dashboardNoticeIsSuccess ? dashboardError.replace('.', '') : dashboardError === scanErrorMessage ? 'Scan issue' : 'Notice';
 
@@ -1513,12 +1461,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           [isRussian ? 'Сканы' : 'Scans', hasActivity ? String(scanCount) : 'N/A', isRussian ? 'сохранено' : 'saved', ScanLine],
           [isRussian ? 'Серия' : 'Streak', hasActivity ? '1' : 'N/A', isRussian ? 'день' : 'day', Flame],
           [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Learning' : 'N/A', isRussian ? 'после сканов' : 'after scans', Activity],
-          [isRussian ? 'Отчет' : 'Report', hasActivity ? 'Ready' : 'N/A', isRussian ? 'экспорт' : 'export', FileText],
+          [isRussian ? 'База' : 'Baseline', hasActivity ? 'Set' : 'N/A', isRussian ? 'после первого скана' : 'after first scan', Target],
         ].map(([label, value, helper, Icon]) => (
           <button
             className={cn(cardClass, 'min-h-[138px] text-left transition active:scale-[0.98]')}
             key={String(label)}
-            onClick={label === 'Report' || label === 'Отчет' ? exportSummaryReport : openCamera}
+            onClick={openCamera}
             type="button"
           >
             <Icon className={cn('h-6 w-6', theme.muted)} />
@@ -1536,7 +1484,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         </div>
 
         <div className="mt-5 space-y-3">
-          {logs.length > 0 ? logs.slice(0, 5).map((item) => (
+          {visibleLogs.length > 0 ? visibleLogs.slice(0, 5).map((item) => (
             <button
               className={cn('flex min-h-[64px] w-full items-center gap-4 rounded-[20px] px-4 text-left transition active:scale-[0.99]', theme.soft)}
               key={item.id}
@@ -1575,16 +1523,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const trackingRows = [
     { label: 'Open camera scan', icon: Camera, action: openCamera },
     { label: 'Pattern timeline', icon: Activity, action: () => setActiveTab('progress') },
-    { label: 'Current baseline', icon: Flag, action: () => setActiveTab('home') },
-    { label: trackingReminderOn ? 'Tracking reminders: On' : 'Tracking reminders: Off', icon: Bell, action: toggleTrackingReminder },
-    { label: 'Refresh history', icon: RefreshCcw, action: () => setDashboardError('Sync complete.') },
+    { label: 'Food history', icon: ScanLine, action: () => setActiveTab('progress') },
   ];
   const supportRows = [
-    { label: 'Request a Feature', icon: Mail, action: () => navigate('/contact') },
-    { label: 'Support Email', icon: Mail, action: () => navigate('/support') },
-    { label: 'Export Summary Report', icon: FileText, action: exportSummaryReport },
-    { label: 'Sync Data', icon: RefreshCcw, action: () => setDashboardError('Sync complete.') },
-    { label: 'Terms and Conditions', icon: FileText, action: () => navigate('/terms') },
+    { label: 'Contact Support', icon: Mail, action: () => navigate('/support') },
+    { label: 'Terms and Conditions', icon: ClipboardList, action: () => navigate('/terms') },
     { label: 'Privacy Policy', icon: ShieldCheck, action: () => navigate('/privacy') },
   ];
   const renderRow = ({ label, icon: Icon, action }: { label: string; icon: typeof Home; action: () => void }) => (
@@ -1603,24 +1546,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           <User className="h-9 w-9" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={cn('text-sm font-black', theme.muted)}>Premium</p>
+          <p className={cn('text-sm font-black', theme.muted)}>Account profile</p>
           <p className="truncate text-2xl font-black">{profileName}</p>
           <p className={cn('truncate text-lg font-bold', theme.muted)}>@{profileUsername}</p>
         </div>
         <ChevronRight className={cn('h-7 w-7', theme.muted)} />
       </button>
-
-      <div>
-        <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Invite Friends</p>
-        <button className={cn(cardClass, 'flex w-full items-center gap-4 text-left transition active:scale-[0.99]')} onClick={copyReferralCode} type="button">
-          <UserPlus className="h-7 w-7" />
-          <div className="min-w-0 flex-1">
-            <p className="text-xl font-black">Refer a friend and earn $10</p>
-            <p className={cn('mt-1 text-base font-bold leading-5', theme.muted)}>Earn $10 per friend that signs up with your promo code.</p>
-          </div>
-          <ChevronRight className={cn('h-7 w-7', theme.muted)} />
-        </button>
-      </div>
 
       <div>
         <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Account</p>
@@ -1637,39 +1568,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       </div>
 
       <div>
-        <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Widgets</p>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {[
-            [hasActivity ? '1' : 'N/A', 'Day streak', Flame],
-            [hasActivity ? String(scanCount) : 'N/A', 'Food scans', Camera],
-            [gutScoreOutOfTen ? `${gutScoreOutOfTen}` : 'N/A', 'Pattern score', Activity],
-          ].map(([value, label, Icon]) => (
-            <button className={cn('h-36 min-w-[170px] rounded-[26px] p-4 text-left transition active:scale-[0.98]', theme.card)} key={String(label)} onClick={() => setActiveTab(label === 'Food scans' ? 'home' : 'progress')} type="button">
-              <Icon className="h-8 w-8" />
-              <p className="mt-4 text-3xl font-black">{value as string}</p>
-              <p className={cn('text-sm font-bold', theme.muted)}>{label as string}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
         <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Support & Legal</p>
         <div className={cn('overflow-hidden rounded-[30px] shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card)}>
           {supportRows.map(renderRow)}
-        </div>
-      </div>
-
-      <div>
-        <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Follow Us</p>
-        <div className={cn('overflow-hidden rounded-[30px] shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card)}>
-          {['Instagram', 'TikTok', 'X'].map((label) => (
-            <button className={cn('flex min-h-[66px] w-full items-center gap-4 border-b px-5 text-left last:border-b-0 transition active:scale-[0.99]', theme.line)} key={label} onClick={() => openSocial(label)} type="button">
-              <span className="flex h-7 w-7 items-center justify-center text-2xl font-black">{label[0]}</span>
-              <span className="flex-1 text-xl font-black">{label}</span>
-              <ChevronRight className={cn('h-6 w-6', theme.muted)} />
-            </button>
-          ))}
         </div>
       </div>
 
