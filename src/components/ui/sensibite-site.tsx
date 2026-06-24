@@ -28,6 +28,7 @@ import {
 import { scanImageWithClientTimeout, type ImageScanPayload } from '../../lib/imageScanClient';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
+import IPhoneMockup from './iphone-mockup';
 
 type Navigate = (path: string, options?: { replace?: boolean }) => void;
 type DashboardTab = 'home' | 'progress' | 'profile';
@@ -42,6 +43,7 @@ type GenderOption = 'Male' | 'Female' | 'Other';
 type SensiGoal = 'Find triggers' | 'Reduce bloating' | 'Build consistency';
 type UnitSystem = 'metric' | 'imperial';
 type OnboardingStepKind = 'intro' | 'single' | 'multi' | 'basics' | 'timeline' | 'insight' | 'processing';
+type BmiCategory = 'Underweight' | 'Balanced' | 'Elevated' | 'High';
 
 type SetupProfile = {
   gender: GenderOption;
@@ -356,6 +358,45 @@ function getProfileScanTriggers(profile: StoredSensiProfile | null) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value && value !== 'None')))).slice(0, 12);
 }
 
+function getBmiFromProfile(profile: StoredSensiProfile | null) {
+  if (!profile || profile.heightCm <= 0 || profile.weightKg <= 0) return null;
+  const heightMeters = profile.heightCm / 100;
+  const value = profile.weightKg / (heightMeters * heightMeters);
+  if (!Number.isFinite(value)) return null;
+
+  const category: BmiCategory = value < 18.5 ? 'Underweight' : value < 25 ? 'Balanced' : value < 30 ? 'Elevated' : 'High';
+  const pointer = Math.min(100, Math.max(0, ((Math.min(40, Math.max(15, value)) - 15) / 25) * 100));
+
+  return {
+    category,
+    display: value.toFixed(1),
+    pointer,
+    range: `${Math.round(profile.weightKg)} kg / ${Math.round(profile.heightCm)} cm`,
+  };
+}
+
+function LandingPhoneMockup({ className = '', dark = false }: { className?: string; dark?: boolean }) {
+  return (
+    <div className={cn('pointer-events-none select-none', className)}>
+      <IPhoneMockup
+        model="15-pro"
+        color={dark ? 'space-black' : 'natural-titanium'}
+        scale={0.66}
+        screenBg={dark ? '#050505' : '#f8f8f8'}
+        showHomeIndicator={false}
+        safeArea={false}
+        shadow="0 34px 90px rgba(15,23,42,0.22), 0 10px 28px rgba(15,23,42,0.12)"
+      >
+        <img
+          alt="SensiBite dashboard mobile screen"
+          className="h-full w-full object-cover"
+          src="/assets/sensibite-dashboard-mobile.png"
+        />
+      </IPhoneMockup>
+    </div>
+  );
+}
+
 export function LandingPage({ navigate }: { navigate: Navigate }) {
   const [activeIncludeIndex, setActiveIncludeIndex] = useState(0);
   const scrollToSection = (id: string) => {
@@ -449,62 +490,16 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </div>
         </div>
 
-        <div className="relative">
-          <div className="rounded-[34px] bg-zinc-950 p-4 text-white shadow-[0_34px_110px_rgba(15,23,42,0.20)] md:p-5">
-            <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="rounded-[28px] bg-white p-5 text-zinc-950 md:p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Latest scan</p>
-                    <h2 className="mt-3 text-4xl font-black leading-none md:text-5xl">82/100</h2>
-                  </div>
-                  <span className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-black text-white">Avoid</span>
-                </div>
-                <div className="mt-6 overflow-hidden rounded-[24px]">
-                  <img
-                    alt="Fried meal scan preview"
-                    className="h-[220px] w-full object-cover md:h-[260px]"
-                    src="https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1200&auto=format&fit=crop"
-                  />
-                </div>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {['Fried food matched watchlist', 'Late meal window detected'].map((item) => (
-                    <div className="rounded-[20px] bg-[#f6f5ef] p-4 text-sm font-black text-zinc-700" key={item}>{item}</div>
-                  ))}
-                </div>
-              </div>
-              <div className="grid gap-4">
-                <div className="rounded-[28px] bg-white/[0.08] p-5 ring-1 ring-white/10 md:p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">How it works</p>
-                  <div className="mt-5 grid gap-3">
-                    {[
-                      ['Photo', 'Meal saved with time and score.'],
-                      ['Check-in', 'Feeling logged when it actually happens.'],
-                      ['Pattern', 'Repeat signals become visible.'],
-                    ].map(([title, body], index) => (
-                      <div className="grid grid-cols-[40px_1fr] gap-4 rounded-[20px] bg-black/20 p-3.5 ring-1 ring-white/10" key={title}>
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-black text-zinc-950">{index + 1}</div>
-                        <div>
-                          <p className="text-base font-black">{title}</p>
-                          <p className="mt-1 text-sm font-semibold leading-5 text-white/55">{body}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded-[28px] bg-white p-5 text-zinc-950 md:p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Pattern timeline</p>
-                  <div className="mt-5 flex h-28 items-end gap-3">
-                    {[32, 46, 40, 62, 58, 78, 92].map((height, index) => (
-                      <div className="flex flex-1 flex-col items-center gap-3" key={index}>
-                        <div className="w-full rounded-t-full bg-zinc-950" style={{ height: `${height}%` }} />
-                        <span className="text-[10px] font-black text-zinc-400">{index + 1}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div className="relative min-h-[560px] overflow-hidden rounded-[38px] bg-[radial-gradient(circle_at_50%_34%,rgba(24,24,27,0.12),transparent_52%)] lg:min-h-[640px]">
+          <div className="absolute left-[8%] top-10 z-20 sm:left-[17%] lg:left-[10%] xl:left-[14%]">
+            <LandingPhoneMockup />
+          </div>
+          <div className="absolute right-[2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[5%] xl:right-[9%]">
+            <LandingPhoneMockup dark />
+          </div>
+          <div className="absolute bottom-8 left-6 right-6 z-30 rounded-[28px] bg-white/85 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)] ring-1 ring-zinc-950/[0.06] backdrop-blur-xl sm:left-auto sm:w-[360px]">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400">Live dashboard</p>
+            <p className="mt-2 text-2xl font-black leading-tight text-zinc-950">Real scans, real check-ins, one private timeline.</p>
           </div>
         </div>
       </section>
@@ -1316,6 +1311,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const gutScorePercent = gutScoreOutOfTen ? gutScoreOutOfTen * 10 : 0;
   const latestTitle = scanResult?.result.productName ?? visibleLogs[0]?.title ?? '';
   const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
+  const profileBmi = getBmiFromProfile(storedProfile);
   const dashboardDays = [
     { day: 'W', date: '27', progress: scanCount > 5 ? 100 : 0, state: scanCount > 5 ? 'done' : 'empty' },
     { day: 'T', date: '28', progress: scanCount > 4 ? 100 : 0, state: scanCount > 4 ? 'done' : 'empty' },
@@ -1509,6 +1505,59 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               </p>
             </div>
           )}
+        </div>
+      </div>
+
+      <div className={cn(cardClass, 'overflow-hidden')}>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>{isRussian ? 'Профиль тела' : 'Body profile'}</p>
+            <h2 className="mt-3 text-3xl font-black leading-none">{isRussian ? 'BMI' : 'BMI'}</h2>
+            <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
+              {profileBmi
+                ? (isRussian ? 'Рассчитано из роста и веса, которые вы указали в настройке.' : `Calculated from your saved setup: ${profileBmi.range}.`)
+                : (isRussian ? 'Заполните рост и вес в настройке, чтобы увидеть BMI.' : 'Finish setup with height and weight to unlock your BMI baseline.')}
+            </p>
+          </div>
+          <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
+            <span className="text-3xl font-black">{profileBmi?.display ?? 'N/A'}</span>
+            <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{profileBmi?.category ?? (isRussian ? 'нет' : 'none')}</span>
+          </div>
+        </div>
+
+        <div className="relative mt-7">
+          <div className="h-4 overflow-hidden rounded-full bg-[linear-gradient(90deg,#60a5fa_0%,#818cf8_34%,#f59e0b_68%,#ef4444_100%)] opacity-90" />
+          <div
+            className={cn(
+              'absolute top-1/2 h-8 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.92)] transition-all duration-500',
+              isDarkMode ? 'bg-white' : 'bg-zinc-950',
+            )}
+            style={{ left: `${profileBmi?.pointer ?? 0}%` }}
+          />
+        </div>
+        <div className={cn('mt-3 flex justify-between text-[11px] font-black', theme.faint)}>
+          <span>15</span>
+          <span>18.5</span>
+          <span>25</span>
+          <span>30</span>
+          <span>40</span>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {(['Underweight', 'Balanced', 'Elevated', 'High'] as BmiCategory[]).map((label) => (
+            <div
+              className={cn(
+                'rounded-[16px] px-2 py-3 text-center text-[11px] font-black transition-colors',
+                profileBmi?.category === label
+                  ? isDarkMode
+                    ? 'bg-white text-zinc-950'
+                    : 'bg-zinc-950 text-white'
+                  : theme.soft,
+              )}
+              key={label}
+            >
+              {label}
+            </div>
+          ))}
         </div>
       </div>
     </div>
