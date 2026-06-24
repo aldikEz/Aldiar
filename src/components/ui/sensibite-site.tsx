@@ -1722,15 +1722,38 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const latestTitle = scanResult?.result.productName ?? visibleLogs[0]?.title ?? '';
   const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
   const profileBmi = getBmiFromProfile(storedProfile);
+  const homePulseCards: Array<[typeof Camera, string, string, string, string]> = [
+    [
+      ScanLine,
+      isRussian ? 'Сканы' : 'Scans',
+      hasActivity ? String(scanCount) : '0',
+      hasActivity ? (isRussian ? 'сохранено' : 'saved') : (isRussian ? 'начните' : 'start'),
+      isDarkMode ? 'bg-white/[0.07] text-white ring-white/10' : 'bg-[#fff0d6] text-[#2a2118] ring-[#f0cf95]',
+    ],
+    [
+      Activity,
+      isRussian ? 'Самочувствие' : 'Feeling',
+      selectedFeeling ?? (hasActivity ? 'Later' : 'Tap'),
+      isRussian ? 'после еды' : 'after eating',
+      isDarkMode ? 'bg-white/[0.07] text-white ring-white/10' : 'bg-[#f3edff] text-[#261b3f] ring-[#d7c7ff]',
+    ],
+    [
+      BarChart3,
+      isRussian ? 'Паттерн' : 'Pattern',
+      hasActivity ? 'Building' : 'Ready',
+      isRussian ? 'из повторов' : 'from repeats',
+      isDarkMode ? 'bg-white/[0.07] text-white ring-white/10' : 'bg-[#eaf2ff] text-[#13233f] ring-[#c8dcff]',
+    ],
+  ];
   const navItems: Array<{ id: DashboardTab; label: string; icon: typeof Home }> = [
     { id: 'home', label: isRussian ? 'Главная' : 'Home', icon: Home },
     { id: 'progress', label: isRussian ? 'Паттерны' : 'Patterns', icon: BarChart3 },
     { id: 'profile', label: isRussian ? 'Профиль' : 'Profile', icon: User },
   ];
   const theme = {
-    app: isDarkMode ? 'bg-[#050505] text-white' : 'bg-[#f8f8f8] text-zinc-950',
-    card: isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.05]' : 'bg-white text-zinc-950 ring-zinc-950/[0.04]',
-    soft: isDarkMode ? 'bg-white/[0.06] text-white ring-white/[0.05]' : 'bg-[#f2f1f8] text-zinc-950 ring-zinc-950/[0.04]',
+    app: isDarkMode ? 'bg-[#050505] text-white' : 'bg-[#fffaf0] text-zinc-950',
+    card: isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.05]' : 'bg-white text-zinc-950 ring-zinc-950/[0.05]',
+    soft: isDarkMode ? 'bg-white/[0.06] text-white ring-white/[0.05]' : 'bg-[#fff4df] text-zinc-950 ring-[#edd6ac]',
     input: isDarkMode
       ? 'border-white/[0.12] bg-[#101012] text-white placeholder:text-white/30 focus:border-white/30 focus:ring-white/20'
       : 'border-zinc-200 bg-white text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-zinc-950/15',
@@ -1828,15 +1851,25 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           [isRussian ? 'Серия' : 'Streak', hasActivity ? '1' : '0', isRussian ? 'день' : 'day', Flame],
           [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Building' : 'No signal yet', isRussian ? 'после сканов' : 'after scans', Activity],
           [isRussian ? 'База' : 'Baseline', hasActivity ? 'Set' : 'Empty', isRussian ? 'после первого скана' : 'after first scan', Target],
-        ].map(([label, value, helper, Icon]) => (
+        ].map(([label, value, helper, Icon], index) => (
           <div
-            className={cn(cardClass, 'min-h-[138px] text-left')}
+            className={cn(
+              'min-h-[138px] rounded-[30px] p-5 text-left shadow-[0_20px_50px_rgba(0,0,0,0.10)] ring-1 transition-colors duration-700',
+              isDarkMode
+                ? theme.card
+                : [
+                    'bg-[#fff0d6] text-[#2a2118] ring-[#f0cf95]',
+                    'bg-[#fff8e8] text-[#2a2118] ring-[#edd6ac]',
+                    'bg-[#f3edff] text-[#261b3f] ring-[#d7c7ff]',
+                    'bg-[#eaf2ff] text-[#13233f] ring-[#c8dcff]',
+                  ][index],
+            )}
             key={String(label)}
           >
-            <Icon className={cn('h-6 w-6', theme.muted)} />
+            <Icon className="h-6 w-6 opacity-70" />
             <p className="mt-5 text-3xl font-black">{value as string}</p>
-            <p className={cn('mt-1 text-sm font-black', theme.muted)}>{label as string}</p>
-            <p className={cn('mt-1 text-xs font-semibold', theme.faint)}>{helper as string}</p>
+            <p className="mt-1 text-sm font-black opacity-70">{label as string}</p>
+            <p className="mt-1 text-xs font-semibold opacity-45">{helper as string}</p>
           </div>
         ))}
       </div>
@@ -2043,7 +2076,27 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     Scan
                   </button>
                 </div>
-                <section className={cn('mt-8 rounded-[36px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.14)] ring-1 transition-colors duration-700', theme.card)}>
+
+                <div className="mt-6 grid grid-cols-3 gap-2.5">
+                  {homePulseCards.map(([Icon, label, value, helper, className]) => (
+                    <div
+                      className={cn('min-h-[112px] rounded-[26px] p-3.5 shadow-[0_16px_38px_rgba(32,24,12,0.08)] ring-1 transition duration-300', className)}
+                      key={label}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <p className="mt-4 truncate text-[22px] font-black leading-none">{value}</p>
+                      <p className="mt-1 truncate text-[12px] font-black">{label}</p>
+                      <p className="mt-1 truncate text-[10px] font-bold opacity-55">{helper}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <section
+                  className={cn(
+                    'mt-5 overflow-hidden rounded-[36px] p-5 shadow-[0_24px_70px_rgba(36,24,8,0.16)] ring-1 transition-colors duration-700',
+                    isDarkMode ? theme.card : 'bg-[linear-gradient(145deg,#ffffff_0%,#fff6e5_56%,#eef5ff_100%)] text-zinc-950 ring-[#ead3aa]',
+                  )}
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
@@ -2058,7 +2111,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           : 'Fill the camera square with the ingredients. If the label is blurry, SensiBite will ask you to retake it instead of saving a weak result.'}
                       </p>
                     </div>
-                    <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-[#f2f1f8] ring-zinc-950/[0.04]')}>
+                    <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1 shadow-inner', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-white/70 ring-[#e8d2aa]')}>
                       <Camera className="h-7 w-7" />
                       <span className={cn('mt-1 text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>AI</span>
                     </div>
@@ -2102,18 +2155,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <ChevronRight className="h-6 w-6 shrink-0" />
                   </button>
 
-                  <div className="mt-5 grid grid-cols-3 gap-2">
-                    {[
-                      [Camera, 'Scan', hasActivity ? `${scanCount} saved` : 'First meal'],
-                      [Activity, 'Feel', selectedFeeling ?? 'Later'],
-                      [BarChart3, 'Pattern', hasActivity ? 'Building' : 'Needs scan'],
-                    ].map(([Icon, title, body]) => (
-                      <div className={cn('min-h-[86px] rounded-[22px] p-3 ring-1', theme.soft)} key={String(title)}>
-                        <Icon className={cn('h-5 w-5', theme.muted)} />
-                        <p className="mt-3 text-sm font-black">{title as string}</p>
-                        <p className={cn('mt-1 truncate text-xs font-bold', theme.muted)}>{body as string}</p>
+                  <div className={cn('mt-5 rounded-[24px] p-4 ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-white/72 ring-[#ead3aa]')}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black">{hasActivity ? 'Next useful action' : 'Today starts simple'}</p>
+                        <p className={cn('mt-1 text-xs font-semibold leading-5', theme.muted)}>
+                          {hasActivity ? 'Add how you feel later so this scan can become a pattern.' : 'One clear label photo is enough to start your timeline.'}
+                        </p>
                       </div>
-                    ))}
+                      <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', isDarkMode ? 'bg-white text-zinc-950' : 'bg-[#261b3f] text-white')}>
+                        <Activity className="h-5 w-5" />
+                      </span>
+                    </div>
                   </div>
                 </section>
               </>
