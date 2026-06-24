@@ -13,7 +13,6 @@ import {
   ClipboardList,
   Flame,
   Home,
-  Languages,
   LogOut,
   Mail,
   Moon,
@@ -1235,7 +1234,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [profileDraftUsername, setProfileDraftUsername] = useState('sensibite');
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
-  const [language, setLanguage] = useState<'English' | 'Russian'>('English');
+  const [language] = useState<'English' | 'Russian'>('English');
   const [selectedFeeling, setSelectedFeeling] = useState<FeelingOption | null>(null);
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -1437,14 +1436,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setDashboardError('Profile updated.');
   };
 
-  const toggleLanguage = () => {
-    setLanguage((current) => {
-      const next = current === 'English' ? 'Russian' : 'English';
-      setDashboardError(next === 'Russian' ? 'Язык изменен на русский.' : 'Language changed to English.');
-      return next;
-    });
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     navigate('/');
@@ -1613,17 +1604,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Learning' : 'None', isRussian ? 'после сканов' : 'after scans', Activity],
           [isRussian ? 'База' : 'Baseline', hasActivity ? 'Set' : 'Empty', isRussian ? 'после первого скана' : 'after first scan', Target],
         ].map(([label, value, helper, Icon]) => (
-          <button
-            className={cn(cardClass, 'min-h-[138px] text-left transition active:scale-[0.98]')}
+          <div
+            className={cn(cardClass, 'min-h-[138px] text-left')}
             key={String(label)}
-            onClick={openCamera}
-            type="button"
           >
             <Icon className={cn('h-6 w-6', theme.muted)} />
             <p className="mt-5 text-3xl font-black">{value as string}</p>
             <p className={cn('mt-1 text-sm font-black', theme.muted)}>{label as string}</p>
             <p className={cn('mt-1 text-xs font-semibold', theme.faint)}>{helper as string}</p>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -1719,19 +1708,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   const profileRows = [
     { label: 'Personal Details', icon: ClipboardList, action: openProfileEditor },
-    { label: 'Preferences', icon: Target, action: () => setIsDarkMode((value) => !value) },
-    { label: `Language: ${language}`, icon: Languages, action: toggleLanguage },
+    { label: isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode', icon: Moon, action: () => setIsDarkMode((value) => !value) },
     { label: 'Manage Subscription', icon: ShieldCheck, action: () => navigate('/manage-subscription') },
-  ];
-  const trackingRows = [
-    { label: 'Open camera scan', icon: Camera, action: openCamera },
-    { label: 'Pattern timeline', icon: Activity, action: () => setActiveTab('progress') },
-    { label: 'Food history', icon: ScanLine, action: () => setActiveTab('progress') },
   ];
   const supportRows = [
     { label: 'Contact Support', icon: Mail, action: () => navigate('/support') },
-    { label: 'Terms and Conditions', icon: ClipboardList, action: () => navigate('/terms') },
     { label: 'Privacy Policy', icon: ShieldCheck, action: () => navigate('/privacy') },
+    { label: 'Terms and Conditions', icon: ClipboardList, action: () => navigate('/terms') },
   ];
   const renderRow = ({ label, icon: Icon, action }: { label: string; icon: typeof Home; action: () => void }) => (
     <button className={cn('flex min-h-[66px] w-full items-center gap-4 border-b px-5 text-left last:border-b-0 transition active:scale-[0.99]', theme.line)} key={label} onClick={action} type="button">
@@ -1760,13 +1743,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Account</p>
         <div className={cn('overflow-hidden rounded-[30px] shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card)}>
           {profileRows.map(renderRow)}
-        </div>
-      </div>
-
-      <div>
-        <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Goals & Tracking</p>
-        <div className={cn('overflow-hidden rounded-[30px] shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card)}>
-          {trackingRows.map(renderRow)}
         </div>
       </div>
 
