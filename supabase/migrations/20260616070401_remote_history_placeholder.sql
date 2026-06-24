@@ -1,0 +1,2 @@
+-- Placeholder for migration already applied on the remote Supabase project.
+-- Kept locally so `supabase db push` can compare migration history safely.

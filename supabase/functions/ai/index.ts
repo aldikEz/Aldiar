@@ -25,6 +25,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 10_000, 5_000, 15_000);
+const SCAN_CACHE_VERSION = 'label-v3-strict-20260624';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -415,20 +416,24 @@ async function handleTextRequest(req: Request, body: RequestBody) {
 function makeLabelPrompt(targetLang: string, triggers: string[] = []) {
   const triggerLine = triggers.length > 0 ? triggers.join(', ') : 'none provided';
 
-  return `You are a careful product-label analysis engine.
+  return `You are SensiBite's strict packaged-food label scanner.
 
-Analyze only the product label visible in the image. Extract the product name or best product classification, then evaluate ingredient safety for a general consumer.
+First read/OCR every visible label word you can. Analyze only visible text, branding, nutrition facts, and ingredients in the image. Extract the product name or best product classification, then rate possible gut-trigger quality for a normal consumer and for the user's trigger profile.
 User possible triggers and profile context: ${triggerLine}
 
 Rules:
 - Return JSON only.
 - Use ${targetLang} for human-facing strings: productName, chemicalName, and reason.
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
-- Do not invent ingredients that are not visible or strongly inferable from the label.
+- Do not invent ingredients that are not visible, but use strong product-category inference when ingredients are hidden.
 - If the image is unreadable, return productName as "Unreadable Label" and overallRating as "Caution".
-- For flaggedChemicals, return exactly 2 ingredients/additives or label concerns.
+- For flaggedChemicals, return 2 to 4 ingredients/additives/category concerns.
 - If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
-- If a concern is regulatory, state the jurisdiction briefly and factually.
+- Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; they are at least "Caution".
+- If visible sugar is high, or the product is a sweetened beverage, score must be 0-55.
+- If the product is soda/energy drink/sweetened tea with sugar, caffeine, acid, sweeteners, or preservatives, use "Caution" or "Avoid".
+- Only use "Safe" above 75 when the label clearly shows a simple, low-trigger product with no meaningful additives/sugar concerns.
+- Use "Avoid" for obvious strong trigger products: sugary soda/energy drinks, very high sugar, fried snacks, or user-trigger overlap.
 - Keep each reason under 12 words.
 - This is consumer information, not medical advice.
 
@@ -436,11 +441,11 @@ Return this exact shape:
 {
   "result": {
     "productName": "Name or classification",
-    "overallRating": "Safe",
-    "score": 85,
+    "overallRating": "Caution",
+    "score": 45,
     "flaggedChemicals": [
       {
-        "chemicalName": "Ingredient name",
+        "chemicalName": "Visible or inferred concern",
         "severity": "Caution",
         "reason": "Brief factual reason."
       }
@@ -462,13 +467,15 @@ Rules:
 - Use ${targetLang} for productName, chemicalName, and reason.
 - Keep enum values exactly: "Safe", "Caution", "Avoid".
 - "Safe" means low likely trigger risk, "Caution" means medium, "Avoid" means high.
+- Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; score them 0-55 unless clearly unsweetened.
+- For soda/energy drink/sweetened tea, flag sugar/caffeine/acidity/sweeteners/preservatives when relevant.
 - Do not diagnose, guarantee safety, or give medical advice.
-- Return exactly 2 flaggedChemicals.
+- Return 2 to 4 flaggedChemicals.
 - Each reason must be under 12 words.
 - Prefer common trigger groups: dairy, wheat/flour, fried food, soda, caffeine, onion, garlic, spicy food.
 
 Required JSON shape:
-{"result":{"productName":"Food name","overallRating":"Caution","score":60,"flaggedChemicals":[{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."},{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."}]}}`;
+{"result":{"productName":"Food name","overallRating":"Caution","score":45,"flaggedChemicals":[{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."},{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."}]}}`;
 }
 
 async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
@@ -480,7 +487,7 @@ async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
 
   const targetLang = normalizeLanguage(body.userLang);
   const cacheHash = await sha256Hex(
-    `food-text:${targetLang}:${foodText.payload.inputType}:${foodText.payload.productKey}:${foodText.payload.text}:${foodText.payload.triggers.join('|')}`,
+    `${SCAN_CACHE_VERSION}:food-text:${targetLang}:${foodText.payload.inputType}:${foodText.payload.productKey}:${foodText.payload.text}:${foodText.payload.triggers.join('|')}`,
   );
   const cachedScan = await readCachedScan(cacheHash, targetLang);
 
@@ -521,7 +528,7 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   const targetLang = normalizeLanguage(body.userLang);
   const imageHash = await sha256Hex(`${image.payload.mimeType}:${image.payload.data}`);
   const profileHash = image.payload.triggers.join('|');
-  const cacheKey = profileHash ? await sha256Hex(`${imageHash}:${targetLang}:${profileHash}`) : imageHash;
+  const cacheKey = await sha256Hex(`${SCAN_CACHE_VERSION}:image:${imageHash}:${targetLang}:${profileHash || 'no-profile'}`);
   const cachedScan = await readCachedScan(cacheKey, targetLang);
 
   if (cachedScan) {
@@ -625,12 +632,137 @@ function normalizeScanPayload(value: unknown, targetLang: string, fallback: Scan
     ? value.result.flaggedChemicals.map(normalizeChemical).filter((item): item is ChemicalReport => item !== null).slice(0, 12)
     : [];
 
-  return {
+  return enforceFoodRiskRules({
     result: {
       productName: asBoundedString(value.result.productName, targetLang === 'Russian' ? 'Нечитаемая этикетка' : 'Unreadable Label', 120),
       overallRating: asRating(value.result.overallRating, flaggedChemicals.length > 0 ? 'Caution' : 'Safe'),
       score: asScore(value.result.score),
       flaggedChemicals,
+    },
+  }, targetLang);
+}
+
+function getScanText(scan: ScanPayload) {
+  return [
+    scan.result.productName,
+    scan.result.overallRating,
+    ...scan.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason, item.severity]),
+  ]
+    .join(' ')
+    .toLowerCase();
+}
+
+function hasAny(text: string, patterns: RegExp[]) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function makeConcern(chemicalName: string, reason: string, severity: Rating): ChemicalReport {
+  return {
+    chemicalName,
+    reason,
+    severity,
+  };
+}
+
+function dedupeConcerns(items: ChemicalReport[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.chemicalName.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayload {
+  const text = getScanText(scan);
+  const concerns = [...scan.result.flaggedChemicals];
+  let rating = scan.result.overallRating;
+  let score = scan.result.score;
+
+  const isSweetDrink = hasAny(text, [
+    /\bfuse\s*tea\b/i,
+    /\biced?\s*tea\b/i,
+    /\bsweet(?:ened)?\s*tea\b/i,
+    /\bsoda\b/i,
+    /\bcola\b/i,
+    /\bfanta\b/i,
+    /\bsprite\b/i,
+    /\bpepsi\b/i,
+    /\bcoca[-\s]?cola\b/i,
+    /\benergy\s*drink\b/i,
+    /\bsoft\s*drink\b/i,
+    /\bcarbonated\b/i,
+  ]);
+  const hasSugarSignal = hasAny(text, [
+    /\bsugar\b/i,
+    /\bglucose\b/i,
+    /\bfructose\b/i,
+    /\bsyrup\b/i,
+    /\bsucrose\b/i,
+    /\b\d{1,2}\s*g\s*(?:sugar|sugars)\b/i,
+  ]);
+  const hasCaffeineSignal = hasAny(text, [/\bcaffeine\b/i, /\btea\s*extract\b/i, /\bblack\s*tea\b/i, /\bgreen\s*tea\b/i]);
+  const hasAcidSignal = hasAny(text, [/\bcitric\s*acid\b/i, /\bphosphoric\s*acid\b/i, /\bacidity\s*regulator\b/i, /\bacid\b/i]);
+
+  if (isSweetDrink) {
+    rating = rating === 'Avoid' ? 'Avoid' : 'Caution';
+    score = Math.min(score, hasSugarSignal ? 45 : 55);
+    concerns.unshift(
+      makeConcern(
+        targetLang === 'Russian' ? 'Сладкий напиток' : 'Sweetened drink',
+        targetLang === 'Russian' ? 'Частый триггер сахара и кислотности.' : 'Common sugar and acidity trigger.',
+        'Caution',
+      ),
+    );
+  }
+
+  if (hasSugarSignal) {
+    score = Math.min(score, 55);
+    if (rating === 'Safe') rating = 'Caution';
+    concerns.unshift(
+      makeConcern(
+        targetLang === 'Russian' ? 'Сахар' : 'Sugar',
+        targetLang === 'Russian' ? 'Может усиливать вздутие у некоторых.' : 'Can worsen bloating for some.',
+        'Caution',
+      ),
+    );
+  }
+
+  if (hasCaffeineSignal) {
+    concerns.push(
+      makeConcern(
+        targetLang === 'Russian' ? 'Кофеин или чайный экстракт' : 'Caffeine or tea extract',
+        targetLang === 'Russian' ? 'Может раздражать чувствительный желудок.' : 'May irritate sensitive stomachs.',
+        'Caution',
+      ),
+    );
+  }
+
+  if (hasAcidSignal) {
+    concerns.push(
+      makeConcern(
+        targetLang === 'Russian' ? 'Кислотность' : 'Acidity',
+        targetLang === 'Russian' ? 'Кислоты могут усиливать дискомфорт.' : 'Acids may worsen discomfort.',
+        'Caution',
+      ),
+    );
+  }
+
+  if (score >= 75 && rating === 'Safe' && concerns.length > 0) {
+    const concernText = concerns.map((item) => `${item.chemicalName} ${item.reason}`).join(' ').toLowerCase();
+    if (hasAny(concernText, [/\bsugar\b/i, /\bcaffeine\b/i, /\bacid\b/i, /\bsweet/i, /\bpreservative/i])) {
+      rating = 'Caution';
+      score = Math.min(score, 60);
+    }
+  }
+
+  return {
+    result: {
+      ...scan.result,
+      overallRating: rating,
+      score,
+      flaggedChemicals: dedupeConcerns(concerns).slice(0, 4),
     },
   };
 }
@@ -699,9 +831,10 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
         ? 'Common preparation'
         : 'Label review';
   const hasStrongMatch = matchedTriggers.length > 0;
-  const likelyFriedOrSoda = /\b(fried|fries|burger|nugget|crispy|soda|cola|fanta|sprite|soft drink)\b/i.test(normalizedInput);
+  const likelyFriedOrSoda = /\b(fried|fries|burger|nugget|crispy|soda|cola|fanta|sprite|soft drink|iced tea|ice tea|sweetened tea|fuse tea|energy drink|carbonated)\b/i.test(normalizedInput);
+  const likelySugarDrink = /\b(sugar|glucose|fructose|syrup|sweetened|iced tea|ice tea|fuse tea|soda|cola|soft drink|energy drink)\b/i.test(normalizedInput);
   const rating: Rating = hasStrongMatch && likelyFriedOrSoda ? 'Avoid' : hasStrongMatch ? 'Caution' : 'Caution';
-  const score = rating === 'Avoid' ? 82 : hasStrongMatch ? 68 : 55;
+  const score = rating === 'Avoid' ? 38 : likelySugarDrink ? 45 : hasStrongMatch ? 58 : 55;
   const firstReason =
     targetLang === 'Russian'
       ? hasStrongMatch
@@ -720,7 +853,7 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
         : 'Quick estimate, not a safety guarantee.';
 
   if (targetLang === 'Russian') {
-    return {
+    return enforceFoodRiskRules({
       result: {
         productName,
         overallRating: rating,
@@ -738,10 +871,10 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
           },
         ],
       },
-    };
+    }, targetLang);
   }
 
-  return {
+  return enforceFoodRiskRules({
     result: {
       productName,
       overallRating: rating,
@@ -759,7 +892,7 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
         },
       ],
     },
-  };
+  }, targetLang);
 }
 
 function localizeTriggerName(value: string, targetLang: string) {
