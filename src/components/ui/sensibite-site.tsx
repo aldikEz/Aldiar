@@ -1399,19 +1399,33 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         return;
       }
 
-      const baseUsername = normalizeUsername(usernameFromName(initialName));
-      const candidate = await getAvailableUsername(baseUsername, session.user.id);
-      const nextProfile = {
-        user_id: session.user.id,
-        full_name: initialName,
-        username: candidate,
-      };
+      const candidates = getProfileUsernameCandidates(usernameFromName(initialName), session.user.id);
+      let created: ProfileRow | null = null;
 
-      const { data: created } = await supabase
-        .from('profiles')
-        .upsert(nextProfile, { onConflict: 'user_id' })
-        .select('user_id,full_name,username')
-        .single<ProfileRow>();
+      for (const username of candidates) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              user_id: session.user.id,
+              full_name: initialName,
+              username,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' },
+          )
+          .select('user_id,full_name,username')
+          .single<ProfileRow>();
+
+        if (profile && !error) {
+          created = profile;
+          break;
+        }
+
+        if (!error?.message?.includes('profiles_username')) {
+          break;
+        }
+      }
 
       if (!active || !created) return;
 
@@ -1586,21 +1600,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     await runImageScan(file);
   };
 
-  const getAvailableUsername = async (baseValue: string, userId: string) => {
+  const getProfileUsernameCandidates = (baseValue: string, userId: string) => {
     const base = normalizeUsername(baseValue) || `user_${userId.slice(0, 6)}`;
-    const candidates = [base, `${base}_${userId.slice(0, 4)}`, `${base}_${Math.random().toString(36).slice(2, 6)}`].map((value) => value.slice(0, 24));
-
-    for (const candidate of candidates) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('username', candidate)
-        .maybeSingle<{ user_id: string }>();
-
-      if (!data || data.user_id === userId) return candidate;
-    }
-
-    return `user_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    return [
+      base,
+      `${base}_${userId.slice(0, 4)}`,
+      `${base}_${Math.random().toString(36).slice(2, 6)}`,
+      `user_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
+    ].map((value) => normalizeUsername(value).slice(0, 24));
   };
 
   const saveProfileDetails = async () => {
@@ -1619,18 +1626,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
     setProfileSaving(true);
     setDashboardError('');
-
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('user_id')
-      .eq('username', nextUsername)
-      .maybeSingle<{ user_id: string }>();
-
-    if (existing && existing.user_id !== session.user.id) {
-      setProfileSaving(false);
-      setDashboardError('That username is already taken.');
-      return;
-    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -1715,7 +1710,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       ? 'SensiBite не нашел сильный сигнал в этом скане.'
       : 'SensiBite did not find a strong issue in this scan.',
     scanAgain: isRussian ? 'Сканировать еще' : 'Scan again',
-    saveToTimeline: isRussian ? 'Сохранить' : 'Save to timeline',
+    saveToTimeline: isRussian ? 'Сохранить самочувствие' : 'Save feeling',
     profileDetails: isRussian ? 'Профиль' : 'Profile details',
     name: isRussian ? 'Имя' : 'Name',
     username: isRussian ? 'Username' : 'Username',
@@ -1817,11 +1812,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
         <div className="mt-5 space-y-3">
           {visibleLogs.length > 0 ? visibleLogs.slice(0, 5).map((item) => (
-            <button
-              className={cn('flex min-h-[64px] w-full items-center gap-4 rounded-[20px] px-4 text-left transition active:scale-[0.99]', theme.soft)}
+            <article
+              className={cn('flex min-h-[64px] w-full items-center gap-4 rounded-[20px] px-4 text-left', theme.soft)}
               key={item.id}
-              onClick={() => setResultSheetOpen(Boolean(scanResult))}
-              type="button"
             >
               <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950')}>
                 <Camera className="h-4 w-4" />
@@ -1830,8 +1823,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <span className="block truncate text-sm font-black">{item.title}</span>
                 <span className={cn('mt-1 block text-xs font-semibold', theme.muted)}>{new Date(item.created_at).toLocaleDateString()}</span>
               </span>
-              <ChevronRight className={cn('h-5 w-5', theme.muted)} />
-            </button>
+            </article>
           )) : (
             <div className={cn('rounded-[24px] p-5 text-center', theme.soft)}>
               <ScanLine className={cn('mx-auto h-8 w-8', theme.muted)} />
@@ -2397,17 +2389,20 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     {copy.scanAgain}
                   </button>
                   <button
-                    className={cn('h-14 rounded-full text-sm font-black transition active:scale-[0.98]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
+                    className={cn(
+                      'h-14 rounded-full text-sm font-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45',
+                      isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white',
+                    )}
+                    disabled={!selectedFeeling}
                     onClick={async () => {
-                      if (selectedFeeling) {
-                        await saveEntry(`${selectedFeeling} after ${scanResult.result.productName}`);
-                      }
-                      setDashboardError(selectedFeeling ? `${selectedFeeling} connected to this scan.` : 'Scan saved to timeline.');
+                      if (!selectedFeeling) return;
+                      await saveEntry(`${selectedFeeling} check-in saved: ${scanResult.result.productName}`);
+                      setDashboardError(`${selectedFeeling} connected to this scan.`);
                       setResultSheetOpen(false);
                     }}
                     type="button"
                   >
-                    {copy.saveToTimeline}
+                    {selectedFeeling ? copy.saveToTimeline : (isRussian ? 'Выберите самочувствие' : 'Pick feeling first')}
                   </button>
                 </div>
               </motion.div>
