@@ -1794,7 +1794,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         {[
           [isRussian ? 'Сканы' : 'Scans', String(scanCount), isRussian ? 'сохранено' : 'saved', ScanLine],
           [isRussian ? 'Серия' : 'Streak', hasActivity ? '1' : '0', isRussian ? 'день' : 'day', Flame],
-          [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Learning' : 'None', isRussian ? 'после сканов' : 'after scans', Activity],
+          [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Building' : 'No signal yet', isRussian ? 'после сканов' : 'after scans', Activity],
           [isRussian ? 'База' : 'Baseline', hasActivity ? 'Set' : 'Empty', isRussian ? 'после первого скана' : 'after first scan', Target],
         ].map(([label, value, helper, Icon]) => (
           <div
@@ -2026,7 +2026,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       <p className={cn('mt-3 max-w-[520px] text-sm font-semibold leading-6', theme.muted)}>
                         {hasActivity
                           ? latestReason || 'Result saved. Add a later feeling check-in when your body reacts.'
-                          : 'Fill the camera square with the ingredients. If the label is blurry, SensiBite will ask you to retake it instead of saving junk data.'}
+                          : 'Fill the camera square with the ingredients. If the label is blurry, SensiBite will ask you to retake it instead of saving a weak result.'}
                       </p>
                     </div>
                     <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-[#f2f1f8] ring-zinc-950/[0.04]')}>
@@ -2049,9 +2049,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             <div className={cn('h-2 w-2/3 rounded-full', isDarkMode ? 'bg-white/[0.18]' : 'bg-zinc-100')} />
                           </div>
                         </div>
-                        <p className={cn('text-[12px] font-black', theme.muted)}>27%</p>
+                        <p className={cn('text-[12px] font-black', theme.muted)}>Reading</p>
                       </div>
-                      <p className={cn('mt-4 text-[11px] font-semibold', theme.muted)}>SensiBite is reading the image and preparing a result.</p>
+                      <p className={cn('mt-4 text-[11px] font-semibold', theme.muted)}>Reading the label, ingredients, and visible product context.</p>
                     </div>
                   )}
                   <button
@@ -2077,7 +2077,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     {[
                       [Camera, 'Scan', hasActivity ? `${scanCount} saved` : 'First meal'],
                       [Activity, 'Feel', selectedFeeling ?? 'Later'],
-                      [BarChart3, 'Pattern', hasActivity ? 'Learning' : 'Waiting'],
+                      [BarChart3, 'Pattern', hasActivity ? 'Building' : 'Needs scan'],
                     ].map(([Icon, title, body]) => (
                       <div className={cn('min-h-[86px] rounded-[22px] p-3 ring-1', theme.soft)} key={String(title)}>
                         <Icon className={cn('h-5 w-5', theme.muted)} />
