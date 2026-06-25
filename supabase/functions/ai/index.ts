@@ -25,7 +25,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v6-visual-recovery-20260625';
+const SCAN_CACHE_VERSION = 'label-v7-product-identity-recovery-20260625';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -464,7 +464,11 @@ async function callGemini(body: unknown) {
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
       console.error('Gemini request failed.', response.status, errorText.slice(0, 500));
-      return { error: 'AI request failed.', status: 502 };
+      const quotaHit = response.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(errorText);
+      return {
+        error: quotaHit ? 'AI quota is cooling down. Try again shortly.' : 'AI request failed.',
+        status: quotaHit ? 429 : 502,
+      };
     }
 
     const data = (await response.json()) as GeminiResponse;
@@ -550,6 +554,9 @@ Rules:
 - If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
 - Do not invent ingredients that are not visible, but use strong product-category inference when ingredients are hidden.
+- You are not just OCR. Use logo shape, colors, bottle/can/bag design, mascot, typography fragments, and common product knowledge to identify global packaged foods and drinks.
+- For common packaged products, prefer a specific product identity when visually supported: e.g. "Coca-Cola", "Pepsi", "Sprite", "Fanta", "Red Bull", "Monster Energy", "Lay's potato chips", "Doritos", "Cheetos", "Pringles", "Snickers", "Kinder Bueno".
+- If the exact brand is not clear, say "Likely [category]" rather than "Unreadable Label".
 - If OCR is unreadable but the food/product category is visually recognizable, return the likely category and mark concerns as "visual estimate", "label not verified", or "category-based risk".
 - If both label text and visual category are impossible to identify, return productName as "Visual estimate unavailable" and overallRating as "Caution".
 - Never leave productName generic if any food/drink/package category is visible.
@@ -583,31 +590,6 @@ Return this exact shape:
     ]
   }
 }`;
-}
-
-function makeVisualRecoveryPrompt(targetLang: string, triggers: string[] = []) {
-  const triggerLine = triggers.length > 0 ? triggers.join(', ') : 'none provided';
-
-  return `You are DigestSnap's visual food/product classifier. Your previous OCR-style read failed, so do NOT try to transcribe the full label.
-
-Look at the image as a human would in a store. Classify the visible food/drink/package from shape, container, liquid color, visible keywords, brand hints, nutrition panel layout, and product category.
-User possible triggers and profile context: ${triggerLine}
-
-Rules:
-- Return JSON only.
-- Use ${targetLang} for productName, chemicalName, and reason.
-- If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
-- Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
-- Never return "Unreadable Label", "Image unclear", "Could not verify image", or "Visual estimate unavailable" if any food/drink/product category is visible.
-- If it looks like plain bottled water, mineral water, spring water, or a water label, return productName like "Likely bottled water" or "Likely mineral water", rating "Safe", score 82-95.
-- If it looks like flavored water, soda, iced tea, juice, or energy drink, return at least "Caution"; sugary/carbonated/caffeinated drinks should usually be "Avoid".
-- If it looks like a snack, fried food, fast food, candy, or packaged dessert, use category-based risk.
-- Mark uncertainty in the reasons using "visual estimate" or "label not verified".
-- Return 2 to 4 flaggedChemicals/category concerns.
-- Keep each reason under 12 words.
-
-Required JSON shape:
-{"result":{"productName":"Likely product category","overallRating":"Caution","score":50,"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified."},{"chemicalName":"Category risk","severity":"Caution","reason":"Short reason."}]}}`;
 }
 
 function makeFoodTextPrompt(payload: FoodTextPayload, targetLang: string) {
@@ -725,36 +707,6 @@ async function handleImageRequest(req: Request, body: RequestBody) {
 
   const parsed = parseModelJson(geminiResult.text);
   let scan = normalizeScanPayload(parsed, targetLang);
-
-  if (isUnusableVisualScan(scan)) {
-    const recoveryResult = await callGemini({
-      contents: [
-        {
-          parts: [
-            { text: makeVisualRecoveryPrompt(targetLang, image.payload.triggers) },
-            {
-              inlineData: {
-                mimeType: image.payload.mimeType,
-                data: image.payload.data,
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.1,
-        maxOutputTokens: 300,
-      },
-    });
-
-    if (!('error' in recoveryResult)) {
-      const recoveredScan = normalizeScanPayload(parseModelJson(recoveryResult.text), targetLang);
-      if (!isUnusableVisualScan(recoveredScan)) {
-        scan = recoveredScan;
-      }
-    }
-  }
 
   if (isUnreadableProductName(scan.result.productName)) {
     scan = visualEstimateFallback(targetLang);
@@ -908,6 +860,11 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
     /\benergy\s*drink\b/i,
     /\bsoft\s*drink\b/i,
     /\bcarbonated\b/i,
+    /\bгазиров/i,
+    /\bсладк\w*\s+напит/i,
+    /\bхолодн\w*\s+чай/i,
+    /\bсладк\w*\s+чай/i,
+    /\bэнергет/i,
   ]);
   const hasSugarSignal = hasAny(text, [
     /\bsugar\b/i,
@@ -916,9 +873,13 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
     /\bsyrup\b/i,
     /\bsucrose\b/i,
     /\b\d{1,2}\s*g\s*(?:sugar|sugars)\b/i,
+    /\bсахар/i,
+    /\bсироп/i,
+    /\bглюкоз/i,
+    /\bфруктоз/i,
   ]);
-  const hasCaffeineSignal = hasAny(text, [/\bcaffeine\b/i, /\btea\s*extract\b/i, /\bblack\s*tea\b/i, /\bgreen\s*tea\b/i]);
-  const hasAcidSignal = hasAny(text, [/\bcitric\s*acid\b/i, /\bphosphoric\s*acid\b/i, /\bacidity\s*regulator\b/i, /\bacid\b/i]);
+  const hasCaffeineSignal = hasAny(text, [/\bcaffeine\b/i, /\btea\s*extract\b/i, /\bblack\s*tea\b/i, /\bgreen\s*tea\b/i, /\bкофеин/i, /\bчай/i]);
+  const hasAcidSignal = hasAny(text, [/\bcitric\s*acid\b/i, /\bphosphoric\s*acid\b/i, /\bacidity\s*regulator\b/i, /\bacid\b/i, /\bкислот/i, /\bрегулятор\s+кислотности/i]);
 
   if (isSweetDrink) {
     rating = 'Avoid';
@@ -1144,7 +1105,10 @@ function localizeProductDisplayName(value: string, targetLang: string) {
   if (/\bfuse\s*tea\b/i.test(value) || /\biced?\s*tea\b/i.test(value) || /\bice\s*tea\b/i.test(value)) {
     return /\bfuse\s*tea\b/i.test(value) ? 'Fuse Tea, сладкий холодный чай' : 'Сладкий холодный чай';
   }
-  if (/\bcola\b|\bcoca[-\s]?cola\b|\bpepsi\b|\bfanta\b|\bsprite\b|\bsoda\b|\bsoft\s*drink\b/i.test(value)) {
+  if (/\bcoca[-\s]?cola\b/i.test(value)) {
+    return 'Coca-Cola, сладкая газировка';
+  }
+  if (/\bpepsi\b|\bfanta\b|\bsprite\b|\bsoda\b|\bsoft\s*drink\b|\bcola\b/i.test(value)) {
     return 'Сладкая газировка';
   }
   if (/\benergy\s*drink\b|\bred\s*bull\b|\bmonster\b|\btaurine\b/i.test(value)) {

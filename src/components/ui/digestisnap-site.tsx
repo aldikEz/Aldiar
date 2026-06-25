@@ -630,29 +630,39 @@ function isHardImageFailure(scan: ImageScanPayload) {
 
   return (
     text.includes('image check error') ||
+    text.includes('ai cooling down') ||
+    text.includes('quota') ||
+    text.includes('rate-limited') ||
     text.includes('ai request failed') ||
     text.includes('ai request timed out') ||
     text.includes('could not verify image')
   );
 }
 
-function makeImageCheckErrorResult(fileName: string): ImageScanPayload['result'] {
+function makeImageCheckErrorResult(fileName: string, errorMessage = ''): ImageScanPayload['result'] {
+  const isQuotaError = /quota|cooling|too many|rate/i.test(errorMessage);
   return {
-    productName: 'Image check error',
+    productName: isQuotaError ? 'AI cooling down' : 'Image check error',
     overallRating: 'Caution',
     score: 0,
     flaggedChemicals: [
       {
-        chemicalName: 'Image check failed',
+        chemicalName: isQuotaError ? 'AI cooling down' : 'Image check failed',
         severity: 'Caution',
-        reason: `Saved ${fileName.replace(/\.[^.]+$/, '') || 'this image'}, but AI could not verify it`,
+        reason: isQuotaError
+          ? 'Gemini quota is temporarily cooling down'
+          : `Saved ${fileName.replace(/\.[^.]+$/, '') || 'this image'}, but AI could not verify it`,
       },
     ],
   };
 }
 
 function isImageCheckErrorResult(result: ImageScanPayload['result']) {
-  return result.productName === 'Image check error';
+  return result.productName === 'Image check error' || isAiCoolingDownResult(result);
+}
+
+function isAiCoolingDownResult(result: ImageScanPayload['result']) {
+  return result.flaggedChemicals.some((item) => /cooling|quota|rate/i.test(`${item.chemicalName} ${item.reason}`));
 }
 
 const friedFoodPreviewUrl = 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop';
@@ -1712,26 +1722,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       stableImageDataUrl = '';
     }
 
-    const saveImageCheckError = async (imageDataUrl = stableImageDataUrl) => {
-      const errorResult = makeImageCheckErrorResult(file.name);
+    const saveImageCheckError = async (imageDataUrl = stableImageDataUrl, errorMessage = '') => {
+      const errorResult = makeImageCheckErrorResult(file.name, errorMessage);
       const errorScan: ImageScanPayload = { result: errorResult };
       window.clearInterval(progressTimer);
       setScanResult(errorScan);
       setScanProgress(100);
-      setScanProgressText(copy.visualUnavailable);
+      setScanProgressText(isAiCoolingDownResult(errorResult) ? copy.aiCoolingDownTitle : copy.visualUnavailable);
       setScanState('done');
-      await saveEntry(`${copy.visualUnavailable}: ${file.name.replace(/\.[^.]+$/, '') || copy.uploadedImage}`);
-      const recentScan: RecentScan = {
-        id: crypto.randomUUID(),
-        imageDataUrl,
-        result: errorResult,
-        createdAt: new Date().toISOString(),
-      };
-      setRecentScans((items) => {
-        const next = [recentScan, ...items].slice(0, 10);
-        saveRecentScans(next, session.user.id);
-        return next;
-      });
+      setScanPreviewUrl((current) => current || imageDataUrl);
       window.setTimeout(() => setResultSheetOpen(true), 450);
     };
 
@@ -1779,7 +1778,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       });
       window.setTimeout(() => setResultSheetOpen(true), 450);
     } catch (error) {
-      await saveImageCheckError();
+      await saveImageCheckError(stableImageDataUrl, error instanceof Error ? error.message : '');
     }
   };
 
@@ -1893,8 +1892,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }
   };
 
-  const visibleLogs = logs.filter((item) => !/check-in saved|unreadable label|image check error/i.test(item.title));
-  const hasActivity = visibleLogs.length > 0 || Boolean(scanResult);
+  const visibleLogs = logs.filter((item) => !/check-in saved|unreadable label|image check error|ai cooling|visual estimate unavailable|визуальная оценка недоступна/i.test(item.title));
+  const hasActivity = visibleLogs.length > 0 || Boolean(scanResult && !isImageCheckErrorResult(scanResult.result));
   const isRussian = language === 'Russian';
   const scanCount = visibleLogs.length;
   const gutScoreOutOfTen = scanResult ? Math.max(1, Math.round(scanResult.result.score / 10)) : null;
@@ -2038,6 +2037,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     cameraSubtitle: isRussian ? 'Заполните рамку продуктом или этикеткой' : 'Fill the square with the label',
     cameraHint: isRussian ? 'Держите состав четко и ровно' : 'Keep ingredients sharp and flat',
     cameraUnavailable: isRussian ? 'Камера недоступна' : 'Camera unavailable',
+    aiCoolingDownTitle: isRussian ? 'AI временно занят' : 'AI cooling down',
+    aiCoolingDownBody: isRussian ? 'Gemini временно ограничил запросы. Этот результат не добавлен в историю. Попробуйте еще раз через минуту' : 'Gemini temporarily rate-limited scans. This result was not added to history; try again in a minute',
   };
   const feelingLabel = (feeling: FeelingOption) => {
     if (feeling === 'Fine') return copy.fine;
@@ -2084,6 +2085,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     };
   };
   const resultVibe = (result: ImageScanPayload['result']) => {
+    if (isAiCoolingDownResult(result)) {
+      return copy.aiCoolingDownBody;
+    }
+
     if (isImageCheckErrorResult(result)) {
       return isRussian
         ? 'DigestSnap сохранил фото, но скан был недостаточно четким. Сделайте фото резче для точной оценки'
@@ -2152,6 +2157,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
   const betterAlternative = scanResult ? getBetterAlternative(scanResult.result) : null;
   const isResultImageCheckError = scanResult ? isImageCheckErrorResult(scanResult.result) : false;
+  const isResultAiCoolingDown = scanResult ? isAiCoolingDownResult(scanResult.result) : false;
   const resultTone = scanResult ? ratingTone(scanResult.result.overallRating) : ratingTone('Caution');
   const resultReasons = scanResult
     ? (scanResult.result.flaggedChemicals.length ? scanResult.result.flaggedChemicals : [
@@ -2975,9 +2981,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className="grid grid-cols-[1fr_auto] items-start gap-4">
                     <div>
                       <span className={cn('inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase', resultTone.badge)}>
-                        {isResultImageCheckError ? copy.needsRetake : ratingLabel(scanResult.result.overallRating)}
+                        {isResultAiCoolingDown ? copy.aiCoolingDownTitle : isResultImageCheckError ? copy.needsRetake : ratingLabel(scanResult.result.overallRating)}
                       </span>
-                      <p className="mt-3 text-3xl font-black leading-none sm:text-4xl">{isResultImageCheckError ? copy.imageNotChecked : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
+                      <p className="mt-3 text-3xl font-black leading-none sm:text-4xl">{isResultAiCoolingDown ? copy.aiCoolingDownTitle : isResultImageCheckError ? copy.imageNotChecked : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
                       <p className={cn('mt-3 max-w-[31rem] text-sm font-bold leading-6', resultTone.muted)}>
                         {resultVibe(scanResult.result)}
                       </p>
