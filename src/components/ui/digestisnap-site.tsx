@@ -1993,24 +1993,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         ? Math.max(1200, maintenanceCalories - 350)
         : maintenanceCalories;
   const caloriesEaten = 0;
-  const caloriesBurned = 0;
   const weightKg = storedProfile?.weightKg && storedProfile.weightKg > 0 ? storedProfile.weightKg : 70;
   const proteinTarget = Math.round(weightKg * (calorieMode === 'gain' ? 2 : calorieMode === 'lose' ? 1.8 : 1.6));
   const fatTarget = Math.round((calorieTarget * 0.27) / 9);
   const carbsTarget = Math.max(90, Math.round((calorieTarget - proteinTarget * 4 - fatTarget * 9) / 4));
-  const fiberTarget = calorieMode === 'gain' ? 38 : 30;
-  const sugarTarget = calorieMode === 'lose' ? 45 : calorieMode === 'gain' ? 65 : 55;
-  const sodiumTarget = 2300;
-  const calorieGoalLabel = calorieMode === 'gain' ? 'gain weight' : calorieMode === 'lose' ? 'lose weight' : 'maintain';
   const macroCards = [
-    { label: 'Protein eaten', value: 0, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
-    { label: 'Carbs eaten', value: 0, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
-    { label: 'Fat eaten', value: 0, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
-  ];
-  const microCards = [
-    { label: 'Fiber eaten', value: 0, target: fiberTarget, unit: 'g', icon: 'Fi', color: 'text-purple-500' },
-    { label: 'Sugar eaten', value: 0, target: sugarTarget, unit: 'g', icon: 'S', color: 'text-pink-500' },
-    { label: 'Sodium eaten', value: 0, target: sodiumTarget, unit: 'mg', icon: 'Na', color: 'text-yellow-600' },
+    { label: 'Calories', value: caloriesEaten, target: calorieTarget, unit: '', icon: 'Cal', color: 'text-zinc-950' },
+    { label: 'Protein', value: 0, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
+    { label: 'Carbs', value: 0, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
+    { label: 'Fat', value: 0, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
   ];
   const manualWaterNumber = Number(manualWaterAmount);
   const manualWaterMl =
@@ -2609,40 +2600,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           className="space-y-2.5 sm:space-y-3"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
-                          key="calories-panel"
+                          key="scan-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="grid gap-3 rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:grid-cols-[1fr_auto] md:items-center md:p-6">
-                            <div>
-                              <div className="flex items-end gap-2">
-                                <span className="text-[44px] font-black leading-none sm:text-[56px] md:text-[64px]">{caloriesEaten}</span>
-                                <span className="pb-1.5 text-[22px] font-black leading-none text-zinc-400 sm:text-[28px] md:text-[32px]">/{calorieTarget}</span>
-                              </div>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[14px] font-black text-zinc-500 sm:text-[17px] md:text-[20px]">
-                                <span>Calories eaten</span>
-                                <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-500 sm:text-sm">{calorieGoalLabel}</span>
+                          <div className="w-full rounded-[24px] bg-white px-5 py-5 text-center shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:px-6 sm:py-6 md:px-8 md:py-7">
+                            <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-zinc-100 shadow-inner sm:h-[86px] sm:w-[86px]">
+                              <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-white shadow-inner sm:h-[64px] sm:w-[64px]">
+                                <Camera className="h-6 w-6 text-black sm:h-7 sm:w-7" />
                               </div>
                             </div>
-                            <div className="mx-auto flex h-[92px] w-[92px] items-center justify-center rounded-full border-[12px] border-[#f4f2f8] bg-white shadow-inner sm:h-[112px] sm:w-[112px] sm:border-[14px] md:mx-0">
-                              <Flame className="h-8 w-8 fill-black text-black sm:h-9 sm:w-9" />
+                            <div className="mt-4 flex items-end justify-center gap-1 sm:mt-5">
+                              <span className="text-[42px] font-black leading-none tracking-normal sm:text-[52px] md:text-[60px]">{latestScore ?? 'Ready'}</span>
+                              {latestScore !== null && <span className="pb-1.5 text-[22px] font-black text-zinc-400 sm:text-[26px]">/100</span>}
                             </div>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                            {macroCards.map((card) => (
-                              <div
-                                className="min-w-0 rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[22px] sm:p-3.5 md:p-4"
-                                key={card.label}
-                              >
-                                <p className="whitespace-nowrap text-[18px] font-black leading-none sm:text-[24px] md:text-[30px]">
-                                  {card.value}<span className="text-[12px] text-zinc-400 sm:text-[16px] md:text-[20px]">/{card.target}{card.unit}</span>
-                                </p>
-                                <p className="mt-1.5 min-h-[28px] text-[10px] font-black leading-3.5 text-zinc-500 sm:text-[12px] sm:leading-4 md:text-[14px]">{card.label}</p>
-                                <div className="mt-2 flex aspect-square w-full items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:mt-3 sm:border-[9px]">
-                                  <span className={cn('text-[12px] font-black sm:text-[15px] md:text-[18px]', card.color)}>{card.icon}</span>
-                                </div>
-                              </div>
-                            ))}
+                            <p className="mx-auto mt-2 max-w-[520px] text-[13px] font-black leading-5 text-zinc-500 sm:mt-3 sm:text-[15px] sm:leading-6">
+                              {latestScore !== null ? latestRating : 'Your first scan will start your food timeline'}
+                            </p>
                           </div>
                         </motion.div>
                       )}
@@ -2650,79 +2623,63 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       {nutritionPanel === 1 && (
                         <motion.div
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="space-y-2.5 sm:space-y-3"
+                          className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
-                          key="health-panel"
+                          key="macro-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                            {microCards.map((card) => (
-                              <div
-                                className="min-w-0 rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[22px] sm:p-3.5 md:p-4"
-                                key={card.label}
-                              >
-                                <p className="whitespace-nowrap text-[18px] font-black leading-none sm:text-[24px] md:text-[30px]">
-                                  {card.value}<span className="text-[12px] text-zinc-400 sm:text-[16px] md:text-[20px]">/{card.target}{card.unit}</span>
-                                </p>
-                                <p className="mt-1.5 min-h-[28px] text-[10px] font-black leading-3.5 text-zinc-500 sm:text-[12px] sm:leading-4 md:text-[14px]">{card.label}</p>
-                                <div className="mt-2 flex aspect-square w-full items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:mt-3 sm:border-[9px]">
-                                  <span className={cn('text-[11px] font-black sm:text-[14px] md:text-[16px]', card.color)}>{card.icon}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-6">
-                            <div className="flex items-start justify-between gap-5">
-                              <p className="text-[22px] font-black leading-none sm:text-[28px] md:text-[34px]">Health Score</p>
-                              <p className="text-[22px] font-black leading-none sm:text-[28px] md:text-[34px]">
-                                {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
+                          {macroCards.map((card) => (
+                            <div
+                              className="min-w-0 rounded-[20px] bg-white p-3.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-4"
+                              key={card.label}
+                            >
+                              <p className="whitespace-nowrap text-[23px] font-black leading-none sm:text-[30px]">
+                                {card.value}<span className="text-[15px] text-zinc-400 sm:text-[19px]">/{card.target}{card.unit}</span>
                               </p>
+                              <p className="mt-2 text-[12px] font-black leading-4 text-zinc-500 sm:text-[14px]">{card.label}</p>
+                              <div className="mt-3 flex h-16 w-16 items-center justify-center rounded-full border-[8px] border-[#f4f2f8] sm:h-20 sm:w-20 sm:border-[10px]">
+                                <span className={cn('text-[12px] font-black sm:text-[15px]', card.color)}>{card.icon}</span>
+                              </div>
                             </div>
-                            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
-                              <div className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)} style={{ width: healthScoreBarWidth }} />
-                            </div>
-                            <p className="mt-4 max-w-[620px] text-[13px] font-black leading-5 text-zinc-500 sm:text-[15px] sm:leading-6 md:text-[17px]">
-                              {healthScoreExplanation} DigestSnap weighs scan quality, nutrition flags, and your logged reactions
-                            </p>
-                          </div>
+                          ))}
                         </motion.div>
                       )}
 
                       {nutritionPanel === 2 && (
                         <motion.div
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="space-y-2.5 sm:space-y-3"
+                          className="grid gap-2.5 min-[390px]:grid-cols-2 sm:gap-3"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
                           key="water-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="grid gap-2.5 min-[390px]:grid-cols-2 sm:gap-3">
-                            <div className="rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-6">
-                              <p className="text-[18px] font-black text-zinc-500 sm:text-[22px]">Calories burned</p>
-                              <p className="mt-1.5 text-[42px] font-black leading-none sm:text-[54px]">{caloriesBurned}<span className="text-[18px] text-zinc-400 sm:text-[24px]"> cal</span></p>
-                              <div className="mt-5 flex items-center gap-3">
-                                <Activity className="h-7 w-7 text-black sm:h-8 sm:w-8" />
-                                <div>
-                                  <p className="text-[24px] font-black leading-none sm:text-[30px]">Steps</p>
-                                  <p className="mt-1 text-[18px] font-black text-zinc-400 sm:text-[22px]">0 cal</p>
-                                </div>
-                              </div>
-                            </div>
+                          <button
+                            className="rounded-[24px] bg-white p-4 text-left shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[28px] sm:p-5 md:p-6"
+                            onClick={() => setWaterSheetOpen(true)}
+                            type="button"
+                          >
+                            <p className="text-[18px] font-black text-zinc-500 sm:text-[22px]">Water intake</p>
+                            <p className="mt-1.5 text-[28px] font-black leading-none sm:text-[36px]">{waterCardLabel}</p>
+                            <span className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-black shadow-sm ring-1 ring-zinc-950/10 transition sm:h-12 sm:px-6 sm:text-base">
+                              Log Water
+                            </span>
+                          </button>
 
-                            <button
-                              className="rounded-[24px] bg-white p-4 text-left shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[28px] sm:p-5 md:p-6"
-                              onClick={() => setWaterSheetOpen(true)}
-                              type="button"
-                            >
-                              <p className="text-[18px] font-black text-zinc-500 sm:text-[22px]">Water</p>
-                              <p className="mt-1.5 text-[28px] font-black leading-none sm:text-[36px]">{waterCardLabel}</p>
-                              <span className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-black shadow-sm ring-1 ring-zinc-950/10 transition sm:h-12 sm:px-6 sm:text-base">
-                                Log Water
-                              </span>
-                            </button>
+                          <div className="rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-6">
+                            <div className="flex items-start justify-between gap-4">
+                              <p className="text-[18px] font-black sm:text-[22px]">Health score</p>
+                              <p className="text-[24px] font-black leading-none sm:text-[30px]">
+                                {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
+                              </p>
+                            </div>
+                            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
+                              <div className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)} style={{ width: healthScoreBarWidth }} />
+                            </div>
+                            <p className="mt-3 text-[12px] font-semibold leading-5 text-zinc-500 sm:text-[13px]">
+                              {healthScoreExplanation}
+                            </p>
                           </div>
                         </motion.div>
                       )}
