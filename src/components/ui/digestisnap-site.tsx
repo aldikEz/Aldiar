@@ -415,6 +415,10 @@ function readRecentScans(userId?: string): RecentScan[] {
     const parsed = JSON.parse(raw) as Partial<RecentScan>[];
     if (!Array.isArray(parsed)) return [];
     return parsed
+      .map((item) => ({
+        ...item,
+        imageDataUrl: normalizeImageDataUrl(item.imageDataUrl),
+      }))
       .filter((item): item is RecentScan => (
         typeof item.id === 'string' &&
         typeof item.imageDataUrl === 'string' &&
@@ -442,6 +446,31 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+function normalizeImageDataUrl(value: unknown, mimeType = 'image/jpeg') {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const nestedDataUrl = trimmed.match(/^data:image\/[a-z0-9.+-]+;base64,(data:image\/[a-z0-9.+-]+;base64,.*)$/i);
+  if (nestedDataUrl?.[1]) return nestedDataUrl[1];
+
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(trimmed) || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed) && trimmed.length % 4 === 0) {
+    return `data:${mimeType};base64,${trimmed}`;
+  }
+
+  return trimmed;
+}
+
+function revokeObjectUrl(value: string) {
+  if (value.startsWith('blob:')) {
+    URL.revokeObjectURL(value);
+  }
 }
 
 function normalizeStreak(streak: StoredStreak | null): StoredStreak {
@@ -1618,7 +1647,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   useEffect(() => {
     return () => {
-      if (scanPreviewUrl) URL.revokeObjectURL(scanPreviewUrl);
+      if (scanPreviewUrl) revokeObjectUrl(scanPreviewUrl);
     };
   }, [scanPreviewUrl]);
 
@@ -1712,7 +1741,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setSelectedFeeling(null);
     setResultSheetOpen(false);
     setScanPreviewUrl((current) => {
-      if (current) URL.revokeObjectURL(current);
+      if (current) revokeObjectUrl(current);
       return URL.createObjectURL(file);
     });
     let stableImageDataUrl = '';
@@ -1730,7 +1759,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       setScanProgress(100);
       setScanProgressText(isAiCoolingDownResult(errorResult) ? copy.aiCoolingDownTitle : copy.visualUnavailable);
       setScanState('done');
-      setScanPreviewUrl((current) => current || imageDataUrl);
+      setScanPreviewUrl((current) => current || normalizeImageDataUrl(imageDataUrl));
       window.setTimeout(() => setResultSheetOpen(true), 450);
     };
 
@@ -1751,23 +1780,21 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       });
 
       if (isHardImageFailure(result.scan)) {
-        await saveImageCheckError(result.compressedImage.imageBase64
-          ? `data:${result.compressedImage.mimeType};base64,${result.compressedImage.imageBase64}`
-          : stableImageDataUrl);
+        await saveImageCheckError(normalizeImageDataUrl(result.compressedImage.imageBase64 || stableImageDataUrl, result.compressedImage.mimeType));
         return;
       }
 
+      const scanImageDataUrl = normalizeImageDataUrl(result.compressedImage.imageBase64 || stableImageDataUrl, result.compressedImage.mimeType);
       window.clearInterval(progressTimer);
       setScanResult(result.scan);
+      setScanPreviewUrl(scanImageDataUrl);
       setScanProgress(100);
       setScanProgressText(copy.savedRecent);
       setScanState('done');
       await saveEntry(`${result.scan.result.overallRating}: ${result.scan.result.productName} scored ${result.scan.result.score}/100`);
       const recentScan: RecentScan = {
         id: crypto.randomUUID(),
-        imageDataUrl: result.compressedImage.imageBase64
-          ? `data:${result.compressedImage.mimeType};base64,${result.compressedImage.imageBase64}`
-          : stableImageDataUrl,
+        imageDataUrl: scanImageDataUrl,
         result: result.scan.result,
         createdAt: new Date().toISOString(),
       };
