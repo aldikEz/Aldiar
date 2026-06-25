@@ -637,7 +637,7 @@ function isImageCheckErrorResult(result: ImageScanPayload['result']) {
 
 const friedFoodPreviewUrl = 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop';
 
-function LandingPhoneMockup({ className = '', variant = 'scan' }: { className?: string; variant?: LandingPhoneVariant }) {
+function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'scan' }: { className?: string; scale?: number; variant?: LandingPhoneVariant }) {
   const surface = 'bg-white text-zinc-950';
   const card = 'bg-white ring-zinc-950/[0.04]';
   const soft = 'bg-[#f7f6f2] ring-zinc-950/[0.04]';
@@ -653,11 +653,17 @@ function LandingPhoneMockup({ className = '', variant = 'scan' }: { className?: 
   ];
 
   return (
-    <div className={cn('select-none', className)}>
+    <div
+      className={cn('select-none', className)}
+      style={{
+        height: 876 * scale,
+        width: 417 * scale,
+      }}
+    >
       <IPhoneMockup
         model="15-pro"
         color="natural-titanium"
-        scale={0.66}
+        scale={scale}
         screenBg="#ffffff"
         showHomeIndicator={false}
         safeArea={false}
@@ -829,11 +835,11 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
   return (
     <main className="min-h-screen bg-white text-zinc-950 antialiased">
-      <header className="sticky top-0 z-50 border-b border-black/5 bg-white/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-[76px] w-full max-w-[1680px] items-center justify-between px-5 md:h-[86px] md:px-10 xl:px-12">
-          <button className="flex items-center gap-2.5 text-2xl font-black md:text-4xl" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-zinc-950 text-white md:h-12 md:w-12 md:rounded-[14px]">
-              <Sparkles className="h-5 w-5 md:h-7 md:w-7" />
+      <header className="sticky top-0 z-50 border-b border-black/5 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-[58px] w-full max-w-[1680px] items-center justify-between px-4 md:h-[86px] md:px-10 xl:px-12">
+          <button className="flex items-center gap-2 text-[15px] font-black md:gap-2.5 md:text-4xl" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">
+            <span className="flex h-6 w-6 items-center justify-center rounded-[8px] bg-zinc-950 text-white md:h-12 md:w-12 md:rounded-[14px]">
+              <Sparkles className="h-3.5 w-3.5 md:h-7 md:w-7" />
             </span>
             DigestSnap
           </button>
@@ -851,30 +857,30 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               Get Started
             </button>
           </div>
-          <button className="h-11 rounded-full bg-zinc-950 px-5 text-sm font-black text-white lg:hidden" onClick={() => navigate('/login')} type="button">
+          <button className="h-8 rounded-full bg-zinc-950 px-3 text-xs font-black text-white md:h-11 md:px-5 md:text-sm lg:hidden" onClick={() => navigate('/login')} type="button">
             Login
           </button>
         </div>
       </header>
 
-      <section className="mx-auto grid min-h-[calc(100svh-76px)] w-full max-w-[1680px] items-center gap-8 px-5 pb-10 pt-7 md:min-h-[calc(100svh-86px)] md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
-        <div className="relative z-10 max-w-[700px]">
-          <h1 className="max-w-[760px] text-[42px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:text-[84px]">
+      <section className="mx-auto grid w-full max-w-[1680px] items-center gap-6 px-4 pb-8 pt-6 md:min-h-[calc(100svh-86px)] md:gap-8 md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
+        <div className="relative z-10 max-w-[700px] text-center xl:text-left">
+          <h1 className="mx-auto max-w-[760px] text-[34px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:mx-0 xl:text-[84px]">
             Find the food pattern faster.
           </h1>
-          <p className="mt-6 max-w-[660px] text-[18px] font-semibold leading-8 text-[#5f574d] md:text-[23px] md:leading-[1.42]">
+          <p className="mx-auto mt-4 max-w-[660px] text-[15px] font-semibold leading-6 text-[#5f574d] md:mt-6 md:text-[23px] md:leading-[1.42] xl:mx-0">
             Take a photo when you eat. Tap how you felt later. DigestSnap turns those tiny moments into a private timeline you can actually use.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row md:gap-4">
+          <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center md:mt-8 md:gap-4 xl:justify-start">
             <button
-              className="flex h-14 items-center justify-center rounded-[14px] bg-zinc-950 px-7 text-base font-black text-white shadow-[0_18px_48px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 active:scale-[0.98] md:h-16 md:px-8 md:text-lg"
+              className="flex h-11 items-center justify-center rounded-[12px] bg-zinc-950 px-5 text-sm font-black text-white shadow-[0_18px_48px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 active:scale-[0.98] md:h-16 md:rounded-[14px] md:px-8 md:text-lg"
               onClick={() => navigate('/auth')}
               type="button"
             >
               Get Started
             </button>
             <button
-              className="flex h-14 items-center justify-center rounded-[14px] bg-white px-7 text-base font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08] transition hover:-translate-y-0.5 active:scale-[0.98] md:h-16 md:px-8 md:text-lg"
+              className="flex h-11 items-center justify-center rounded-[12px] bg-white px-5 text-sm font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08] transition hover:-translate-y-0.5 active:scale-[0.98] md:h-16 md:rounded-[14px] md:px-8 md:text-lg"
               onClick={() => scrollToSection('product')}
               type="button"
             >
@@ -883,9 +889,10 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </div>
         </div>
 
-        <div className="relative min-h-[560px] overflow-hidden rounded-[38px] bg-white lg:min-h-[640px]">
-          <div className="absolute left-[8%] top-10 z-20 sm:left-[17%] lg:left-[10%] xl:left-[14%]">
-            <LandingPhoneMockup variant="scan" />
+        <div className="relative h-[330px] overflow-hidden rounded-[28px] bg-white sm:h-[560px] lg:min-h-[640px]">
+          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 sm:left-[17%] sm:top-10 sm:translate-x-0 lg:left-[10%] xl:left-[14%]">
+            <LandingPhoneMockup className="sm:hidden" scale={0.38} variant="scan" />
+            <LandingPhoneMockup className="hidden sm:block" variant="scan" />
           </div>
           <div className="absolute right-[2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[5%] xl:right-[9%]">
             <LandingPhoneMockup variant="feeling" />
@@ -893,45 +900,44 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section className="scroll-mt-28 bg-white px-5 py-24 md:px-10 md:py-28" id="includes">
+      <section className="scroll-mt-20 bg-white px-4 py-12 md:scroll-mt-28 md:px-10 md:py-28" id="includes">
         <div className="mx-auto max-w-[1480px]">
           <div className="mx-auto max-w-[960px] text-center">
-              <h2 className="mx-auto max-w-[850px] text-5xl font-black leading-[1.02] md:text-7xl">
+              <h2 className="mx-auto max-w-[850px] text-[32px] font-black leading-[1.02] md:text-7xl">
                 One scan, one check-in, then a pattern.
               </h2>
           </div>
 
-          <div className="mt-14 grid items-start gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+          <div className="mt-8 grid items-start gap-4 md:mt-14 md:gap-6 lg:grid-cols-[0.82fr_1.18fr]">
             <div className="lg:sticky lg:top-28">
-              <div className="relative overflow-hidden rounded-[34px] bg-white p-6 text-zinc-950 shadow-[0_26px_80px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05] md:p-8">
-                <div className="relative flex min-h-[560px] items-center justify-center overflow-hidden rounded-[30px] bg-white ring-1 ring-zinc-950/[0.04]">
-                  <div className="origin-center scale-[0.92] sm:scale-100">
-                    <LandingPhoneMockup variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
-                  </div>
+              <div className="relative overflow-hidden rounded-[26px] bg-white p-3 text-zinc-950 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05] md:rounded-[34px] md:p-8">
+                <div className="relative flex h-[340px] items-center justify-center overflow-hidden rounded-[22px] bg-white ring-1 ring-zinc-950/[0.04] md:min-h-[560px] md:rounded-[30px]">
+                  <LandingPhoneMockup className="md:hidden" scale={0.39} variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
+                  <LandingPhoneMockup className="hidden md:block" variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
                 </div>
               </div>
             </div>
-            <div className="grid gap-4">
+            <div className="grid gap-3 md:gap-4">
               {includeCards.map(({ icon: Icon, title, body }, index) => {
                 const selected = activeIncludeIndex === index;
                 return (
                 <button
                   className={cn(
-                    'grid min-h-[178px] gap-5 rounded-[28px] border bg-white p-6 text-left text-zinc-950 transition duration-300 active:scale-[0.99] md:grid-cols-[76px_1fr] md:items-center md:p-7',
+                    'grid min-h-[132px] gap-3 rounded-[22px] border bg-white p-4 text-left text-zinc-950 transition duration-300 active:scale-[0.99] md:min-h-[178px] md:grid-cols-[76px_1fr] md:items-center md:gap-5 md:rounded-[28px] md:p-7',
                     selected
-                      ? 'z-10 -translate-y-1 border-zinc-950 shadow-[0_26px_70px_rgba(15,23,42,0.16)] ring-2 ring-zinc-950/5'
+                      ? 'z-10 border-zinc-950 shadow-[0_18px_46px_rgba(15,23,42,0.12)] ring-2 ring-zinc-950/5 md:-translate-y-1 md:shadow-[0_26px_70px_rgba(15,23,42,0.16)]'
                       : 'border-zinc-200 shadow-sm hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)]',
                   )}
                   onClick={() => setActiveIncludeIndex(index)}
                   key={title}
                   type="button"
                 >
-                  <div className={cn('flex h-16 w-16 items-center justify-center rounded-[22px] transition duration-300', selected ? 'bg-white text-zinc-950 shadow-[0_14px_34px_rgba(15,23,42,0.12)] ring-1 ring-zinc-950/[0.10]' : 'bg-[#f1f0ea] text-zinc-950')}>
-                    <Icon className="h-6 w-6" />
+                  <div className={cn('flex h-12 w-12 items-center justify-center rounded-[16px] transition duration-300 md:h-16 md:w-16 md:rounded-[22px]', selected ? 'bg-white text-zinc-950 shadow-[0_14px_34px_rgba(15,23,42,0.12)] ring-1 ring-zinc-950/[0.10]' : 'bg-[#f1f0ea] text-zinc-950')}>
+                    <Icon className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black leading-tight md:text-3xl">{title}</h3>
-                    <p className="mt-3 max-w-[650px] text-base font-semibold leading-7 text-[#5f574d] md:text-lg md:leading-8">{body}</p>
+                    <h3 className="text-xl font-black leading-tight md:text-3xl">{title}</h3>
+                    <p className="mt-2 max-w-[650px] text-sm font-semibold leading-6 text-[#5f574d] md:mt-3 md:text-lg md:leading-8">{body}</p>
                   </div>
                 </button>
               )})}
@@ -940,18 +946,18 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section className="scroll-mt-28 overflow-hidden bg-white px-5 py-24 md:px-12 md:py-32" id="product">
+      <section className="scroll-mt-20 overflow-hidden bg-white px-4 py-12 md:scroll-mt-28 md:px-12 md:py-32" id="product">
         <div className="mx-auto max-w-[1500px]">
           <div className="mx-auto max-w-[1040px] text-center">
-            <h2 className="text-[46px] font-extrabold leading-[1.02] md:text-[76px]">
+            <h2 className="text-[32px] font-extrabold leading-[1.02] md:text-[76px]">
               Why DigestSnap feels different
             </h2>
-            <p className="mx-auto mt-6 max-w-[760px] text-lg font-semibold leading-8 text-[#605a51] md:text-2xl md:leading-10">
+            <p className="mx-auto mt-4 max-w-[760px] text-sm font-semibold leading-6 text-[#605a51] md:mt-6 md:text-2xl md:leading-10">
               It is built around the moment people actually forget: after the meal, when the reaction starts and the pattern disappears.
             </p>
           </div>
 
-          <div className="mt-16 grid gap-6 lg:grid-cols-3">
+          <div className="mt-8 grid gap-4 md:mt-16 md:gap-6 lg:grid-cols-3">
             {[
               {
                 icon: Camera,
@@ -970,22 +976,22 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               },
             ].map(({ icon: Icon, title, body }) => (
               <div
-                className="group min-h-[430px] rounded-[42px] bg-white p-8 shadow-[0_30px_100px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.06] transition duration-300 hover:-translate-y-1 hover:shadow-[0_36px_120px_rgba(15,23,42,0.12)] md:p-10"
+                className="group rounded-[28px] bg-white p-5 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.06] transition duration-300 hover:-translate-y-1 hover:shadow-[0_36px_120px_rgba(15,23,42,0.12)] md:min-h-[430px] md:rounded-[42px] md:p-10"
                 key={title}
               >
-                <div className="flex h-20 w-20 items-center justify-center rounded-[26px] bg-[#f7f6f2] text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.05] transition duration-300 group-hover:bg-zinc-950 group-hover:text-white">
-                  <Icon className="h-8 w-8" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#f7f6f2] text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.05] transition duration-300 group-hover:bg-zinc-950 group-hover:text-white md:h-20 md:w-20 md:rounded-[26px]">
+                  <Icon className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
-                <h3 className="mt-16 max-w-[430px] text-3xl font-extrabold leading-[1.08] md:text-[38px]">{title}</h3>
-                <p className="mt-7 max-w-[470px] text-[17px] font-semibold leading-8 text-[#605a51] md:text-xl md:leading-9">{body}</p>
+                <h3 className="mt-7 max-w-[430px] text-[22px] font-extrabold leading-[1.08] md:mt-16 md:text-[38px]">{title}</h3>
+                <p className="mt-3 max-w-[470px] text-sm font-semibold leading-6 text-[#605a51] md:mt-7 md:text-xl md:leading-9">{body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <footer className="bg-white px-6 py-14 md:px-12">
-        <div className="mx-auto grid max-w-[1500px] gap-8 border-t border-zinc-200 pt-10 md:grid-cols-[1fr_auto_auto]">
+      <footer className="bg-white px-4 py-10 md:px-12 md:py-14">
+        <div className="mx-auto grid max-w-[1500px] gap-6 border-t border-zinc-200 pt-8 md:grid-cols-[1fr_auto_auto] md:gap-8 md:pt-10">
           <div>
             <p className="text-2xl font-black">DigestSnap</p>
           </div>
