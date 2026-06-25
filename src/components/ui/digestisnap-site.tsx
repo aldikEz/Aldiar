@@ -2584,62 +2584,62 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className="h-10 w-10 sm:h-11 sm:w-11" />
                 </div>
 
-                <div className="mx-auto mt-5 grid max-w-[520px] grid-cols-7 px-0 text-center sm:mt-7 lg:max-w-[680px]">
+                <div className="mx-auto mt-4 grid max-w-[480px] grid-cols-7 px-0 text-center sm:mt-5 lg:max-w-[620px]">
                   {homeWeek.map(({ day, date, key, selected, future }) => (
                     <button
-                      className="flex min-h-[58px] flex-col items-center gap-2 rounded-[16px] transition hover:bg-white/60 active:scale-[0.97] sm:min-h-[72px] sm:gap-3"
+                      className="flex min-h-[48px] flex-col items-center gap-1.5 rounded-[14px] transition hover:bg-white/60 active:scale-[0.97] sm:min-h-[58px] sm:gap-2"
                       key={`${day}-${date}`}
                       onClick={() => setSelectedHomeDate(key)}
                       type="button"
                     >
-                      <span className="text-[12px] font-black sm:text-[15px] md:text-[16px]">{day}</span>
-                      <span className={cn('flex h-8 w-8 items-center justify-center rounded-full text-[14px] font-black sm:h-9 sm:w-9 sm:text-[16px] md:h-10 md:w-10 md:text-[18px]', selected ? 'bg-white text-zinc-950 shadow-[0_10px_24px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10' : future ? 'text-zinc-400' : 'text-black')}>
+                      <span className="text-[11px] font-black sm:text-[13px] md:text-[14px]">{day}</span>
+                      <span className={cn('flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-black sm:h-8 sm:w-8 sm:text-[15px] md:h-9 md:w-9 md:text-[16px]', selected ? 'bg-white text-zinc-950 shadow-[0_8px_18px_rgba(15,15,15,0.09)] ring-1 ring-zinc-950/10' : future ? 'text-zinc-400' : 'text-black')}>
                         {date}
                       </span>
                     </button>
                   ))}
                 </div>
 
-                  <div className="mx-auto mt-5 w-full max-w-[430px] space-y-3.5 sm:mt-8 sm:max-w-[620px] sm:space-y-5 lg:max-w-[1040px] xl:max-w-[1120px]">
-                  <section className="overflow-hidden rounded-[30px] sm:rounded-[36px]">
+                  <div className="mx-auto mt-4 w-full max-w-[430px] space-y-3 sm:mt-5 sm:max-w-[560px] sm:space-y-4 lg:max-w-[860px] xl:max-w-[900px]">
+                  <section className="overflow-hidden rounded-[24px] sm:rounded-[28px]">
                     <AnimatePresence mode="wait">
                       {nutritionPanel === 0 && (
                         <motion.div
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="space-y-3 sm:space-y-5"
+                          className="space-y-2.5 sm:space-y-3"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
                           key="calories-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="grid gap-3 rounded-[30px] bg-white p-5 shadow-[0_14px_36px_rgba(15,15,15,0.065)] ring-1 ring-black/[0.05] sm:gap-5 sm:rounded-[36px] sm:p-7 md:grid-cols-[1fr_auto] md:items-center md:p-10">
+                          <div className="grid gap-3 rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:grid-cols-[1fr_auto] md:items-center md:p-6">
                             <div>
                               <div className="flex items-end gap-2">
-                                <span className="text-[58px] font-black leading-none sm:text-[72px] md:text-[88px]">{caloriesEaten}</span>
-                                <span className="pb-2 text-[28px] font-black leading-none text-zinc-400 sm:text-[36px] md:text-[44px]">/{calorieTarget}</span>
+                                <span className="text-[44px] font-black leading-none sm:text-[56px] md:text-[64px]">{caloriesEaten}</span>
+                                <span className="pb-1.5 text-[22px] font-black leading-none text-zinc-400 sm:text-[28px] md:text-[32px]">/{calorieTarget}</span>
                               </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[17px] font-black text-zinc-500 sm:text-[21px] md:text-[26px]">
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[14px] font-black text-zinc-500 sm:text-[17px] md:text-[20px]">
                                 <span>Calories eaten</span>
                                 <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-500 sm:text-sm">{calorieGoalLabel}</span>
                               </div>
                             </div>
-                            <div className="mx-auto flex h-[126px] w-[126px] items-center justify-center rounded-full border-[16px] border-[#f4f2f8] bg-white shadow-inner sm:h-[154px] sm:w-[154px] sm:border-[18px] md:mx-0">
-                              <Flame className="h-10 w-10 fill-black text-black sm:h-12 sm:w-12" />
+                            <div className="mx-auto flex h-[92px] w-[92px] items-center justify-center rounded-full border-[12px] border-[#f4f2f8] bg-white shadow-inner sm:h-[112px] sm:w-[112px] sm:border-[14px] md:mx-0">
+                              <Flame className="h-8 w-8 fill-black text-black sm:h-9 sm:w-9" />
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
                             {macroCards.map((card) => (
                               <div
-                                className="min-w-0 rounded-[24px] bg-white p-3.5 shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[30px] sm:p-5 md:p-6"
+                                className="min-w-0 rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[22px] sm:p-3.5 md:p-4"
                                 key={card.label}
                               >
-                                <p className="whitespace-nowrap text-[24px] font-black leading-none sm:text-[34px] md:text-[44px]">
-                                  {card.value}<span className="text-[17px] text-zinc-400 sm:text-[23px] md:text-[30px]">/{card.target}{card.unit}</span>
+                                <p className="whitespace-nowrap text-[18px] font-black leading-none sm:text-[24px] md:text-[30px]">
+                                  {card.value}<span className="text-[12px] text-zinc-400 sm:text-[16px] md:text-[20px]">/{card.target}{card.unit}</span>
                                 </p>
-                                <p className="mt-2 min-h-[34px] text-[12px] font-black leading-4 text-zinc-500 sm:text-[15px] sm:leading-5 md:text-[18px]">{card.label}</p>
-                                <div className="mt-4 flex aspect-square w-full items-center justify-center rounded-full border-[10px] border-[#f4f2f8] sm:mt-6 sm:border-[13px]">
-                                  <span className={cn('text-[16px] font-black sm:text-[20px] md:text-[24px]', card.color)}>{card.icon}</span>
+                                <p className="mt-1.5 min-h-[28px] text-[10px] font-black leading-3.5 text-zinc-500 sm:text-[12px] sm:leading-4 md:text-[14px]">{card.label}</p>
+                                <div className="mt-2 flex aspect-square w-full items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:mt-3 sm:border-[9px]">
+                                  <span className={cn('text-[12px] font-black sm:text-[15px] md:text-[18px]', card.color)}>{card.icon}</span>
                                 </div>
                               </div>
                             ))}
@@ -2650,40 +2650,40 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       {nutritionPanel === 1 && (
                         <motion.div
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="space-y-3 sm:space-y-5"
+                          className="space-y-2.5 sm:space-y-3"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
                           key="health-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
                             {microCards.map((card) => (
                               <div
-                                className="min-w-0 rounded-[24px] bg-white p-3.5 shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[30px] sm:p-5 md:p-6"
+                                className="min-w-0 rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[22px] sm:p-3.5 md:p-4"
                                 key={card.label}
                               >
-                                <p className="whitespace-nowrap text-[24px] font-black leading-none sm:text-[34px] md:text-[44px]">
-                                  {card.value}<span className="text-[17px] text-zinc-400 sm:text-[23px] md:text-[30px]">/{card.target}{card.unit}</span>
+                                <p className="whitespace-nowrap text-[18px] font-black leading-none sm:text-[24px] md:text-[30px]">
+                                  {card.value}<span className="text-[12px] text-zinc-400 sm:text-[16px] md:text-[20px]">/{card.target}{card.unit}</span>
                                 </p>
-                                <p className="mt-2 min-h-[34px] text-[12px] font-black leading-4 text-zinc-500 sm:text-[15px] sm:leading-5 md:text-[18px]">{card.label}</p>
-                                <div className="mt-4 flex aspect-square w-full items-center justify-center rounded-full border-[10px] border-[#f4f2f8] sm:mt-6 sm:border-[13px]">
-                                  <span className={cn('text-[15px] font-black sm:text-[19px] md:text-[22px]', card.color)}>{card.icon}</span>
+                                <p className="mt-1.5 min-h-[28px] text-[10px] font-black leading-3.5 text-zinc-500 sm:text-[12px] sm:leading-4 md:text-[14px]">{card.label}</p>
+                                <div className="mt-2 flex aspect-square w-full items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:mt-3 sm:border-[9px]">
+                                  <span className={cn('text-[11px] font-black sm:text-[14px] md:text-[16px]', card.color)}>{card.icon}</span>
                                 </div>
                               </div>
                             ))}
                           </div>
 
-                          <div className="rounded-[30px] bg-white p-5 shadow-[0_14px_36px_rgba(15,15,15,0.065)] ring-1 ring-black/[0.05] sm:rounded-[36px] sm:p-7 md:p-9">
+                          <div className="rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-6">
                             <div className="flex items-start justify-between gap-5">
-                              <p className="text-[28px] font-black leading-none sm:text-[38px] md:text-[48px]">Health Score</p>
-                              <p className="text-[28px] font-black leading-none sm:text-[38px] md:text-[48px]">
+                              <p className="text-[22px] font-black leading-none sm:text-[28px] md:text-[34px]">Health Score</p>
+                              <p className="text-[22px] font-black leading-none sm:text-[28px] md:text-[34px]">
                                 {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
                               </p>
                             </div>
-                            <div className="mt-6 h-3 overflow-hidden rounded-full bg-[#f4f2f8]">
+                            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
                               <div className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)} style={{ width: healthScoreBarWidth }} />
                             </div>
-                            <p className="mt-6 max-w-[720px] text-[18px] font-black leading-7 text-zinc-500 sm:text-[22px] sm:leading-9 md:text-[28px] md:leading-[1.25]">
+                            <p className="mt-4 max-w-[620px] text-[13px] font-black leading-5 text-zinc-500 sm:text-[15px] sm:leading-6 md:text-[17px]">
                               {healthScoreExplanation} DigestSnap weighs scan quality, nutrition flags, and your logged reactions
                             </p>
                           </div>
@@ -2693,33 +2693,33 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       {nutritionPanel === 2 && (
                         <motion.div
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="space-y-3 sm:space-y-5"
+                          className="space-y-2.5 sm:space-y-3"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
                           key="water-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="grid gap-3 min-[390px]:grid-cols-2 sm:gap-5">
-                            <div className="rounded-[30px] bg-white p-6 shadow-[0_14px_36px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] sm:rounded-[36px] sm:p-8">
-                              <p className="text-[24px] font-black text-zinc-500 sm:text-[32px]">Calories burned</p>
-                              <p className="mt-2 text-[58px] font-black leading-none sm:text-[72px]">{caloriesBurned}<span className="text-[24px] text-zinc-400 sm:text-[32px]"> cal</span></p>
-                              <div className="mt-8 flex items-center gap-4">
-                                <Activity className="h-8 w-8 text-black sm:h-10 sm:w-10" />
+                          <div className="grid gap-2.5 min-[390px]:grid-cols-2 sm:gap-3">
+                            <div className="rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-6">
+                              <p className="text-[18px] font-black text-zinc-500 sm:text-[22px]">Calories burned</p>
+                              <p className="mt-1.5 text-[42px] font-black leading-none sm:text-[54px]">{caloriesBurned}<span className="text-[18px] text-zinc-400 sm:text-[24px]"> cal</span></p>
+                              <div className="mt-5 flex items-center gap-3">
+                                <Activity className="h-7 w-7 text-black sm:h-8 sm:w-8" />
                                 <div>
-                                  <p className="text-[30px] font-black leading-none sm:text-[40px]">Steps</p>
-                                  <p className="mt-1 text-[22px] font-black text-zinc-400 sm:text-[30px]">0 cal</p>
+                                  <p className="text-[24px] font-black leading-none sm:text-[30px]">Steps</p>
+                                  <p className="mt-1 text-[18px] font-black text-zinc-400 sm:text-[22px]">0 cal</p>
                                 </div>
                               </div>
                             </div>
 
                             <button
-                              className="rounded-[30px] bg-white p-6 text-left shadow-[0_14px_36px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[36px] sm:p-8"
+                              className="rounded-[24px] bg-white p-4 text-left shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[28px] sm:p-5 md:p-6"
                               onClick={() => setWaterSheetOpen(true)}
                               type="button"
                             >
-                              <p className="text-[24px] font-black text-zinc-500 sm:text-[32px]">Water</p>
-                              <p className="mt-2 text-[36px] font-black leading-none sm:text-[48px]">{waterCardLabel}</p>
-                              <span className="mt-8 inline-flex h-14 items-center justify-center rounded-full bg-white px-6 text-base font-black shadow-sm ring-1 ring-zinc-950/10 transition sm:h-16 sm:px-8 sm:text-lg">
+                              <p className="text-[18px] font-black text-zinc-500 sm:text-[22px]">Water</p>
+                              <p className="mt-1.5 text-[28px] font-black leading-none sm:text-[36px]">{waterCardLabel}</p>
+                              <span className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-black shadow-sm ring-1 ring-zinc-950/10 transition sm:h-12 sm:px-6 sm:text-base">
                                 Log Water
                               </span>
                             </button>
@@ -2728,16 +2728,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       )}
                     </AnimatePresence>
 
-                    <div className="mt-4 flex justify-center gap-2 sm:mt-6">
+                    <div className="mt-2.5 flex justify-center gap-1.5 sm:mt-3">
                       {[0, 1, 2].map((index) => (
                         <button
                           aria-label={`Show dashboard panel ${index + 1}`}
-                          className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/70 active:scale-90"
+                          className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/70 active:scale-90"
                           key={index}
                           onClick={() => setNutritionPanel(index)}
                           type="button"
                         >
-                          <span className={cn('h-3 w-3 rounded-full ring-2 transition-all duration-200', nutritionPanel === index ? 'scale-110 bg-black ring-black' : 'bg-white ring-zinc-300')} />
+                          <span className={cn('h-2.5 w-2.5 rounded-full ring-2 transition-all duration-200', nutritionPanel === index ? 'scale-110 bg-black ring-black' : 'bg-white ring-zinc-300')} />
                         </button>
                       ))}
                     </div>
