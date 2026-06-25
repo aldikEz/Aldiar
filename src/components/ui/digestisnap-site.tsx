@@ -32,7 +32,7 @@ type Navigate = (path: string, options?: { replace?: boolean }) => void;
 type AppLanguage = 'English' | 'Russian';
 type DashboardTab = 'home' | 'progress' | 'profile';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
-type LandingPhoneVariant = 'scan' | 'feeling';
+type LandingPhoneVariant = 'score' | 'macros' | 'water';
 type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
 type WaterUnit = 'cups' | 'oz' | 'ml';
 type LegalPageKind = 'privacy' | 'terms' | 'subscription' | 'contact' | 'support';
@@ -712,12 +712,18 @@ function isAiCoolingDownResult(result: ImageScanPayload['result']) {
 }
 
 const friedFoodPreviewUrl = 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop';
+const waterPreviewUrl = 'https://images.unsplash.com/photo-1564419320461-6870880221ad?q=80&w=900&auto=format&fit=crop';
 
-function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'scan' }: { className?: string; scale?: number; variant?: LandingPhoneVariant }) {
+function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'score' }: { className?: string; scale?: number; variant?: LandingPhoneVariant }) {
   const surface = 'bg-white text-zinc-950';
   const card = 'bg-white ring-zinc-950/[0.04]';
   const soft = 'bg-[#f7f6f2] ring-zinc-950/[0.04]';
-  const isFeeling = variant === 'feeling';
+  const mockMacros = [
+    ['0', '2180', '', 'Calories', 'Cal'],
+    ['0', '112', 'g', 'Protein', 'P'],
+    ['0', '245', 'g', 'Carbs', 'C'],
+    ['0', '72', 'g', 'Fat', 'F'],
+  ];
   const week = [
     ['Sun', '21'],
     ['Mon', '22'],
@@ -746,14 +752,11 @@ function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'scan' }: 
         shadow="0 34px 90px rgba(15,23,42,0.22), 0 10px 28px rgba(15,23,42,0.12)"
       >
         <div
-          className={cn('h-full w-full overflow-y-auto px-5 pb-24 pt-12', surface)}
+          className={cn('h-full w-full overflow-y-auto px-5 pb-24 pt-16', surface)}
           style={{ scrollbarWidth: 'none' }}
         >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-black uppercase text-zinc-400">June 24</p>
-              <p className="mt-1 text-2xl font-black">DigestSnap</p>
-            </div>
+            <p className="text-2xl font-black">DigestSnap</p>
             <div className={cn('flex h-10 w-10 items-center justify-center rounded-full', card)}>
               <User className="h-4 w-4" />
             </div>
@@ -773,91 +776,108 @@ function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'scan' }: 
             })}
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            {[
-              isFeeling ? ['8/10', 'Meal'] : ['0', 'Scans'],
-              isFeeling ? ['2h', 'Later'] : ['Later', 'Check-in'],
-              isFeeling ? ['Bloated', 'Feel'] : ['Ready', 'Score'],
-            ].map(([value, label]) => (
-              <div className={cn('rounded-[18px] p-3 ring-1', card)} key={label}>
-                <p className="text-xl font-black leading-none">{value}</p>
-                <p className="mt-2 text-[10px] font-black uppercase text-zinc-400">{label}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className={cn('mt-4 rounded-[26px] p-5 ring-1', card)}>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[48px] font-black leading-none">{isFeeling ? 'Logged' : 'Ready'}</p>
-                <p className="mt-3 text-sm font-black text-zinc-500">{isFeeling ? 'Meal and reaction saved' : 'First scan starts your timeline'}</p>
-              </div>
-              <div className={cn('flex h-24 w-24 shrink-0 items-center justify-center rounded-full', soft)}>
-                <div className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-white shadow-inner">
-                  <Camera className="h-5 w-5" />
-                  <span className="mt-1 text-lg font-black">{isFeeling ? '1' : '0'}</span>
+          {variant === 'score' && (
+            <div className={cn('mt-5 rounded-[26px] p-5 ring-1', card)}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-end gap-1">
+                    <p className="text-[48px] font-black leading-none">88</p>
+                    <p className="pb-1 text-xl font-black text-zinc-400">/100</p>
+                  </div>
+                  <p className="mt-3 text-sm font-black text-zinc-500">Safe scan saved</p>
+                </div>
+                <div className={cn('flex h-24 w-24 shrink-0 items-center justify-center rounded-full', soft)}>
+                  <div className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-white shadow-inner">
+                    <Camera className="h-5 w-5" />
+                    <span className="mt-1 text-lg font-black">1</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="mt-7 grid grid-cols-3 gap-3">
-              {[
-                ['Scan', isFeeling ? 'Done' : 'Start'],
-                ['Check-in', isFeeling ? 'Bloated' : 'Later'],
-                ['Latest', isFeeling ? '8/10' : 'None'],
-              ].map(([label, value], index) => (
-                <div key={label}>
-                  <p className="text-xs font-black">{label}</p>
-                  <div className={cn('mt-2 h-1.5 rounded-full', soft)}>
-                    <div className={cn('h-full rounded-full bg-zinc-950', index === 0 ? 'w-full' : isFeeling ? 'w-2/3' : 'w-1.5')} />
+              <div className="mt-7 grid grid-cols-3 gap-3">
+                {[
+                  ['Scan', 'Done', 'w-full'],
+                  ['Score', '8/10', 'w-[88%]'],
+                  ['Latest', 'Borjomi', 'w-3/4'],
+                ].map(([label, value, width]) => (
+                  <div key={label}>
+                    <p className="text-xs font-black">{label}</p>
+                    <div className={cn('mt-2 h-1.5 rounded-full', soft)}>
+                      <div className={cn('h-full rounded-full bg-zinc-950', width)} />
+                    </div>
+                    <p className="mt-2 truncate text-xs font-black text-zinc-600">{value}</p>
                   </div>
-                  <p className="mt-2 text-xs font-black text-zinc-600">{value}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {variant === 'macros' && (
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              {mockMacros.map(([value, target, unit, label, icon]) => (
+                <div className={cn('flex min-h-[122px] flex-col justify-between rounded-[22px] p-4 ring-1', card)} key={label}>
+                  <div>
+                    <p className="text-2xl font-black leading-none">
+                      {value}<span className="text-sm text-zinc-400">/{target}{unit}</span>
+                    </p>
+                    <p className="mt-2 text-[11px] font-black uppercase text-zinc-400">{label}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border-[7px] border-[#f4f2f8]">
+                    <span className="text-xs font-black">{icon}</span>
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          )}
+
+          {variant === 'water' && (
+            <div className="mt-5 grid gap-3">
+              <div className={cn('rounded-[26px] p-5 ring-1', card)}>
+                <p className="text-xl font-black text-zinc-500">Water intake</p>
+                <p className="mt-2 text-[34px] font-black leading-none">16 fl oz</p>
+                <p className="mt-1 text-sm font-black text-zinc-400">2 cups logged</p>
+                <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
+                  <div className="h-full w-[38%] rounded-full bg-zinc-950" />
+                </div>
+              </div>
+              <div className={cn('rounded-[26px] p-5 ring-1', card)}>
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-xl font-black">Health score</p>
+                  <p className="text-2xl font-black">8/10</p>
+                </div>
+                <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
+                  <div className="h-full w-[80%] rounded-full bg-zinc-950" />
+                </div>
+                <p className="mt-3 text-xs font-bold leading-5 text-zinc-500">Recent scans look simple and low-trigger.</p>
+              </div>
+            </div>
+          )}
 
           <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-base font-black">How do you feel?</p>
-                <p className="mt-1 text-xs font-bold text-zinc-500">One tap after eating.</p>
+                <p className="text-base font-black">My progress</p>
+                <p className="mt-1 text-xs font-bold text-zinc-500">Timeline, streak, and weight</p>
               </div>
-              <Activity className="h-5 w-5" />
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {(['Fine', 'Bloated', 'Pain', 'Nausea'] as FeelingOption[]).map((label) => (
-                <div className={cn('rounded-[16px] px-3 py-3 text-center text-xs font-black', isFeeling && label === 'Bloated' ? 'bg-zinc-950 text-white' : soft)} key={label}>
-                  {label}
-                </div>
-              ))}
+              <ChevronRight className="h-5 w-5" />
             </div>
           </div>
 
           <div className="mt-5">
-            <p className="text-base font-black">{isFeeling ? 'Saved reaction' : 'Start with one photo'}</p>
-            <div className={cn('mt-3 rounded-[24px] p-4 ring-1', soft)}>
-              {!isFeeling && (
-                <img alt="Fried food scan" className="mb-3 h-28 w-full rounded-[18px] object-cover" src={friedFoodPreviewUrl} />
-              )}
+            <p className="text-lg font-black">Recently uploaded</p>
+            <div className={cn('mt-3 rounded-[24px] p-3.5 ring-1', card)}>
               <div className="flex items-center gap-3">
-                <div className={cn('flex h-11 w-11 items-center justify-center rounded-full', card)}>
-                  {isFeeling ? <Activity className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-                </div>
+                <img
+                  alt="Recent food scan"
+                  className="h-16 w-16 shrink-0 rounded-[18px] object-cover"
+                  src={variant === 'water' ? waterPreviewUrl : friedFoodPreviewUrl}
+                />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black">{isFeeling ? 'Bloated check-in saved' : 'Fried chicken plate'}</p>
-                  <p className="mt-1 text-xs font-bold text-zinc-500">{isFeeling ? 'Connected to the latest meal' : 'Scan quality ready'}</p>
+                  <p className="truncate text-sm font-black">{variant === 'water' ? 'Borjomi Mineral Water' : 'Fried chicken plate'}</p>
+                  <p className="mt-1 text-xs font-bold text-zinc-500">{variant === 'water' ? 'Safe · 88/100' : 'Avoid · 40/100'}</p>
+                  <p className="mt-1 truncate text-xs font-bold text-zinc-400">{variant === 'water' ? 'Low risk signal from image' : 'Fried foods often repeat before discomfort'}</p>
                 </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
               </div>
-            </div>
-          </div>
-
-          <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base font-black">Timeline</p>
-                <p className="mt-1 text-xs font-bold text-zinc-500">{isFeeling ? '1 meal and 1 check-in today' : 'Your first scan will appear here'}</p>
-              </div>
-              <ChevronRight className="h-5 w-5" />
             </div>
           </div>
 
@@ -886,26 +906,26 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
     {
       icon: Camera,
       preview: 'scan',
-      title: 'Snap the meal',
-      body: 'Take one photo when you eat. DigestSnap saves the meal, time, and context before the detail disappears.',
+      title: 'Scan the food',
+      body: 'One photo saves the item, score, image, and time before the details disappear.',
     },
     {
       icon: Activity,
       preview: 'symptoms',
-      title: 'Tap how you feel',
-      body: 'When your body reacts later, choose Fine, Bloated, Pain, or Nausea in seconds. The check-in connects back to the meal.',
+      title: 'Rate the result',
+      body: 'DigestSnap turns the scan into a simple status, score, and short reason you can understand fast.',
     },
     {
       icon: BarChart3,
       preview: 'timeline',
-      title: 'Private timeline',
-      body: 'DigestSnap looks across your meals and check-ins, then highlights possible repeat triggers so the same pattern does not disappear from memory.',
+      title: 'Track the pattern',
+      body: 'Scans, water, health score, and repeat signals stay in one dashboard instead of scattered notes.',
     },
     {
       icon: Bell,
       preview: 'speed',
       title: 'Keep it effortless',
-      body: 'The loop stays light enough to use in real life: photo first, check-in later, pattern when enough signals repeat.',
+      body: 'The loop stays light enough to use in real life: scan, understand, save, move on.',
     },
   ];
 
@@ -967,11 +987,11 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
         <div className="relative h-[364px] overflow-visible rounded-[28px] bg-white sm:h-[660px] lg:h-[720px]">
           <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 sm:left-[12%] sm:top-8 sm:translate-x-0 lg:left-[7%] xl:left-[10%]">
-            <LandingPhoneMockup className="sm:hidden" scale={0.38} variant="scan" />
-            <LandingPhoneMockup className="hidden sm:block" variant="scan" />
+            <LandingPhoneMockup className="sm:hidden" scale={0.38} variant="score" />
+            <LandingPhoneMockup className="hidden sm:block" variant="score" />
           </div>
           <div className="absolute right-[-2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[1%] xl:right-[5%]">
-            <LandingPhoneMockup scale={0.64} variant="feeling" />
+            <LandingPhoneMockup scale={0.64} variant="water" />
           </div>
         </div>
       </section>
@@ -988,8 +1008,16 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             <div className="lg:sticky lg:top-28">
               <div className="relative overflow-hidden rounded-[26px] bg-white p-3 text-zinc-950 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05] md:rounded-[34px] md:p-8">
                 <div className="relative flex h-[366px] items-start justify-center overflow-visible rounded-[22px] bg-white pt-3 ring-1 ring-zinc-950/[0.04] md:h-[628px] md:rounded-[30px] md:pt-6">
-                  <LandingPhoneMockup className="md:hidden" scale={0.39} variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
-                  <LandingPhoneMockup className="hidden md:block" scale={0.66} variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
+                  <LandingPhoneMockup
+                    className="md:hidden"
+                    scale={0.39}
+                    variant={activeIncludeIndex === 0 ? 'score' : activeIncludeIndex === 1 ? 'water' : activeIncludeIndex === 2 ? 'score' : 'macros'}
+                  />
+                  <LandingPhoneMockup
+                    className="hidden md:block"
+                    scale={0.66}
+                    variant={activeIncludeIndex === 0 ? 'score' : activeIncludeIndex === 1 ? 'water' : activeIncludeIndex === 2 ? 'score' : 'macros'}
+                  />
                 </div>
               </div>
             </div>
@@ -1029,7 +1057,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               Why us?
             </h2>
             <p className="mx-auto mt-4 max-w-[760px] text-base font-semibold leading-7 text-[#605a51] md:mt-6 md:text-2xl md:leading-10">
-              DigestSnap is built for the real eating loop: quick photo first, simple check-in later, clear pattern when the same signal repeats.
+              DigestSnap is built for the moment people need most: a quick food read, a saved result, and a cleaner way to see what keeps showing up.
             </p>
           </div>
 
@@ -1037,18 +1065,18 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             {[
               {
                 icon: Camera,
-                title: 'Photo first',
-                body: 'No long diary entry. A scan saves the food, time, visual context, and first rating while the meal is still fresh.',
+                title: 'Photo becomes a result',
+                body: 'No long diary entry. A scan saves the image, name, score, and short explanation while the food is still fresh.',
               },
               {
                 icon: Activity,
-                title: 'Reaction later',
-                body: 'Symptoms often show up later. DigestSnap links that check-in back to the right meal instead of leaving it as a random feeling.',
+                title: 'The score is readable',
+                body: 'Users see Safe, Caution, or Avoid with a clear 1-100 rating instead of a wall of nutrition text.',
               },
               {
                 icon: ShieldCheck,
-                title: 'Pattern clear',
-                body: 'The timeline highlights repeat foods and timing, so users see what keeps showing up without digging through memory.',
+                title: 'The timeline stays useful',
+                body: 'Recent scans, water, and health score stay together, so the dashboard keeps its shape after real use.',
               },
             ].map(({ icon: Icon, title, body }) => (
               <div
@@ -1409,7 +1437,7 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
   const timeline: Array<[string, string, string]> = [
     ['01', 'Meal event', 'A scan saves the food, time, score, and visible context.'],
     ['02', 'Body response', 'A later check-in records how the user felt without forcing a diary entry.'],
-    ['03', 'Private timeline', 'Repeat signals become visible without digging through memory or old chats.'],
+    ['03', 'Pattern view', 'Repeat signals become visible without digging through memory or old chats.'],
   ];
 
   return (
@@ -3741,8 +3769,8 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
   const renderStepContent = () => {
     if (currentStep.kind === 'intro') {
       const introRows: Array<[typeof Camera, string, string]> = [
-        [Camera, 'Photo first', 'Save the meal and time before you forget.'],
-        [Activity, 'Feeling later', 'Tap the symptom when it actually happens.'],
+        [Camera, 'Scan first', 'Save the food and time before you forget.'],
+        [Activity, 'Check later', 'Log the symptom when it actually happens.'],
         [BarChart3, 'Pattern view', 'See repeat signals after enough real entries.'],
       ];
 
