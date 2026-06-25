@@ -2081,7 +2081,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         },
       ]).slice(0, 3)
     : [];
-  const cardClass = cn('rounded-[24px] bg-white p-5 shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card);
+  const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const normalizedStreak = normalizeStreak(streak);
   const activeStreak = normalizedStreak.count;
   const maxStreak = normalizedStreak.maxCount;
@@ -2117,18 +2117,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setGoalsSheetOpen(false);
   };
   const progressPage = (
-    <div className="min-h-full space-y-4 pb-6 pt-[max(28px,env(safe-area-inset-top))]">
-      <div className="flex items-center justify-between px-1">
-        <button className="flex h-11 w-11 items-center justify-center rounded-full text-black transition active:scale-95" onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
+    <div className="mx-auto min-h-full w-full max-w-[430px] space-y-3.5 pb-6 pt-[max(16px,env(safe-area-inset-top))] sm:max-w-[620px] sm:space-y-4 sm:pt-[max(28px,env(safe-area-inset-top))] lg:max-w-[980px]">
+      <div className="flex items-center justify-between px-0 sm:px-1">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-black transition active:scale-95 sm:h-11 sm:w-11" onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
           <ArrowLeft className="h-6 w-6" />
         </button>
-        <h1 className="text-[33px] font-black leading-none">{isRussian ? 'Прогресс' : 'Progress'}</h1>
-        <button className="flex h-11 w-11 items-center justify-center rounded-full text-black transition active:scale-95" onClick={() => setActiveTab('profile')} type="button" aria-label="Open profile">
-          <CircleUserRound className="h-9 w-9 stroke-[2.4]" />
+        <h1 className="text-[28px] font-black leading-none sm:text-[33px]">{isRussian ? 'Прогресс' : 'Progress'}</h1>
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-black transition active:scale-95 sm:h-11 sm:w-11" onClick={() => setActiveTab('profile')} type="button" aria-label="Open profile">
+          <CircleUserRound className="h-8 w-8 stroke-[2.4] sm:h-9 sm:w-9" />
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {[
           ['Current streak', String(activeStreak), 'days', Flame],
           ['Best streak', String(maxStreak), 'max', Target],
@@ -2137,14 +2137,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         ].map(([label, value, helper, Icon]) => (
           <div
             className={cn(
-              'min-h-[126px] rounded-[24px] bg-white p-5 text-left text-zinc-950 shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700',
+              'min-h-[104px] rounded-[22px] bg-white p-4 text-left text-zinc-950 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:min-h-[126px] sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]',
               isDarkMode && theme.card,
             )}
             key={String(label)}
           >
-            <Icon className="h-6 w-6 opacity-70" />
-            <p className="mt-5 text-3xl font-black">{value as string}</p>
-            <p className="mt-1 text-sm font-black opacity-70">{label as string}</p>
+            <Icon className="h-5 w-5 opacity-70 sm:h-6 sm:w-6" />
+            <p className="mt-4 text-2xl font-black sm:mt-5 sm:text-3xl">{value as string}</p>
+            <p className="mt-1 text-xs font-black opacity-70 sm:text-sm">{label as string}</p>
             <p className="mt-1 text-xs font-semibold opacity-45">{helper as string}</p>
           </div>
         ))}
@@ -2172,7 +2172,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {[
               [isRussian ? 'Сканы' : 'Scans', String(scanCount), isRussian ? 'сохранено' : 'saved', ScanLine],
               [isRussian ? 'Самочувствие' : 'Check-ins', String(checkInCount), isRussian ? 'отмечено' : 'saved', Activity],
@@ -2181,14 +2181,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             ].map(([label, value, helper, Icon]) => (
               <div
                 className={cn(
-                  'min-h-[130px] rounded-[24px] bg-white p-5 text-left text-zinc-950 shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700',
+                  'min-h-[106px] rounded-[22px] bg-white p-4 text-left text-zinc-950 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:min-h-[130px] sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]',
                   isDarkMode && theme.card,
                 )}
                 key={String(label)}
               >
-                <Icon className="h-6 w-6 opacity-70" />
-                <p className="mt-5 text-3xl font-black">{value as string}</p>
-                <p className="mt-1 text-sm font-black opacity-70">{label as string}</p>
+                <Icon className="h-5 w-5 opacity-70 sm:h-6 sm:w-6" />
+                <p className="mt-4 text-2xl font-black sm:mt-5 sm:text-3xl">{value as string}</p>
+                <p className="mt-1 text-xs font-black opacity-70 sm:text-sm">{label as string}</p>
                 <p className="mt-1 text-xs font-semibold opacity-45">{helper as string}</p>
               </div>
             ))}
@@ -2229,7 +2229,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>{isRussian ? 'Вес' : 'Weight progress'}</p>
-            <h2 className="mt-3 text-3xl font-black leading-none">
+            <h2 className="mt-3 text-2xl font-black leading-none sm:text-3xl">
               {storedProfile ? `${storedProfile.weightKg} kg` : '--'}
             </h2>
             <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
@@ -2238,8 +2238,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 : (isRussian ? 'Заполните рост и вес в настройке, чтобы увидеть BMI.' : 'Finish setup with height and weight to unlock your baseline')}
             </p>
           </div>
-          <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 ring-black/[0.03]')}>
-            <span className="text-3xl font-black">{profileBmi?.display ?? '--'}</span>
+          <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1 sm:h-24 sm:w-24', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 ring-black/[0.03]')}>
+            <span className="text-2xl font-black sm:text-3xl">{profileBmi?.display ?? '--'}</span>
             <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{profileBmi?.category ?? (isRussian ? 'нет' : 'none')}</span>
           </div>
         </div>
@@ -2291,44 +2291,44 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     { label: 'Terms and Conditions', icon: ClipboardList, action: () => navigate('/terms') },
   ];
   const renderRow = ({ label, icon: Icon, action }: { label: string; icon: typeof Home; action: () => void }) => (
-    <button className={cn('flex min-h-[66px] w-full items-center gap-4 border-b px-5 text-left last:border-b-0 transition active:scale-[0.99]', theme.line)} key={label} onClick={action} type="button">
-      <Icon className="h-6 w-6 shrink-0" />
-      <span className="min-w-0 flex-1 text-xl font-black">{label}</span>
-      <ChevronRight className={cn('h-6 w-6 shrink-0', theme.muted)} />
+    <button className={cn('flex min-h-[60px] w-full items-center gap-3 border-b px-4 text-left last:border-b-0 transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5', theme.line)} key={label} onClick={action} type="button">
+      <Icon className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+      <span className="min-w-0 flex-1 text-lg font-black sm:text-xl">{label}</span>
+      <ChevronRight className={cn('h-5 w-5 shrink-0 sm:h-6 sm:w-6', theme.muted)} />
     </button>
   );
   const profilePage = (
-    <div className="min-h-full space-y-4 pb-6 pt-[max(28px,env(safe-area-inset-top))]">
-      <div className="flex items-center justify-between px-1">
-        <button className="flex h-11 w-11 items-center justify-center rounded-full text-black transition active:scale-95" onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
+    <div className="mx-auto min-h-full w-full max-w-[430px] space-y-3.5 pb-6 pt-[max(16px,env(safe-area-inset-top))] sm:max-w-[620px] sm:space-y-4 sm:pt-[max(28px,env(safe-area-inset-top))]">
+      <div className="flex items-center justify-between px-0 sm:px-1">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full text-black transition active:scale-95 sm:h-11 sm:w-11" onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
           <ArrowLeft className="h-6 w-6" />
         </button>
-        <h1 className="text-[33px] font-black leading-none">Profile</h1>
-        <div className="h-11 w-11" />
+        <h1 className="text-[28px] font-black leading-none sm:text-[33px]">Profile</h1>
+        <div className="h-10 w-10 sm:h-11 sm:w-11" />
       </div>
-      <button className={cn(cardClass, 'flex w-full items-center gap-5 text-left transition active:scale-[0.99]')} onClick={openProfileEditor} type="button">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-inner ring-1 ring-zinc-950/10">
-          <User className="h-9 w-9" />
+      <button className={cn(cardClass, 'flex w-full items-center gap-4 text-left transition active:scale-[0.99] sm:gap-5')} onClick={openProfileEditor} type="button">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-inner ring-1 ring-zinc-950/10 sm:h-20 sm:w-20">
+          <User className="h-7 w-7 sm:h-9 sm:w-9" />
         </div>
         <div className="min-w-0 flex-1">
           <p className={cn('text-sm font-black', theme.muted)}>Account profile</p>
-          <p className="truncate text-2xl font-black">{profileName}</p>
-          <p className={cn('truncate text-lg font-bold', theme.muted)}>@{profileUsername}</p>
+          <p className="truncate text-xl font-black sm:text-2xl">{profileName}</p>
+          <p className={cn('truncate text-base font-bold sm:text-lg', theme.muted)}>@{profileUsername}</p>
         </div>
-        <ChevronRight className={cn('h-7 w-7', theme.muted)} />
+        <ChevronRight className={cn('h-6 w-6 sm:h-7 sm:w-7', theme.muted)} />
       </button>
 
       <div className={cn(cardClass, 'flex items-center justify-between gap-5')}>
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-[30px] shadow-inner">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-[26px] shadow-inner sm:h-16 sm:w-16 sm:text-[30px]">
             🔥
           </div>
           <div>
-            <p className="text-2xl font-black">{activeStreak}</p>
+            <p className="text-xl font-black sm:text-2xl">{activeStreak}</p>
             <p className={cn('text-sm font-black', theme.muted)}>Day streak</p>
           </div>
         </div>
-        <p className={cn('max-w-[180px] text-right text-xs font-semibold leading-5', theme.muted)}>
+        <p className={cn('max-w-[150px] text-right text-[11px] font-semibold leading-4 sm:max-w-[180px] sm:text-xs sm:leading-5', theme.muted)}>
           Log once every 24 hours to keep it alive
         </p>
       </div>
@@ -2350,14 +2350,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       <div>
         <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>Account Actions</p>
         <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
-          <button className={cn('flex min-h-[66px] w-full items-center gap-4 border-b px-5 text-left transition active:scale-[0.99]', theme.line)} onClick={signOut} type="button">
+          <button className={cn('flex min-h-[60px] w-full items-center gap-3 border-b px-4 text-left transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5', theme.line)} onClick={signOut} type="button">
             <LogOut className="h-6 w-6" />
-            <span className="flex-1 text-xl font-black">Logout</span>
+            <span className="flex-1 text-lg font-black sm:text-xl">Logout</span>
             <ChevronRight className={cn('h-6 w-6', theme.muted)} />
           </button>
-          <button className="flex min-h-[66px] w-full items-center gap-4 px-5 text-left text-red-400 transition active:scale-[0.99]" onClick={() => setDeleteSheetOpen(true)} type="button">
+          <button className="flex min-h-[60px] w-full items-center gap-3 px-4 text-left text-red-400 transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5" onClick={() => setDeleteSheetOpen(true)} type="button">
             <AlertCircle className="h-6 w-6" />
-            <span className="flex-1 text-xl font-black">{copy.deleteAccount}</span>
+            <span className="flex-1 text-lg font-black sm:text-xl">{copy.deleteAccount}</span>
             <ChevronRight className="h-6 w-6" />
           </button>
         </div>
@@ -2367,14 +2367,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   return (
     <AppFrame darkMode={false} fullScreen>
-      <div className={cn('relative flex h-full w-full flex-col overflow-hidden px-4 pb-0 pt-0 transition-colors duration-700 sm:px-6 lg:px-10 2xl:px-14', theme.app)}>
+      <div className={cn('relative flex h-full w-full min-w-0 flex-col overflow-hidden px-[clamp(12px,4vw,24px)] pb-0 pt-0 transition-colors duration-700 lg:px-8 xl:px-10 2xl:px-12', theme.app)}>
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute left-1/2 top-[-220px] h-[560px] w-[960px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.96)_0%,rgba(245,240,248,0.92)_34%,rgba(230,223,236,0.40)_58%,transparent_76%)] blur-3xl" />
           <div className="absolute bottom-[-260px] left-[-180px] h-[520px] w-[640px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.88)_0%,rgba(233,228,238,0.52)_52%,transparent_76%)] blur-3xl" />
           <div className="absolute bottom-[-220px] right-[-140px] h-[520px] w-[620px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.82)_0%,rgba(226,222,232,0.46)_50%,transparent_74%)] blur-3xl" />
         </div>
 
-        <div className={cn('relative z-10 mx-auto min-h-0 w-full flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', activeTab === 'home' ? 'max-w-[1280px] pb-32 pt-0' : 'max-w-[1120px] pb-32 pt-0')}>
+        <div className={cn('relative z-10 mx-auto min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', activeTab === 'home' ? 'max-w-[430px] pb-28 pt-0 sm:max-w-[620px] lg:max-w-[1040px] xl:max-w-[1120px]' : 'max-w-[430px] pb-28 pt-0 sm:max-w-[620px] lg:max-w-[980px]')}>
           <AnimatePresence mode="wait">
             <motion.div
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -2417,7 +2417,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   ))}
                 </div>
 
-                <div className="mx-auto mt-5 max-w-[1120px] space-y-3.5 sm:mt-8 sm:space-y-5">
+                  <div className="mx-auto mt-5 w-full max-w-[430px] space-y-3.5 sm:mt-8 sm:max-w-[620px] sm:space-y-5 lg:max-w-[1040px] xl:max-w-[1120px]">
                   <div className="w-full rounded-[28px] bg-white px-5 py-5 text-center shadow-[0_10px_30px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[34px] sm:px-6 sm:py-8 md:px-10 md:py-10">
                     <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-full bg-zinc-100 shadow-inner sm:h-[104px] sm:w-[104px]">
                       <div className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-white shadow-inner sm:h-[76px] sm:w-[76px]">
@@ -2433,7 +2433,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
+                  <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 sm:gap-5">
                     <div className="min-w-0 rounded-[24px] bg-white p-4 shadow-[0_8px_24px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-7">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
@@ -2579,14 +2579,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           </AnimatePresence>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-5 pb-[max(22px,env(safe-area-inset-bottom))]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-5 pb-[max(18px,env(safe-area-inset-bottom))] sm:pb-[max(22px,env(safe-area-inset-bottom))]">
           <button
             aria-label={copy.logFood}
-            className="pointer-events-auto flex h-[82px] w-[82px] items-center justify-center rounded-full bg-black text-white shadow-[0_22px_48px_rgba(15,15,15,0.28)] ring-1 ring-black transition hover:-translate-y-1 active:scale-95"
+            className="pointer-events-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-black text-white shadow-[0_18px_40px_rgba(15,15,15,0.24)] ring-1 ring-black transition hover:-translate-y-1 active:scale-95 sm:h-[82px] sm:w-[82px] sm:shadow-[0_22px_48px_rgba(15,15,15,0.28)]"
             onClick={openCamera}
             type="button"
           >
-            <Plus className="h-12 w-12 stroke-[1.9]" />
+            <Plus className="h-10 w-10 stroke-[1.9] sm:h-12 sm:w-12" />
           </button>
         </div>
 
@@ -2622,8 +2622,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div aria-hidden className="h-12 w-12" />
                 </div>
 
-                <div className="pointer-events-none absolute inset-x-10 top-1/2 aspect-square -translate-y-1/2 rounded-[34px] border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]">
-                  <div className="absolute inset-x-5 top-5 rounded-full bg-black/38 px-4 py-2 text-center text-xs font-black backdrop-blur-md">
+                <div className="pointer-events-none absolute inset-x-6 top-1/2 aspect-square -translate-y-1/2 rounded-[30px] border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,0.22)] sm:inset-x-10 sm:rounded-[34px]">
+                  <div className="absolute inset-x-4 top-4 rounded-full bg-black/38 px-3 py-2 text-center text-[11px] font-black backdrop-blur-md sm:inset-x-5 sm:top-5 sm:px-4 sm:text-xs">
                     Keep ingredients sharp and flat
                   </div>
                 </div>
@@ -2654,24 +2654,24 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           {profileSheetOpen && (
             <motion.div
               animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex items-end bg-black/55 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
+              className="absolute inset-0 z-50 flex items-end justify-center bg-black/55 px-[clamp(12px,4vw,20px)] pb-[max(18px,env(safe-area-inset-bottom))] sm:pb-[max(22px,env(safe-area-inset-bottom))]"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               onClick={() => setProfileSheetOpen(false)}
             >
               <motion.div
                 animate={{ y: 0 }}
-                className={cn('w-full rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1', theme.card)}
+                className={cn('w-full max-w-[430px] rounded-[28px] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1 sm:rounded-[32px] sm:p-5', theme.card)}
                 exit={{ y: 24 }}
                 initial={{ y: 24 }}
                 onClick={(event) => event.stopPropagation()}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
-                <p className="text-2xl font-black">{copy.profileDetails}</p>
+                <p className="text-[22px] font-black sm:text-2xl">{copy.profileDetails}</p>
                 <label className="mt-5 block">
                   <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{copy.name}</span>
                   <input
-                    className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                    className={cn('mt-2 h-[52px] w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2 sm:h-14', theme.input)}
                     placeholder={copy.name}
                     onChange={(event) => setProfileDraftName(event.target.value)}
                     value={profileDraftName}
@@ -2680,7 +2680,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <label className="mt-4 block">
                   <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{copy.username}</span>
                   <input
-                    className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                    className={cn('mt-2 h-[52px] w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2 sm:h-14', theme.input)}
                     placeholder="username"
                     onChange={(event) => setProfileDraftUsername(normalizeUsername(event.target.value))}
                     value={profileDraftUsername}
@@ -2702,20 +2702,20 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           {goalsSheetOpen && (
             <motion.div
               animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex items-end bg-black/55 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
+              className="absolute inset-0 z-50 flex items-end justify-center bg-black/55 px-[clamp(12px,4vw,20px)] pb-[max(18px,env(safe-area-inset-bottom))] sm:pb-[max(22px,env(safe-area-inset-bottom))]"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               onClick={() => setGoalsSheetOpen(false)}
             >
               <motion.div
                 animate={{ y: 0 }}
-                className={cn('max-h-[86vh] w-full overflow-y-auto rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', theme.card)}
+                className={cn('max-h-[86vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1 [scrollbar-width:none] sm:rounded-[32px] sm:p-5 [&::-webkit-scrollbar]:hidden', theme.card)}
                 exit={{ y: 24 }}
                 initial={{ y: 24 }}
                 onClick={(event) => event.stopPropagation()}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
-                <p className="text-2xl font-black">Edit goals</p>
+                <p className="text-[22px] font-black sm:text-2xl">Edit goals</p>
                 <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>Update the setup data DigestSnap uses for scans</p>
 
                 <div className="mt-5 grid gap-4">
@@ -2741,11 +2741,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     />
                   </label>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <label className="block">
                       <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Age</span>
                       <input
-                        className={cn('mt-2 h-14 w-full rounded-[18px] border px-3 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                        className={cn('mt-2 h-[52px] w-full rounded-[16px] border px-2.5 text-base font-bold outline-none transition focus:ring-2 sm:h-14 sm:rounded-[18px] sm:px-3', theme.input)}
                         inputMode="numeric"
                         onChange={(event) => setGoalDraft((current) => ({ ...current, age: Number(event.target.value) }))}
                         type="number"
@@ -2755,7 +2755,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <label className="block">
                       <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Height</span>
                       <input
-                        className={cn('mt-2 h-14 w-full rounded-[18px] border px-3 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                        className={cn('mt-2 h-[52px] w-full rounded-[16px] border px-2.5 text-base font-bold outline-none transition focus:ring-2 sm:h-14 sm:rounded-[18px] sm:px-3', theme.input)}
                         inputMode="numeric"
                         onChange={(event) => setGoalDraft((current) => ({ ...current, heightCm: Number(event.target.value) }))}
                         type="number"
@@ -2765,7 +2765,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <label className="block">
                       <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Weight</span>
                       <input
-                        className={cn('mt-2 h-14 w-full rounded-[18px] border px-3 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                        className={cn('mt-2 h-[52px] w-full rounded-[16px] border px-2.5 text-base font-bold outline-none transition focus:ring-2 sm:h-14 sm:rounded-[18px] sm:px-3', theme.input)}
                         inputMode="decimal"
                         onChange={(event) => setGoalDraft((current) => ({ ...current, weightKg: Number(event.target.value) }))}
                         type="number"
@@ -2832,14 +2832,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           {resultSheetOpen && scanResult && (
             <motion.div
               animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex items-end bg-black/55 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
+              className="absolute inset-0 z-50 flex items-end justify-center bg-black/55 px-[clamp(12px,4vw,20px)] pb-[max(18px,env(safe-area-inset-bottom))] sm:pb-[max(22px,env(safe-area-inset-bottom))]"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               onClick={() => setResultSheetOpen(false)}
             >
               <motion.div
                 animate={{ y: 0 }}
-                className={cn('max-h-[86vh] w-full overflow-y-auto rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', theme.card)}
+                className={cn('max-h-[86vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1 [scrollbar-width:none] sm:rounded-[32px] sm:p-5 [&::-webkit-scrollbar]:hidden', theme.card)}
                 exit={{ y: 24 }}
                 initial={{ y: 24 }}
                 onClick={(event) => event.stopPropagation()}
@@ -2848,7 +2848,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{copy.aiResult}</p>
-                    <h2 className="mt-2 text-3xl font-black leading-none">{scanResult.result.productName}</h2>
+                    <h2 className="mt-2 text-2xl font-black leading-none sm:text-3xl">{scanResult.result.productName}</h2>
                   </div>
                   <button
                     aria-label="Close AI result"
@@ -2863,24 +2863,24 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 {scanPreviewUrl && (
                   <img
                     alt="Scanned food"
-                    className="mt-5 h-44 w-full rounded-[24px] object-cover"
+                    className="mt-4 h-40 w-full rounded-[22px] object-cover sm:mt-5 sm:h-44 sm:rounded-[24px]"
                     src={scanPreviewUrl}
                   />
                 )}
 
-                <div className={cn('mt-5 rounded-[28px] p-5 ring-1', resultTone.block)}>
+                <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[28px] sm:p-5', resultTone.block)}>
                   <div className="grid grid-cols-[1fr_auto] items-start gap-4">
                     <div>
                       <span className={cn('inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase', resultTone.badge)}>
                         {isResultImageCheckError ? 'Needs retake' : ratingLabel(scanResult.result.overallRating)}
                       </span>
-                      <p className="mt-3 text-4xl font-black leading-none">{isResultImageCheckError ? 'Image not checked' : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
+                      <p className="mt-3 text-3xl font-black leading-none sm:text-4xl">{isResultImageCheckError ? 'Image not checked' : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
                       <p className={cn('mt-3 max-w-[31rem] text-sm font-bold leading-6', resultTone.muted)}>
                         {resultVibe(scanResult.result)}
                       </p>
                     </div>
-                    <div className={cn('flex h-24 w-24 flex-col items-center justify-center rounded-full shadow-inner ring-4', resultTone.circle)}>
-                      <p className="text-3xl font-black">{isResultImageCheckError ? '--' : scanResult.result.score}</p>
+                    <div className={cn('flex h-20 w-20 flex-col items-center justify-center rounded-full shadow-inner ring-4 sm:h-24 sm:w-24', resultTone.circle)}>
+                      <p className="text-2xl font-black sm:text-3xl">{isResultImageCheckError ? '--' : scanResult.result.score}</p>
                       <p className="text-[10px] font-black uppercase opacity-75">{isResultImageCheckError ? 'not scored' : copy.score}</p>
                     </div>
                   </div>
@@ -2909,13 +2909,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                 {betterAlternative && (
                   <button
-                    className={cn('mt-5 w-full rounded-[26px] p-5 text-left ring-1 transition hover:-translate-y-0.5 active:scale-[0.99]', theme.soft)}
+                    className={cn('mt-4 w-full rounded-[24px] p-4 text-left ring-1 transition hover:-translate-y-0.5 active:scale-[0.99] sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}
                     type="button"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Better alternative</p>
-                        <p className="mt-2 text-2xl font-black leading-tight">{betterAlternative.title}</p>
+                        <p className="mt-2 text-xl font-black leading-tight sm:text-2xl">{betterAlternative.title}</p>
                         <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>{betterAlternative.reason}</p>
                       </div>
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/10">
@@ -2926,11 +2926,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 )}
 
                 {!isResultImageCheckError && (
-                <div className={cn('mt-5 rounded-[26px] p-5 ring-1', theme.soft)}>
+                <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Самочувствие' : 'Feeling check-in'}</p>
-                      <h3 className="mt-2 text-2xl font-black leading-tight">{isRussian ? 'Как вы себя чувствуете после еды?' : 'How do you feel after eating it?'}</h3>
+                      <h3 className="mt-2 text-xl font-black leading-tight sm:text-2xl">{isRussian ? 'Как вы себя чувствуете после еды?' : 'How do you feel after eating it?'}</h3>
                     </div>
                     {selectedFeeling && (
                       <span className={cn('rounded-full px-3 py-1 text-xs font-black', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]')}>
@@ -2992,14 +2992,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           {waterSheetOpen && (
             <motion.div
               animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex items-end bg-black/35 px-4 pb-[max(18px,env(safe-area-inset-bottom))]"
+              className="absolute inset-0 z-50 flex items-end justify-center bg-black/35 px-[clamp(10px,4vw,18px)] pb-[max(14px,env(safe-area-inset-bottom))] sm:pb-[max(18px,env(safe-area-inset-bottom))]"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               onClick={() => setWaterSheetOpen(false)}
             >
               <motion.div
                 animate={{ y: 0 }}
-                className="w-full rounded-[34px] bg-white px-5 pb-5 pt-7 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06]"
+                className="w-full max-w-[430px] rounded-[28px] bg-white px-4 pb-4 pt-6 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] sm:rounded-[34px] sm:px-5 sm:pb-5 sm:pt-7"
                 exit={{ y: 26 }}
                 initial={{ y: 26 }}
                 onClick={(event) => event.stopPropagation()}
@@ -3008,11 +3008,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className="mx-auto h-1.5 w-12 rounded-full bg-zinc-200" />
                 <h2 className="mt-6 text-center text-[22px] font-black">Log Water</h2>
 
-                <div className="mt-10 flex items-center justify-center">
-                  <span className="pr-3 text-[72px] font-black leading-none text-zinc-300">{waterValueLabel}</span>
-                  <span className="h-16 w-px bg-zinc-950" />
+                <div className="mt-8 flex items-center justify-center sm:mt-10">
+                  <span className="pr-3 text-[58px] font-black leading-none text-zinc-300 sm:text-[72px]">{waterValueLabel}</span>
+                  <span className="h-14 w-px bg-zinc-950 sm:h-16" />
                   <div className="ml-3 flex items-center gap-2">
-                    <span className="text-[24px] font-black">{waterUnit === 'ml' ? 'mL' : waterUnit === 'oz' ? 'oz' : 'cup(s)'}</span>
+                    <span className="text-[21px] font-black sm:text-[24px]">{waterUnit === 'ml' ? 'mL' : waterUnit === 'oz' ? 'oz' : 'cup(s)'}</span>
                     <div className="grid gap-0.5">
                       <button
                         aria-label="Set water unit to cups"
@@ -3042,7 +3042,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </div>
                 </div>
 
-                <div className="mt-7 rounded-[24px] bg-zinc-50 p-4 ring-1 ring-zinc-950/[0.06]">
+                <div className="mt-6 rounded-[22px] bg-zinc-50 p-3.5 ring-1 ring-zinc-950/[0.06] sm:mt-7 sm:rounded-[24px] sm:p-4">
                   <label className="text-sm font-black text-zinc-500" htmlFor="manual-water-amount">
                     Manual amount
                   </label>
@@ -3061,23 +3061,23 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </div>
                 </div>
 
-                <div className="mt-8 grid grid-cols-3 gap-3">
+                <div className="mt-6 grid grid-cols-3 gap-2 sm:mt-8 sm:gap-3">
                   {waterQuickAdds[waterUnit].map((option) => (
                     <button
-                      className="min-h-[112px] rounded-[22px] bg-zinc-50 px-3 py-4 text-left shadow-sm ring-1 ring-zinc-950/[0.06] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.98]"
+                      className="min-h-[96px] rounded-[20px] bg-zinc-50 px-2.5 py-3 text-left shadow-sm ring-1 ring-zinc-950/[0.06] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.98] sm:min-h-[112px] sm:rounded-[22px] sm:px-3 sm:py-4"
                       key={`${waterUnit}-${option.label}`}
                       onClick={() => setWaterMl((amount) => amount + option.ml)}
                       type="button"
                     >
-                      <span className="block text-[16px] font-black leading-tight">{option.label}</span>
-                      <span className="mt-1 block text-[15px] font-black text-zinc-500">{option.amount}</span>
+                      <span className="block text-[13px] font-black leading-tight sm:text-[16px]">{option.label}</span>
+                      <span className="mt-1 block text-[13px] font-black text-zinc-500 sm:text-[15px]">{option.amount}</span>
                     </button>
                   ))}
                 </div>
 
                 <button
                   className={cn(
-                    'mt-9 h-16 w-full rounded-full text-[18px] font-black transition active:scale-[0.98]',
+                    'mt-7 h-14 w-full rounded-full text-[17px] font-black transition active:scale-[0.98] sm:mt-9 sm:h-16 sm:text-[18px]',
                     waterMl > 0 || manualWaterMl > 0 ? 'bg-zinc-950 text-white shadow-[0_14px_32px_rgba(15,15,15,0.20)]' : 'bg-zinc-300 text-white',
                   )}
                   disabled={waterMl <= 0 && manualWaterMl <= 0}
@@ -3099,14 +3099,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           {deleteSheetOpen && (
             <motion.div
               animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex items-end bg-black/60 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
+              className="absolute inset-0 z-50 flex items-end justify-center bg-black/60 px-[clamp(12px,4vw,20px)] pb-[max(18px,env(safe-area-inset-bottom))] sm:pb-[max(22px,env(safe-area-inset-bottom))]"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               onClick={() => !deleteLoading && setDeleteSheetOpen(false)}
             >
               <motion.div
                 animate={{ y: 0 }}
-                className={cn('w-full rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1', theme.card)}
+                className={cn('w-full max-w-[430px] rounded-[28px] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1 sm:rounded-[32px] sm:p-5', theme.card)}
                 exit={{ y: 24 }}
                 initial={{ y: 24 }}
                 onClick={(event) => event.stopPropagation()}
