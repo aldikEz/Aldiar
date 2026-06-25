@@ -25,7 +25,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v5-image-first-visual-estimate-20260625';
+const SCAN_CACHE_VERSION = 'label-v6-visual-recovery-20260625';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -559,6 +559,7 @@ Rules:
 - Major "Avoid" categories: sugary soda/iced tea, energy drinks, candy, fried chips/crisps, instant noodles, deep-fried snacks.
 - Major visible "Avoid" foods even without OCR: burger meals, fries, fried chicken, deep-fried snacks, soda/iced tea bottles, candy bars, chips/crisps.
 - Major "Caution" categories: processed meats, sweet pastries, sugary cereals/granola, heavy sauces, additive-heavy ultra-processed foods.
+- If the image appears to show plain bottled water, mineral water, spring water, or a water label, classify it as bottled water/mineral water, not unreadable. Plain water is usually "Safe" with score 82-95 unless additives, sugar, flavoring, carbonation, or sweeteners are visible/inferred.
 - If the product is soda/energy drink/sweetened tea with sugar, caffeine, acid, sweeteners, or preservatives, use "Avoid".
 - Only use "Safe" above 75 when the label clearly shows a simple, low-trigger product with no meaningful additives/sugar concerns.
 - Use "Avoid" for obvious strong trigger products: sugary soda/energy drinks, very high sugar, fried snacks, or user-trigger overlap.
@@ -581,6 +582,30 @@ Return this exact shape:
     ]
   }
 }`;
+}
+
+function makeVisualRecoveryPrompt(targetLang: string, triggers: string[] = []) {
+  const triggerLine = triggers.length > 0 ? triggers.join(', ') : 'none provided';
+
+  return `You are DigestSnap's visual food/product classifier. Your previous OCR-style read failed, so do NOT try to transcribe the full label.
+
+Look at the image as a human would in a store. Classify the visible food/drink/package from shape, container, liquid color, visible keywords, brand hints, nutrition panel layout, and product category.
+User possible triggers and profile context: ${triggerLine}
+
+Rules:
+- Return JSON only.
+- Use ${targetLang} for productName, chemicalName, and reason.
+- Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
+- Never return "Unreadable Label", "Image unclear", "Could not verify image", or "Visual estimate unavailable" if any food/drink/product category is visible.
+- If it looks like plain bottled water, mineral water, spring water, or a water label, return productName like "Likely bottled water" or "Likely mineral water", rating "Safe", score 82-95.
+- If it looks like flavored water, soda, iced tea, juice, or energy drink, return at least "Caution"; sugary/carbonated/caffeinated drinks should usually be "Avoid".
+- If it looks like a snack, fried food, fast food, candy, or packaged dessert, use category-based risk.
+- Mark uncertainty in the reasons using "visual estimate" or "label not verified".
+- Return 2 to 4 flaggedChemicals/category concerns.
+- Keep each reason under 12 words.
+
+Required JSON shape:
+{"result":{"productName":"Likely product category","overallRating":"Caution","score":50,"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified."},{"chemicalName":"Category risk","severity":"Caution","reason":"Short reason."}]}}`;
 }
 
 function makeFoodTextPrompt(payload: FoodTextPayload, targetLang: string) {
@@ -623,7 +648,9 @@ async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
   const cachedScan = await readCachedScan(cacheHash, targetLang);
 
   if (cachedScan) {
-    return jsonResponse(req, cachedScan);
+    if (!isUnusableVisualScan(cachedScan)) {
+      return jsonResponse(req, cachedScan);
+    }
   }
 
   const geminiResult = await callGemini({
@@ -663,7 +690,9 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   const cachedScan = await readCachedScan(cacheKey, targetLang);
 
   if (cachedScan) {
-    return jsonResponse(req, cachedScan);
+    if (!isUnusableVisualScan(cachedScan)) {
+      return jsonResponse(req, cachedScan);
+    }
   }
 
   const geminiResult = await callGemini({
@@ -692,7 +721,41 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   }
 
   const parsed = parseModelJson(geminiResult.text);
-  const scan = normalizeScanPayload(parsed, targetLang);
+  let scan = normalizeScanPayload(parsed, targetLang);
+
+  if (isUnusableVisualScan(scan)) {
+    const recoveryResult = await callGemini({
+      contents: [
+        {
+          parts: [
+            { text: makeVisualRecoveryPrompt(targetLang, image.payload.triggers) },
+            {
+              inlineData: {
+                mimeType: image.payload.mimeType,
+                data: image.payload.data,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+        maxOutputTokens: 300,
+      },
+    });
+
+    if (!('error' in recoveryResult)) {
+      const recoveredScan = normalizeScanPayload(parseModelJson(recoveryResult.text), targetLang);
+      if (!isUnusableVisualScan(recoveredScan)) {
+        scan = recoveredScan;
+      }
+    }
+  }
+
+  if (isUnreadableProductName(scan.result.productName)) {
+    scan = visualEstimateFallback(targetLang);
+  }
 
   runAfterResponse(cacheScan(cacheKey, targetLang, scan));
 
@@ -1122,6 +1185,63 @@ async function readCachedScan(imageHash: string, targetLang: string): Promise<Sc
 function isUnreadableProductName(productName: string) {
   const normalizedName = productName.toLowerCase();
   return normalizedName.includes('unreadable') || normalizedName.includes('нечита');
+}
+
+function isUnusableVisualScan(scan: ScanPayload) {
+  const text = getScanText(scan);
+  return hasAny(text, [
+    /\bunreadable\b/i,
+    /\bimage\s*unclear\b/i,
+    /\bcould\s*not\s*verify\b/i,
+    /\bvisual\s*estimate\s*unavailable\b/i,
+    /\bno\s*recognizable\b/i,
+    /\bnot\s*checked\b/i,
+    /\bнечита/i,
+  ]);
+}
+
+function visualEstimateFallback(targetLang: string): ScanPayload {
+  if (targetLang === 'Russian') {
+    return {
+      result: {
+        productName: 'Визуальная оценка продукта',
+        overallRating: 'Caution',
+        score: 50,
+        flaggedChemicals: [
+          {
+            chemicalName: 'Оценка по фото',
+            severity: 'Caution',
+            reason: 'Категория видна, состав не подтвержден.',
+          },
+          {
+            chemicalName: 'Состав не подтвержден',
+            severity: 'Caution',
+            reason: 'Используйте как осторожную оценку.',
+          },
+        ],
+      },
+    };
+  }
+
+  return {
+    result: {
+      productName: 'Visual product estimate',
+      overallRating: 'Caution',
+      score: 50,
+      flaggedChemicals: [
+        {
+          chemicalName: 'Visual estimate',
+          severity: 'Caution',
+          reason: 'Category visible, label not verified.',
+        },
+        {
+          chemicalName: 'Label not confirmed',
+          severity: 'Caution',
+          reason: 'Use as a cautious first read.',
+        },
+      ],
+    },
+  };
 }
 
 async function cacheScan(imageHash: string, targetLang: string, scan: ScanPayload) {
