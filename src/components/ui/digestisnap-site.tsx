@@ -1823,7 +1823,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       });
       window.setTimeout(() => setResultSheetOpen(true), 450);
     } catch (error) {
-      await saveImageCheckError(stableImageDataUrl, error instanceof Error ? error.message : '');
+      window.clearInterval(progressTimer);
+      const message = error instanceof Error ? error.message : '';
+      const errorResult = makeImageCheckErrorResult(file.name, message);
+      const errorScan: ImageScanPayload = { result: errorResult };
+      setScanResult(errorScan);
+      setScanProgress(100);
+      setScanProgressText(isAiCoolingDownResult(errorResult) ? copy.aiCoolingDownTitle : copy.visualUnavailable);
+      setScanState('done');
+      setScanPreviewUrl((current) => current || normalizeImageDataUrl(stableImageDataUrl));
+      window.setTimeout(() => setResultSheetOpen(true), 450);
     }
   };
 

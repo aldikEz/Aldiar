@@ -5,14 +5,16 @@
 //   npm run ai:secret -- AI_ALLOWED_ORIGINS=https://your-domain.com,http://localhost:5173
 //
 // Optional:
-//   npm run ai:secret -- GEMINI_MODEL=gemini-2.0-flash
+//   npm run ai:secret -- GEMINI_MODEL=gemini-2.5-flash
+//   npm run ai:secret -- GEMINI_FALLBACK_MODELS=gemini-2.5-flash-lite,gemini-2.0-flash-lite
 //   npm run ai:secret -- GEMINI_TIMEOUT_MS=18000
 //
 // The allowlist keeps this function from becoming a public AI proxy. If
 // AI_ALLOWED_ORIGINS is missing, only localhost and 127.0.0.1 are allowed.
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
+const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+const GEMINI_FALLBACK_MODELS = parseModelList(Deno.env.get('GEMINI_FALLBACK_MODELS') ?? 'gemini-2.5-flash-lite,gemini-2.0-flash-lite');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -25,7 +27,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v9-visual-rescue-20260625';
+const SCAN_CACHE_VERSION = 'label-v11-identity-first-20260625';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -36,6 +38,17 @@ const BLOCKED_PATTERNS = [
   /\b(hate|slur|nazi|terrorist|bomb|weapon|harass|doxx)\b/i,
   /\b(cheat on|fake a test|forge|steal|hack)\b/i,
 ];
+
+function parseModelList(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, 3);
+}
 
 type RateLimitBucket = {
   count: number;
@@ -70,6 +83,15 @@ type ScanPayload = {
     score: number;
     flaggedChemicals: ChemicalReport[];
   };
+};
+
+type VisualIdentityPayload = {
+  productName: string;
+  brand: string;
+  category: string;
+  confidenceScore: number;
+  isFood: boolean;
+  visibleText: string;
 };
 
 type ImagePayload = {
@@ -622,48 +644,59 @@ async function sha256Hex(value: string) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function makeGeminiUrl() {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(
+function makeGeminiUrl(model = GEMINI_MODEL) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(
     GEMINI_API_KEY ?? '',
   )}`;
 }
 
 async function callGemini(body: unknown) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  const models = Array.from(new Set([GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS]));
+  let lastError: { error: string; status: number } = { error: 'AI request failed.', status: 502 };
+  let sawQuota = false;
 
-  try {
-    const response = await fetch(makeGeminiUrl(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify(body),
-    });
+  for (const model of models) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      console.error('Gemini request failed.', response.status, errorText.slice(0, 500));
-      const quotaHit = response.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(errorText);
-      return {
-        error: quotaHit ? 'AI quota is cooling down. Try again shortly.' : 'AI request failed.',
-        status: quotaHit ? 429 : 502,
-      };
+    try {
+      const response = await fetch(makeGeminiUrl(model), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        console.error('Gemini request failed.', model, response.status, errorText.slice(0, 500));
+        const quotaHit = response.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(errorText);
+        sawQuota ||= quotaHit;
+        lastError = {
+          error: quotaHit ? 'AI quota is cooling down. Trying another model.' : 'AI request failed.',
+          status: quotaHit ? 429 : 502,
+        };
+        continue;
+      }
+
+      const data = (await response.json()) as GeminiResponse;
+      const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
+
+      if (!text) {
+        lastError = { error: 'AI returned an empty response.', status: 502 };
+        continue;
+      }
+
+      return { text };
+    } catch (error) {
+      const isTimeout = error instanceof Error && error.name === 'AbortError';
+      lastError = { error: isTimeout ? 'AI request timed out.' : 'AI request failed.', status: isTimeout ? 504 : 502 };
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const data = (await response.json()) as GeminiResponse;
-    const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
-
-    if (!text) {
-      return { error: 'AI returned an empty response.', status: 502 };
-    }
-
-    return { text };
-  } catch (error) {
-    const isTimeout = error instanceof Error && error.name === 'AbortError';
-    return { error: isTimeout ? 'AI request timed out.' : 'AI request failed.', status: isTimeout ? 504 : 502 };
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  return sawQuota ? { error: 'AI quota is cooling down. Try again shortly.', status: 429 } : lastError;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
@@ -810,6 +843,46 @@ Return JSON only:
 {"result":{"productName":"Specific visual estimate","overallRating":"Caution","score":55,"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified"},{"chemicalName":"Category risk","severity":"Caution","reason":"Based on visible product type"}]}}`;
 }
 
+function makeVisualIdentityPrompt(targetLang: string) {
+  return `Identify the visible food or drink product in this image before doing any health rating.
+Use branding, logos, package colors, visible text in any language, food shape, bottle shape, wrapper design, and common product knowledge.
+If the image shows a food, drink, snack, fruit, vegetable, meal, bottle, wrapper, can, or packaged product, isFood must be true.
+Do not call it unreadable if a product or food category is visually clear.
+For Russian or Cyrillic labels, preserve brand names and translate/transliterate the product naturally.
+Use ${targetLang} for productName and category when they are generic food names. Keep actual brands as written.
+
+Return only this JSON:
+{"productName":"specific visible product or likely food name","brand":"brand or Generic","category":"food category","confidenceScore":90,"isFood":true,"visibleText":"short visible text you used"}`;
+}
+
+function makeIdentityRiskPrompt(identity: VisualIdentityPayload, targetLang: string, triggers: string[] = []) {
+  const triggerLine = triggers.length > 0 ? triggers.join(', ') : 'none provided';
+
+  return `You are DigestSnap AI. Rate possible gut-trigger risk from a visually identified food item.
+Return one JSON object only.
+
+Visual identity:
+- productName: ${identity.productName}
+- brand: ${identity.brand}
+- category: ${identity.category}
+- visibleText: ${identity.visibleText || 'none'}
+- confidenceScore: ${identity.confidenceScore}
+- user possible triggers: ${triggerLine}
+
+Rules:
+- Use ${targetLang} for productName, chemicalName, and reason. Keep real brand names as written.
+- Keep rating enums exactly "Safe", "Caution", or "Avoid".
+- Plain water/mineral water: Safe 82-95.
+- Whole fruits/vegetables/eggs/plain meat/fish/rice/oats/potatoes: Safe 75-92 unless fried/sauced/sweetened.
+- Pasta/bread/dairy/nuts/coffee/juice: Caution 50-70.
+- Candy/chocolate bars/sweet dairy snacks/sugary drinks/chips/fried fast food: Avoid 0-45.
+- If a user trigger overlaps with the identity, lower the score.
+- Reasons under 12 words.
+
+Return exactly:
+{"result":{"productName":"Specific name","overallRating":"Caution","score":55,"flaggedChemicals":[{"chemicalName":"Concern","severity":"Caution","reason":"Short reason"}]}}`;
+}
+
 function makeFoodTextPrompt(payload: FoodTextPayload, targetLang: string) {
   const triggerLine = payload.triggers.length > 0 ? payload.triggers.join(', ') : 'none provided';
 
@@ -864,6 +937,7 @@ async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
       responseMimeType: 'application/json',
       temperature: 0.1,
       maxOutputTokens: 360,
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
@@ -900,6 +974,13 @@ async function handleImageRequest(req: Request, body: RequestBody) {
     }
   }
 
+  const identityScan = await identifyAndRateVisibleFood(image.payload, targetLang);
+
+  if (identityScan && !isUnusableVisualScan(identityScan)) {
+    runAfterResponse(cacheScan(cacheKey, targetLang, identityScan));
+    return jsonResponse(req, identityScan);
+  }
+
   const geminiResult = await callGemini({
     contents: [
       {
@@ -917,7 +998,8 @@ async function handleImageRequest(req: Request, body: RequestBody) {
     generationConfig: {
       responseMimeType: 'application/json',
       temperature: 0.2,
-      maxOutputTokens: 360,
+      maxOutputTokens: 640,
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
@@ -946,7 +1028,8 @@ async function handleImageRequest(req: Request, body: RequestBody) {
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.35,
-        maxOutputTokens: 300,
+        maxOutputTokens: 520,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
@@ -982,6 +1065,29 @@ function parseModelJson(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+function normalizeVisualIdentity(value: unknown): VisualIdentityPayload | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const productName = asBoundedString(value.productName, '', 120);
+  const category = asBoundedString(value.category, '', 90);
+  const isFood = value.isFood === true || `${value.isFood}`.toLowerCase() === 'true';
+
+  if (!isFood || (!productName && !category)) {
+    return null;
+  }
+
+  return {
+    productName: productName || category,
+    brand: asBoundedString(value.brand, 'Generic', 80),
+    category: category || 'Food',
+    confidenceScore: Math.max(0, Math.min(100, Math.round(Number(value.confidenceScore) || 60))),
+    isFood,
+    visibleText: asBoundedString(value.visibleText, '', 180),
+  };
 }
 
 function asRating(value: unknown, fallback: Rating): Rating {
@@ -1477,16 +1583,23 @@ function isUnreadableProductName(productName: string) {
 }
 
 function isUnusableVisualScan(scan: ScanPayload) {
-  const text = getScanText(scan);
-  return hasAny(text, [
+  const productName = scan.result.productName.toLowerCase();
+  const hardFailureText = scan.result.flaggedChemicals
+    .flatMap((item) => [item.chemicalName, item.reason])
+    .join(' ')
+    .toLowerCase();
+
+  return hasAny(productName, [
     /\bunreadable\b/i,
+    /\bvisual\s+product\s+estimate\b/i,
     /\bimage\s*unclear\b/i,
     /\bcould\s*not\s*verify\b/i,
     /\bvisual\s*estimate\s*unavailable\b/i,
     /\bno\s*recognizable\b/i,
     /\bnot\s*checked\b/i,
+    /визуальн\w*\s+оценк/i,
     /нечита/i,
-  ]);
+  ]) || hasAny(hardFailureText, [/\bno\s*recognizable\b/i, /\bimage\s*unclear\b/i, /\bnot\s*checked\b/i, /нечита/i]);
 }
 
 function visualEstimateFallback(targetLang: string): ScanPayload {
@@ -1533,13 +1646,129 @@ function visualEstimateFallback(targetLang: string): ScanPayload {
   };
 }
 
+async function identifyAndRateVisibleFood(image: ImagePayload, targetLang: string): Promise<ScanPayload | null> {
+  const identityResult = await callGemini({
+    contents: [
+      {
+        parts: [
+          { text: makeVisualIdentityPrompt(targetLang) },
+          {
+            inlineData: {
+              mimeType: image.mimeType,
+              data: image.data,
+            },
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.05,
+      maxOutputTokens: 500,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  });
+
+  if ('error' in identityResult) {
+    return null;
+  }
+
+  const identity = normalizeVisualIdentity(parseModelJson(identityResult.text));
+
+  if (!identity) {
+    return null;
+  }
+
+  return fallbackVisualIdentityPayload(identity, targetLang, image.triggers);
+}
+
+function fallbackVisualIdentityPayload(identity: VisualIdentityPayload, targetLang: string, triggers: string[] = []): ScanPayload {
+  const identityText = `${identity.productName} ${identity.brand} ${identity.category} ${identity.visibleText}`.toLowerCase();
+  const triggerText = triggers.join(' ').toLowerCase();
+  const hasTriggerOverlap = triggers.some((trigger) => identityText.includes(trigger.toLowerCase()));
+  let rating: Rating = 'Caution';
+  let score = hasTriggerOverlap ? 48 : 58;
+
+  if (hasAny(identityText, [/\bwater\b/i, /минерал/i, /вода/i, /borjomi/i, /spring\s+water/i])) {
+    rating = 'Safe';
+    score = 88;
+  } else if (hasAny(identityText, [/\bavocado\b/i, /\begg\b/i, /\beggs\b/i, /\bbanana\b/i, /\bapple\b/i, /\bcucumber\b/i, /\btomato\b/i, /\brice\b/i, /\boats?\b/i, /авокад/i, /яйц/i, /банан/i, /яблок/i, /огур/i, /томат/i, /рис/i, /овсян/i])) {
+    rating = hasTriggerOverlap ? 'Caution' : 'Safe';
+    score = hasTriggerOverlap ? 62 : 82;
+  } else if (hasAny(identityText, [/\bchocolate\b/i, /\bcandy\b/i, /\bsweet\b/i, /\bsnack\s*bar\b/i, /\bkinder\b/i, /\bcookie\b/i, /\bcake\b/i, /шоколад/i, /конфет/i, /слад/i, /батончик/i, /ломтик/i, /печень/i])) {
+    rating = 'Avoid';
+    score = 36;
+  } else if (hasAny(identityText, [/\bsoda\b/i, /\bcola\b/i, /\bfanta\b/i, /\bsprite\b/i, /\bfuse\s*tea\b/i, /\biced?\s*tea\b/i, /\benergy\s*drink\b/i, /газиров/i, /кола/i, /чай/i, /энергет/i])) {
+    rating = 'Avoid';
+    score = 34;
+  } else if (hasAny(identityText, [/\bchips?\b/i, /\bcrisps?\b/i, /\bfried\b/i, /\bfries\b/i, /\bburger\b/i, /\bnuggets?\b/i, /чипс/i, /жарен/i, /бургер/i])) {
+    rating = 'Avoid';
+    score = 40;
+  } else if (hasAny(identityText, [/\bpasta\b/i, /\bmacaroni\b/i, /\bbread\b/i, /\bmilk\b/i, /\bdairy\b/i, /\byogurt\b/i, /\bcheese\b/i, /макарон/i, /паста/i, /хлеб/i, /молоч/i, /йогурт/i, /сыр/i])) {
+    rating = hasTriggerOverlap || hasAny(triggerText, [/dairy/i, /bread/i, /gluten/i]) ? 'Caution' : 'Caution';
+    score = hasTriggerOverlap ? 50 : 62;
+  }
+
+  const productName = [identity.brand && identity.brand !== 'Generic' ? identity.brand : '', identity.productName]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const firstConcern =
+    targetLang === 'Russian'
+      ? rating === 'Safe'
+        ? 'Простой продукт'
+        : rating === 'Avoid'
+          ? 'Сильный возможный триггер'
+          : 'Возможный триггер'
+      : rating === 'Safe'
+        ? 'Simple food'
+        : rating === 'Avoid'
+          ? 'Strong possible trigger'
+          : 'Possible trigger';
+  const firstReason =
+    targetLang === 'Russian'
+      ? rating === 'Safe'
+        ? 'Низкий сигнал риска по фото.'
+        : rating === 'Avoid'
+          ? 'Часто связан с дискомфортом.'
+          : 'Стоит проверить по реакции.'
+      : rating === 'Safe'
+        ? 'Low risk signal from image.'
+        : rating === 'Avoid'
+          ? 'Often linked with discomfort.'
+          : 'Worth checking against reactions.';
+
+  return normalizeScanPayload(
+    {
+      result: {
+        productName: productName || identity.category,
+        overallRating: rating,
+        score,
+        flaggedChemicals: [
+          {
+            chemicalName: firstConcern,
+            severity: rating,
+            reason: firstReason,
+          },
+          {
+            chemicalName: targetLang === 'Russian' ? 'Визуальное распознавание' : 'Visual recognition',
+            severity: 'Caution',
+            reason: targetLang === 'Russian' ? 'Название найдено по фото.' : 'Name detected from image.',
+          },
+        ],
+      },
+    },
+    targetLang,
+  );
+}
+
 async function cacheScan(imageHash: string, targetLang: string, scan: ScanPayload) {
   const headers = getServiceHeaders({
     Prefer: 'resolution=merge-duplicates',
   });
   const url = getRestUrl('cached_labels?on_conflict=image_hash,target_language');
 
-  if (!headers || !url || isUnreadableProductName(scan.result.productName)) {
+  if (!headers || !url || isUnreadableProductName(scan.result.productName) || isUnusableVisualScan(scan)) {
     return;
   }
 
