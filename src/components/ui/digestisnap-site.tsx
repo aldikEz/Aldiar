@@ -928,7 +928,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             Find the food pattern faster.
           </h1>
           <p className="mx-auto mt-4 max-w-[660px] text-[15px] font-semibold leading-6 text-[#5f574d] md:mt-6 md:text-[23px] md:leading-[1.42] xl:mx-0">
-            Take a photo when you eat. Tap how you felt later. DigestSnap turns those tiny moments into a private timeline you can actually use.
+            Take a photo what you eat. Log how you feel. See what keeps bothering you.
           </p>
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center md:mt-8 md:gap-4 xl:justify-start">
             <button
