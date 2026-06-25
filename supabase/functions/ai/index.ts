@@ -25,7 +25,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v7-product-identity-recovery-20260625';
+const SCAN_CACHE_VERSION = 'label-v8-everyday-foods-20260625';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -119,6 +119,22 @@ type FoodRiskRule = {
   };
 };
 
+type EverydayFoodRule = {
+  id: string;
+  patterns: RegExp[];
+  excludePatterns?: RegExp[];
+  rating: Rating;
+  score: number;
+  concern: {
+    en: string;
+    ru: string;
+  };
+  reason: {
+    en: string;
+    ru: string;
+  };
+};
+
 const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
   {
     id: 'sugary-drink',
@@ -133,8 +149,11 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
       /\bpepsi\b/i,
       /\bcoca[-\s]?cola\b/i,
       /\bsoft\s*drink\b/i,
-      /\bcarbonated\b/i,
       /\bsweetened\s*juice\b/i,
+      /газиров/i,
+      /кола/i,
+      /сладк\w*\s+напит/i,
+      /холодн\w*\s+чай/i,
     ],
     rating: 'Avoid',
     maxScore: 38,
@@ -143,7 +162,7 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
   },
   {
     id: 'energy-drink',
-    patterns: [/\benergy\s*drink\b/i, /\bred\s*bull\b/i, /\bmonster\b/i, /\badrenaline\b/i, /\btaurine\b/i],
+    patterns: [/\benergy\s*drink\b/i, /\bred\s*bull\b/i, /\bmonster\b/i, /\badrenaline\b/i, /\btaurine\b/i, /энергет/i, /кофеин/i, /таурин/i],
     rating: 'Avoid',
     maxScore: 35,
     concern: { en: 'Energy drink', ru: 'Энергетик' },
@@ -151,7 +170,7 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
   },
   {
     id: 'candy-dessert',
-    patterns: [/\bcandy\b/i, /\bsweets?\b/i, /\bchocolate\s*bar\b/i, /\bgummy\b/i, /\bcaramel\b/i, /\btoffee\b/i, /\blollipop\b/i],
+    patterns: [/\bcandy\b/i, /\bsweets?\b/i, /\bchocolate\s*bar\b/i, /\bgummy\b/i, /\bcaramel\b/i, /\btoffee\b/i, /\blollipop\b/i, /конфет/i, /сладост/i, /шоколадн\w*\s+батон/i, /карамел/i],
     rating: 'Avoid',
     maxScore: 42,
     concern: { en: 'Candy or sweets', ru: 'Конфеты или сладости' },
@@ -159,7 +178,7 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
   },
   {
     id: 'fried-snack',
-    patterns: [/\bchips?\b/i, /\bcrisps?\b/i, /\bcheetos\b/i, /\bdoritos\b/i, /\bpringles\b/i, /\bcrackers?\b/i, /\bdeep[-\s]?fried\b/i, /\bfried\b/i, /\bfries\b/i, /\bfrench\s*fries\b/i, /\bfried\s*chicken\b/i, /\bnuggets?\b/i, /\bcrispy\s*chicken\b/i],
+    patterns: [/\bchips?\b/i, /\bcrisps?\b/i, /\bcheetos\b/i, /\bdoritos\b/i, /\bpringles\b/i, /\bcrackers?\b/i, /\bdeep[-\s]?fried\b/i, /\bfried\b/i, /\bfries\b/i, /\bfrench\s*fries\b/i, /\bfried\s*chicken\b/i, /\bnuggets?\b/i, /\bcrispy\s*chicken\b/i, /чипс/i, /сухарик/i, /жарен/i, /фри/i, /наггет/i],
     rating: 'Avoid',
     maxScore: 42,
     concern: { en: 'Fried snack', ru: 'Жареный снек' },
@@ -167,7 +186,7 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
   },
   {
     id: 'instant-noodles',
-    patterns: [/\binstant\s*noodles?\b/i, /\bramen\b/i, /\bnoodle\s*soup\b/i, /\bseasoning\s*packet\b/i],
+    patterns: [/\binstant\s*noodles?\b/i, /\bramen\b/i, /\bnoodle\s*soup\b/i, /\bseasoning\s*packet\b/i, /лапш\w*\s+быстр/i, /рамен/i, /доширак/i],
     rating: 'Avoid',
     maxScore: 40,
     concern: { en: 'Instant noodles', ru: 'Лапша быстрого приготовления' },
@@ -220,6 +239,166 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
     maxScore: 44,
     concern: { en: 'Fast-food profile', ru: 'Профиль фастфуда' },
     reason: { en: 'Fat, sodium, and sauces stack.', ru: 'Жир, соль и соусы вместе.' },
+  },
+];
+
+const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
+  {
+    id: 'plain-water',
+    patterns: [/\bwater\b/i, /\bmineral\s*water\b/i, /\bspring\s*water\b/i, /\bborjomi\b/i, /вода/i, /минеральн\w*\s+вод/i, /боржоми/i],
+    excludePatterns: [/\bsweet(?:ened)?\b/i, /\bflavou?r(?:ed)?\b/i, /\bjuice\b/i, /\bsoda\b/i, /сладк/i, /сок/i, /газировк/i],
+    rating: 'Safe',
+    score: 90,
+    concern: { en: 'Hydration', ru: 'Гидратация' },
+    reason: { en: 'Plain water is usually low-trigger.', ru: 'Обычно низкий риск реакции.' },
+  },
+  {
+    id: 'avocado',
+    patterns: [/\bavocados?\b/i, /авокадо/i],
+    excludePatterns: [/\bfried\b/i, /\bsauce\b/i, /\bdressing\b/i, /жарен/i, /соус/i],
+    rating: 'Safe',
+    score: 84,
+    concern: { en: 'Whole food', ru: 'Цельный продукт' },
+    reason: { en: 'Fiber and fats can feel heavy.', ru: 'Клетчатка и жиры могут утяжелять.' },
+  },
+  {
+    id: 'eggs',
+    patterns: [/\beggs?\b/i, /\bboiled\s*egg\b/i, /\bomelette\b/i, /яйц/i, /омлет/i],
+    excludePatterns: [/\bfried\b/i, /\bmayonnaise\b/i, /жарен/i, /майонез/i],
+    rating: 'Safe',
+    score: 86,
+    concern: { en: 'Simple protein', ru: 'Простой белок' },
+    reason: { en: 'Usually clear and easy to track.', ru: 'Обычно простой и понятный продукт.' },
+  },
+  {
+    id: 'plain-meat',
+    patterns: [/\bsteak\b/i, /\bbeef\b/i, /\blamb\b/i, /\bmeat\b/i, /говядин/i, /мясо/i, /баранин/i],
+    excludePatterns: [/\bsausage\b/i, /\bsalami\b/i, /\bprocessed\b/i, /\bfried\b/i, /колбас/i, /сосиск/i, /жарен/i],
+    rating: 'Safe',
+    score: 80,
+    concern: { en: 'Plain protein', ru: 'Простой белок' },
+    reason: { en: 'Best read when sauce is separate.', ru: 'Лучше оценивать без соуса.' },
+  },
+  {
+    id: 'plain-poultry',
+    patterns: [/\bchicken\b/i, /\bturkey\b/i, /\bgrilled\s*chicken\b/i, /куриц/i, /индейк/i],
+    excludePatterns: [/\bfried\b/i, /\bcrispy\b/i, /\bnuggets?\b/i, /\bburger\b/i, /жарен/i, /наггет/i],
+    rating: 'Safe',
+    score: 84,
+    concern: { en: 'Lean protein', ru: 'Нежирный белок' },
+    reason: { en: 'Usually steady if not fried.', ru: 'Обычно спокойно, если не жареное.' },
+  },
+  {
+    id: 'fish-seafood',
+    patterns: [/\bfish\b/i, /\bsalmon\b/i, /\btuna\b/i, /\bshrimp\b/i, /\bseafood\b/i, /рыб/i, /лосос/i, /тунец/i, /кревет/i],
+    excludePatterns: [/\bfried\b/i, /\bbreaded\b/i, /жарен/i, /паниров/i],
+    rating: 'Safe',
+    score: 86,
+    concern: { en: 'Protein and fats', ru: 'Белок и жиры' },
+    reason: { en: 'Usually clean when grilled or plain.', ru: 'Обычно чисто без панировки.' },
+  },
+  {
+    id: 'rice-grains',
+    patterns: [/\brice\b/i, /\bbuckwheat\b/i, /\boats?\b/i, /\boatmeal\b/i, /гречк/i, /рис/i, /овсян/i],
+    excludePatterns: [/\bfried\s*rice\b/i, /\bsugar\b/i, /\bsyrup\b/i, /жарен\w*\s+рис/i, /сахар/i],
+    rating: 'Safe',
+    score: 82,
+    concern: { en: 'Simple base food', ru: 'Простая база' },
+    reason: { en: 'Easy baseline for pattern tracking.', ru: 'Удобная база для паттернов.' },
+  },
+  {
+    id: 'pasta-macaroni',
+    patterns: [/\bpasta\b/i, /\bmacaroni\b/i, /\bspaghetti\b/i, /\bnoodles?\b/i, /макарон/i, /паст[аы]/i, /спагетти/i],
+    excludePatterns: [/\binstant\b/i, /\bramen\b/i, /\bcream\s*sauce\b/i, /быстрого\s+приготов/i, /сливочн\w*\s+соус/i],
+    rating: 'Caution',
+    score: 64,
+    concern: { en: 'Wheat base', ru: 'Пшеничная база' },
+    reason: { en: 'Fine for some, heavy for others.', ru: 'Кому-то нормально, кому-то тяжело.' },
+  },
+  {
+    id: 'bread-bakery-base',
+    patterns: [/\bbread\b/i, /\btoast\b/i, /\bbun\b/i, /\bwrap\b/i, /\bpita\b/i, /хлеб/i, /тост/i, /лаваш/i, /булоч/i],
+    excludePatterns: [/\bcake\b/i, /\bcookie\b/i, /\bpastry\b/i, /\bsweet\b/i, /торт/i, /печень/i, /сладк/i],
+    rating: 'Caution',
+    score: 62,
+    concern: { en: 'Wheat or flour', ru: 'Пшеница или мука' },
+    reason: { en: 'Common repeat trigger for bloating.', ru: 'Частый повторный триггер вздутия.' },
+  },
+  {
+    id: 'plain-potato',
+    patterns: [/\bpotatoes?\b/i, /\bbaked\s*potato\b/i, /\bmashed\s*potato\b/i, /картоф/i],
+    excludePatterns: [/\bfries\b/i, /\bfried\b/i, /\bchips?\b/i, /\bcrisps?\b/i, /жарен/i, /фри/i, /чипс/i],
+    rating: 'Safe',
+    score: 78,
+    concern: { en: 'Simple starch', ru: 'Простой крахмал' },
+    reason: { en: 'Usually clear unless fried.', ru: 'Обычно понятно, если не жареное.' },
+  },
+  {
+    id: 'beans-legumes',
+    patterns: [/\bbeans?\b/i, /\blentils?\b/i, /\bchickpeas?\b/i, /\bpeas?\b/i, /фасол/i, /чечевиц/i, /нут/i, /горох/i],
+    rating: 'Caution',
+    score: 58,
+    concern: { en: 'High-fiber legumes', ru: 'Бобовые с клетчаткой' },
+    reason: { en: 'Can bloat sensitive stomachs.', ru: 'Может вздувать чувствительный желудок.' },
+  },
+  {
+    id: 'dairy',
+    patterns: [/\bmilk\b/i, /\byog(?:h)?urt\b/i, /\bcheese\b/i, /\bkefir\b/i, /\bcottage\s*cheese\b/i, /молок/i, /йогурт/i, /сыр/i, /кефир/i, /творог/i],
+    excludePatterns: [/\bsugar\b/i, /\bsweet(?:ened)?\b/i, /\bice\s*cream\b/i, /сахар/i, /сладк/i, /морожен/i],
+    rating: 'Caution',
+    score: 60,
+    concern: { en: 'Dairy', ru: 'Молочные продукты' },
+    reason: { en: 'Common trigger if lactose-sensitive.', ru: 'Частый триггер при лактозе.' },
+  },
+  {
+    id: 'fruit',
+    patterns: [/\bbanana\b/i, /\bapple\b/i, /\borange\b/i, /\bberries?\b/i, /\bstrawberries?\b/i, /\bgrapes?\b/i, /\bkiwi\b/i, /банан/i, /яблок/i, /апельсин/i, /ягод/i, /клубник/i, /виноград/i, /киви/i],
+    excludePatterns: [/\bjuice\b/i, /\bsmoothie\b/i, /\bsyrup\b/i, /\bcandy\b/i, /сок/i, /смузи/i, /сироп/i],
+    rating: 'Safe',
+    score: 82,
+    concern: { en: 'Whole fruit', ru: 'Цельный фрукт' },
+    reason: { en: 'Natural sugar with fiber.', ru: 'Натуральный сахар с клетчаткой.' },
+  },
+  {
+    id: 'vegetables',
+    patterns: [/\bvegetables?\b/i, /\bsalad\b/i, /\bcucumber\b/i, /\btomato\b/i, /\bcarrot\b/i, /\bbroccoli\b/i, /\bspinach\b/i, /овощ/i, /салат/i, /огур/i, /помидор/i, /томат/i, /морков/i, /брокколи/i, /шпинат/i],
+    excludePatterns: [/\bfried\b/i, /\bdeep[-\s]?fried\b/i, /\bmayonnaise\b/i, /жарен/i, /майонез/i],
+    rating: 'Safe',
+    score: 86,
+    concern: { en: 'Whole vegetable', ru: 'Цельный овощ' },
+    reason: { en: 'Usually a strong baseline food.', ru: 'Обычно хорошая базовая еда.' },
+  },
+  {
+    id: 'onion-garlic',
+    patterns: [/\bonion\b/i, /\bgarlic\b/i, /лук/i, /чеснок/i],
+    rating: 'Caution',
+    score: 50,
+    concern: { en: 'FODMAP aromatics', ru: 'FODMAP ароматические продукты' },
+    reason: { en: 'Often bothers sensitive digestion.', ru: 'Часто беспокоит чувствительный ЖКТ.' },
+  },
+  {
+    id: 'nuts-seeds',
+    patterns: [/\bnuts?\b/i, /\balmonds?\b/i, /\bpeanuts?\b/i, /\bcashews?\b/i, /\bseeds?\b/i, /орех/i, /миндаль/i, /арахис/i, /кешью/i, /семеч/i],
+    rating: 'Caution',
+    score: 68,
+    concern: { en: 'Dense fats', ru: 'Плотные жиры' },
+    reason: { en: 'Healthy, but easy to overdo.', ru: 'Полезно, но легко переборщить.' },
+  },
+  {
+    id: 'coffee',
+    patterns: [/\bcoffee\b/i, /\bespresso\b/i, /\blatte\b/i, /\bamericano\b/i, /кофе/i, /эспрессо/i, /латте/i],
+    rating: 'Caution',
+    score: 56,
+    concern: { en: 'Caffeine', ru: 'Кофеин' },
+    reason: { en: 'Can irritate sensitive stomachs.', ru: 'Может раздражать чувствительный желудок.' },
+  },
+  {
+    id: 'juice-smoothie',
+    patterns: [/\bjuice\b/i, /\bsmoothie\b/i, /сок/i, /смузи/i],
+    rating: 'Caution',
+    score: 54,
+    concern: { en: 'Liquid sugar', ru: 'Жидкий сахар' },
+    reason: { en: 'Less filling than whole fruit.', ru: 'Менее сытно, чем цельный фрукт.' },
   },
 ];
 
@@ -542,8 +721,11 @@ function makeLabelPrompt(targetLang: string, triggers: string[] = []) {
   return `You are DigestSnap's strict food vision scanner.
 
 First identify what is in the image visually. Then read/OCR every visible label word you can.
+There are two valid scan types:
+1. Packaged product scan: use brand, logo, packaging, visible label text, nutrition facts, and ingredients.
+2. Whole food scan: if the image shows unpackaged basic food, do not search for a label. Identify it by shape, color, texture, and serving context.
 If the label text is blurry, blocked, tiny, or unreadable, do NOT return "Unreadable Label", "Image unclear", or "Could not verify image" unless the image contains no recognizable food/product at all.
-Instead, use visual food/product recognition from the image itself: packaging shape, brand colors, visible food, drink type, category, container, serving style, restaurant/takeout cues, and common similar products. Return a cautious visual estimate with a productName like "Likely iced tea drink", "Likely fried snack", "Likely chocolate bar", "Likely burger meal", "Likely fried chicken plate", "Likely soda bottle", or "Likely packaged sauce".
+Instead, use visual food/product recognition from the image itself: packaging shape, brand colors, visible food, drink type, category, container, serving style, restaurant/takeout cues, and common similar products. Return a cautious visual estimate with a productName like "Avocado", "Eggs", "Macaroni", "Chicken breast", "Likely iced tea drink", "Likely fried snack", "Likely chocolate bar", "Likely burger meal", "Likely fried chicken plate", "Likely soda bottle", or "Likely packaged sauce".
 
 Analyze visible text, branding, nutrition facts, ingredients, and visual product category. Extract the product name when readable; otherwise extract the best visual classification. Then rate possible gut-trigger quality for a normal consumer and for the user's trigger profile.
 User possible triggers and profile context: ${triggerLine}
@@ -557,6 +739,10 @@ Rules:
 - You are not just OCR. Use logo shape, colors, bottle/can/bag design, mascot, typography fragments, and common product knowledge to identify global packaged foods and drinks.
 - For common packaged products, prefer a specific product identity when visually supported: e.g. "Coca-Cola", "Pepsi", "Sprite", "Fanta", "Red Bull", "Monster Energy", "Lay's potato chips", "Doritos", "Cheetos", "Pringles", "Snickers", "Kinder Bueno".
 - If the exact brand is not clear, say "Likely [category]" rather than "Unreadable Label".
+- If the image shows everyday unpackaged food, identify the food directly. Examples: avocado, eggs, beef, chicken, fish, rice, macaroni/pasta, bread, potatoes, beans, milk, yogurt, banana, apple, cucumber, tomato, salad, nuts, coffee.
+- For whole foods, use concerns/signals rather than fake chemicals. Good signal names: "Whole food", "Simple protein", "Wheat base", "Dairy", "High fiber", "Caffeine", "Fried preparation", "Sauce not visible".
+- Whole fruits, vegetables, plain eggs, plain meat/fish/chicken, rice, oats, buckwheat, and plain potatoes are usually "Safe" with score 75-92 unless fried, sauced, sweetened, or matching a user trigger.
+- Pasta/macaroni, bread/wraps, dairy, beans/lentils, nuts, coffee, and juice are usually "Caution" with score 50-70 because they are common repeat triggers for some users.
 - If OCR is unreadable but the food/product category is visually recognizable, return the likely category and mark concerns as "visual estimate", "label not verified", or "category-based risk".
 - If both label text and visual category are impossible to identify, return productName as "Visual estimate unavailable" and overallRating as "Caution".
 - Never leave productName generic if any food/drink/package category is visible.
@@ -567,7 +753,7 @@ Rules:
 - Major "Avoid" categories: sugary soda/iced tea, energy drinks, candy, fried chips/crisps, instant noodles, deep-fried snacks.
 - Major visible "Avoid" foods even without OCR: burger meals, fries, fried chicken, deep-fried snacks, soda/iced tea bottles, candy bars, chips/crisps.
 - Major "Caution" categories: processed meats, sweet pastries, sugary cereals/granola, heavy sauces, additive-heavy ultra-processed foods.
-- If the image appears to show plain bottled water, mineral water, spring water, or a water label, classify it as bottled water/mineral water, not unreadable. Plain water is usually "Safe" with score 82-95 unless additives, sugar, flavoring, carbonation, or sweeteners are visible/inferred.
+- If the image appears to show plain bottled water, mineral water, spring water, or a water label, classify it as bottled water/mineral water, not unreadable. Plain or mineral water is usually "Safe" with score 82-95 unless sugar, sweeteners, flavoring, or non-water additives are visible/inferred. Carbonation alone is not a soda signal.
 - If the product is soda/energy drink/sweetened tea with sugar, caffeine, acid, sweeteners, or preservatives, use "Avoid".
 - Only use "Safe" above 75 when the label clearly shows a simple, low-trigger product with no meaningful additives/sugar concerns.
 - Use "Avoid" for obvious strong trigger products: sugary soda/energy drinks, very high sugar, fried snacks, or user-trigger overlap.
@@ -606,6 +792,8 @@ Rules:
 - If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
 - Keep enum values exactly: "Safe", "Caution", "Avoid".
 - "Safe" means low likely trigger risk, "Caution" means medium, "Avoid" means high.
+- Basic whole foods should not be treated like unreadable labels. Eggs, plain meat, plain fish, rice, oats, buckwheat, fruit, vegetables, plain potatoes, and water are usually Safe unless fried, sauced, sweetened, or matching a user trigger.
+- Pasta/macaroni, bread/wraps, dairy, beans/lentils, nuts, coffee, and juice are usually Caution because they can be repeat triggers for some users.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; score them 0-55 unless clearly unsweetened.
 - Major "Avoid" categories: sugary soda/iced tea, energy drinks, candy, fried chips/crisps, instant noodles, deep-fried snacks.
 - Major "Caution" categories: processed meats, sweet pastries, sugary cereals/granola, heavy sauces, additive-heavy ultra-processed foods.
@@ -805,6 +993,12 @@ function hasAny(text: string, patterns: RegExp[]) {
   return patterns.some((pattern) => pattern.test(text));
 }
 
+function matchesEverydayRule(text: string, rule: EverydayFoodRule) {
+  if (!hasAny(text, rule.patterns)) return false;
+  if (rule.excludePatterns && hasAny(text, rule.excludePatterns)) return false;
+  return true;
+}
+
 function makeConcern(chemicalName: string, reason: string, severity: Rating): ChemicalReport {
   return {
     chemicalName,
@@ -829,6 +1023,8 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
   let rating = scan.result.overallRating;
   let score = scan.result.score;
   const matchedStrictRules = STRICT_FOOD_RISK_RULES.filter((rule) => hasAny(text, rule.patterns));
+  const matchedEverydayRule = EVERYDAY_FOOD_RULES.find((rule) => matchesEverydayRule(text, rule));
+  const hasAvoidRule = matchedStrictRules.some((rule) => rule.rating === 'Avoid');
 
   for (const rule of matchedStrictRules) {
     if (rule.rating === 'Avoid') {
@@ -847,6 +1043,24 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
     );
   }
 
+  if (matchedEverydayRule && !hasAvoidRule) {
+    if (matchedStrictRules.length === 0) {
+      rating = matchedEverydayRule.rating;
+      score = matchedEverydayRule.score;
+    } else if (matchedEverydayRule.rating === 'Caution') {
+      if (rating === 'Safe') rating = 'Caution';
+      score = Math.min(score, matchedEverydayRule.score);
+    }
+
+    concerns.unshift(
+      makeConcern(
+        targetLang === 'Russian' ? matchedEverydayRule.concern.ru : matchedEverydayRule.concern.en,
+        targetLang === 'Russian' ? matchedEverydayRule.reason.ru : matchedEverydayRule.reason.en,
+        matchedEverydayRule.rating,
+      ),
+    );
+  }
+
   const isSweetDrink = hasAny(text, [
     /\bfuse\s*tea\b/i,
     /\biced?\s*tea\b/i,
@@ -859,12 +1073,11 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
     /\bcoca[-\s]?cola\b/i,
     /\benergy\s*drink\b/i,
     /\bsoft\s*drink\b/i,
-    /\bcarbonated\b/i,
-    /\bгазиров/i,
-    /\bсладк\w*\s+напит/i,
-    /\bхолодн\w*\s+чай/i,
-    /\bсладк\w*\s+чай/i,
-    /\bэнергет/i,
+    /газиров/i,
+    /сладк\w*\s+напит/i,
+    /холодн\w*\s+чай/i,
+    /сладк\w*\s+чай/i,
+    /энергет/i,
   ]);
   const hasSugarSignal = hasAny(text, [
     /\bsugar\b/i,
@@ -873,13 +1086,13 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
     /\bsyrup\b/i,
     /\bsucrose\b/i,
     /\b\d{1,2}\s*g\s*(?:sugar|sugars)\b/i,
-    /\bсахар/i,
-    /\bсироп/i,
-    /\bглюкоз/i,
-    /\bфруктоз/i,
+    /сахар/i,
+    /сироп/i,
+    /глюкоз/i,
+    /фруктоз/i,
   ]);
-  const hasCaffeineSignal = hasAny(text, [/\bcaffeine\b/i, /\btea\s*extract\b/i, /\bblack\s*tea\b/i, /\bgreen\s*tea\b/i, /\bкофеин/i, /\bчай/i]);
-  const hasAcidSignal = hasAny(text, [/\bcitric\s*acid\b/i, /\bphosphoric\s*acid\b/i, /\bacidity\s*regulator\b/i, /\bacid\b/i, /\bкислот/i, /\bрегулятор\s+кислотности/i]);
+  const hasCaffeineSignal = hasAny(text, [/\bcaffeine\b/i, /\btea\s*extract\b/i, /\bblack\s*tea\b/i, /\bgreen\s*tea\b/i, /кофеин/i, /чай/i]);
+  const hasAcidSignal = hasAny(text, [/\bcitric\s*acid\b/i, /\bphosphoric\s*acid\b/i, /\bacidity\s*regulator\b/i, /\bacid\b/i, /кислот/i, /регулятор\s+кислотности/i]);
 
   if (isSweetDrink) {
     rating = 'Avoid';
@@ -1126,6 +1339,22 @@ function localizeProductDisplayName(value: string, targetLang: string) {
   if (/\bwater\b|\bmineral\b|\bspring\s*water\b/i.test(value)) {
     return 'Бутилированная вода';
   }
+  if (/\bavocados?\b/i.test(value)) return 'Авокадо';
+  if (/\beggs?\b|\bomelette\b/i.test(value)) return 'Яйца';
+  if (/\bchicken\b|\bturkey\b/i.test(value)) return 'Курица';
+  if (/\bbeef\b|\bsteak\b|\bmeat\b/i.test(value)) return 'Мясо';
+  if (/\bfish\b|\bsalmon\b|\btuna\b|\bseafood\b/i.test(value)) return 'Рыба';
+  if (/\brice\b/i.test(value)) return 'Рис';
+  if (/\bbuckwheat\b/i.test(value)) return 'Гречка';
+  if (/\boats?\b|\boatmeal\b/i.test(value)) return 'Овсянка';
+  if (/\bpasta\b|\bmacaroni\b|\bspaghetti\b|\bnoodles?\b/i.test(value)) return 'Макароны';
+  if (/\bbread\b|\btoast\b|\bwrap\b|\bbun\b/i.test(value)) return 'Хлеб';
+  if (/\bpotatoes?\b/i.test(value)) return 'Картофель';
+  if (/\bbeans?\b|\blentils?\b|\bchickpeas?\b/i.test(value)) return 'Бобовые';
+  if (/\bmilk\b|\byog(?:h)?urt\b|\bcheese\b|\bkefir\b/i.test(value)) return 'Молочные продукты';
+  if (/\bbanana\b|\bapple\b|\borange\b|\bberries?\b|\bgrapes?\b|\bkiwi\b/i.test(value)) return 'Фрукты';
+  if (/\bvegetables?\b|\bsalad\b|\bcucumber\b|\btomato\b|\bcarrot\b|\bbroccoli\b|\bspinach\b/i.test(value)) return 'Овощи';
+  if (/\bcoffee\b|\bespresso\b|\blatte\b/i.test(value)) return 'Кофе';
   if (normalized.trim()) {
     return value;
   }
@@ -1197,7 +1426,7 @@ function isUnusableVisualScan(scan: ScanPayload) {
     /\bvisual\s*estimate\s*unavailable\b/i,
     /\bno\s*recognizable\b/i,
     /\bnot\s*checked\b/i,
-    /\bнечита/i,
+    /нечита/i,
   ]);
 }
 
