@@ -2622,7 +2622,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       {nutritionPanel === 1 && (
                         <motion.div
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4"
+                          className="grid grid-cols-4 gap-2 sm:gap-3"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
                           key="macro-panel"
@@ -2630,15 +2630,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         >
                           {macroCards.map((card) => (
                             <div
-                              className="min-w-0 rounded-[20px] bg-white p-3.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-4"
+                              className="flex h-[118px] min-w-0 flex-col justify-between rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:h-[142px] sm:rounded-[22px] sm:p-3.5 md:h-[156px] md:p-4"
                               key={card.label}
                             >
-                              <p className="whitespace-nowrap text-[23px] font-black leading-none sm:text-[30px]">
-                                {card.value}<span className="text-[15px] text-zinc-400 sm:text-[19px]">/{card.target}{card.unit}</span>
-                              </p>
-                              <p className="mt-2 text-[12px] font-black leading-4 text-zinc-500 sm:text-[14px]">{card.label}</p>
-                              <div className="mt-3 flex h-16 w-16 items-center justify-center rounded-full border-[8px] border-[#f4f2f8] sm:h-20 sm:w-20 sm:border-[10px]">
-                                <span className={cn('text-[12px] font-black sm:text-[15px]', card.color)}>{card.icon}</span>
+                              <div className="min-w-0">
+                                <p className="whitespace-nowrap text-[18px] font-black leading-none sm:text-[24px] md:text-[28px]">
+                                  {card.value}<span className="text-[11px] text-zinc-400 sm:text-[15px] md:text-[17px]">/{card.target}{card.unit}</span>
+                                </p>
+                                <p className="mt-1.5 truncate text-[10px] font-black leading-3 text-zinc-500 sm:text-[12px] md:text-[13px]">{card.label}</p>
+                              </div>
+                              <div className="flex h-12 w-12 items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:h-16 sm:w-16 sm:border-[9px] md:h-[72px] md:w-[72px]">
+                                <span className={cn('text-[10px] font-black sm:text-[13px] md:text-[14px]', card.color)}>{card.icon}</span>
                               </div>
                             </div>
                           ))}
