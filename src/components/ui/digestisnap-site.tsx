@@ -333,7 +333,7 @@ const SETUP_TOTAL_STEPS = setupSteps.length;
 const SENSIBITE_PROFILE_STORAGE_KEY = 'digestisnap-profile-v1';
 const SENSIBITE_PENDING_PROFILE_KEY = 'digestisnap-profile-pending';
 const SENSIBITE_STREAK_STORAGE_KEY = 'digestisnap-streak-v1';
-const SENSIBITE_RECENT_SCANS_STORAGE_KEY = 'digestisnap-recent-scans-v1';
+const SENSIBITE_RECENT_SCANS_STORAGE_KEY = 'digestisnap-recent-scans-v2';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 type StoredSensiProfile = Pick<
@@ -596,7 +596,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isUnreadableScan(scan: ImageScanPayload, usedFallback = false) {
+function isHardImageFailure(scan: ImageScanPayload) {
   const text = [
     scan.result.productName,
     scan.result.overallRating,
@@ -606,13 +606,10 @@ function isUnreadableScan(scan: ImageScanPayload, usedFallback = false) {
     .toLowerCase();
 
   return (
-    usedFallback ||
-    text.includes('unreadable') ||
-    text.includes('blurry label') ||
-    text.includes('blurry text') ||
-    text.includes('slow scan') ||
-    text.includes('quick fallback') ||
-    text.includes('нечита')
+    text.includes('image check error') ||
+    text.includes('ai request failed') ||
+    text.includes('ai request timed out') ||
+    text.includes('could not verify image')
   );
 }
 
@@ -620,12 +617,12 @@ function makeImageCheckErrorResult(fileName: string): ImageScanPayload['result']
   return {
     productName: 'Image check error',
     overallRating: 'Caution',
-    score: 50,
+    score: 0,
     flaggedChemicals: [
       {
-        chemicalName: 'Could not verify image',
+        chemicalName: 'Image check failed',
         severity: 'Caution',
-        reason: `There was an error while checking ${fileName.replace(/\.[^.]+$/, '') || 'this image'}. Save kept. Retake with the label or food sharper for a real result`,
+        reason: `Saved ${fileName.replace(/\.[^.]+$/, '') || 'this image'}, but AI could not verify it`,
       },
     ],
   };
@@ -834,7 +831,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
   ];
 
   return (
-    <main className="min-h-screen bg-white text-zinc-950 antialiased">
+    <main className="min-h-screen overflow-x-hidden bg-white text-zinc-950 antialiased">
       <header className="sticky top-0 z-50 border-b border-black/5 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex h-[58px] w-full max-w-[1680px] items-center justify-between px-4 md:h-[86px] md:px-10 xl:px-12">
           <button className="flex items-center gap-2 text-[15px] font-black md:gap-2.5 md:text-4xl" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">
@@ -889,13 +886,13 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </div>
         </div>
 
-        <div className="relative h-[330px] overflow-hidden rounded-[28px] bg-white sm:h-[560px] lg:min-h-[640px]">
-          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 sm:left-[17%] sm:top-10 sm:translate-x-0 lg:left-[10%] xl:left-[14%]">
+        <div className="relative h-[364px] overflow-visible rounded-[28px] bg-white sm:h-[660px] lg:h-[720px]">
+          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 sm:left-[12%] sm:top-8 sm:translate-x-0 lg:left-[7%] xl:left-[10%]">
             <LandingPhoneMockup className="sm:hidden" scale={0.38} variant="scan" />
             <LandingPhoneMockup className="hidden sm:block" variant="scan" />
           </div>
-          <div className="absolute right-[2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[5%] xl:right-[9%]">
-            <LandingPhoneMockup variant="feeling" />
+          <div className="absolute right-[-2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[1%] xl:right-[5%]">
+            <LandingPhoneMockup scale={0.64} variant="feeling" />
           </div>
         </div>
       </section>
@@ -911,9 +908,9 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           <div className="mt-8 grid items-start gap-4 md:mt-14 md:gap-6 lg:grid-cols-[0.82fr_1.18fr]">
             <div className="lg:sticky lg:top-28">
               <div className="relative overflow-hidden rounded-[26px] bg-white p-3 text-zinc-950 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05] md:rounded-[34px] md:p-8">
-                <div className="relative flex h-[340px] items-center justify-center overflow-hidden rounded-[22px] bg-white ring-1 ring-zinc-950/[0.04] md:min-h-[560px] md:rounded-[30px]">
+                <div className="relative flex h-[366px] items-start justify-center overflow-visible rounded-[22px] bg-white pt-3 ring-1 ring-zinc-950/[0.04] md:h-[628px] md:rounded-[30px] md:pt-6">
                   <LandingPhoneMockup className="md:hidden" scale={0.39} variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
-                  <LandingPhoneMockup className="hidden md:block" variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
+                  <LandingPhoneMockup className="hidden md:block" scale={0.66} variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
                 </div>
               </div>
             </div>
@@ -946,44 +943,46 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section className="scroll-mt-20 overflow-hidden bg-white px-4 py-12 md:scroll-mt-28 md:px-12 md:py-32" id="product">
+      <section className="scroll-mt-20 bg-white px-4 py-12 md:scroll-mt-28 md:px-12 md:py-28" id="product">
         <div className="mx-auto max-w-[1500px]">
           <div className="mx-auto max-w-[1040px] text-center">
-            <h2 className="text-[32px] font-extrabold leading-[1.02] md:text-[76px]">
-              Why DigestSnap feels different
+            <h2 className="text-[38px] font-extrabold leading-[1.02] md:text-[72px]">
+              Why us?
             </h2>
-            <p className="mx-auto mt-4 max-w-[760px] text-sm font-semibold leading-6 text-[#605a51] md:mt-6 md:text-2xl md:leading-10">
-              It is built around the moment people actually forget: after the meal, when the reaction starts and the pattern disappears.
+            <p className="mx-auto mt-4 max-w-[760px] text-base font-semibold leading-7 text-[#605a51] md:mt-6 md:text-2xl md:leading-10">
+              DigestSnap is built for the real eating loop: quick photo first, simple check-in later, clear pattern when the same signal repeats.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:mt-16 md:gap-6 lg:grid-cols-3">
+          <div className="mt-9 grid gap-4 md:mt-14 md:gap-5 lg:grid-cols-3">
             {[
               {
                 icon: Camera,
-                title: 'The scan becomes a memory',
-                body: 'A photo is saved with time, food context, and a clear rating, so the meal does not turn into another vague note later.',
+                title: 'Photo first',
+                body: 'No long diary entry. A scan saves the food, time, visual context, and first rating while the meal is still fresh.',
               },
               {
                 icon: Activity,
-                title: 'The check-in happens later',
-                body: 'Fine, bloated, pain, or nausea gets logged when it actually matters. One tap connects the reaction back to the right meal.',
+                title: 'Reaction later',
+                body: 'Symptoms often show up later. DigestSnap links that check-in back to the right meal instead of leaving it as a random feeling.',
               },
               {
                 icon: ShieldCheck,
-                title: 'The timeline stays private',
-                body: 'DigestSnap turns repeated meals and reactions into a personal pattern view, without public feeds, sponsored rankings, or noisy dashboards.',
+                title: 'Pattern clear',
+                body: 'The timeline highlights repeat foods and timing, so users see what keeps showing up without digging through memory.',
               },
             ].map(({ icon: Icon, title, body }) => (
               <div
-                className="group rounded-[28px] bg-white p-5 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.06] transition duration-300 hover:-translate-y-1 hover:shadow-[0_36px_120px_rgba(15,23,42,0.12)] md:min-h-[430px] md:rounded-[42px] md:p-10"
+                className="group flex min-h-[168px] gap-4 rounded-[26px] bg-white p-5 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.06] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_76px_rgba(15,23,42,0.10)] md:min-h-[210px] md:gap-5 md:rounded-[30px] md:p-6"
                 key={title}
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#f7f6f2] text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.05] transition duration-300 group-hover:bg-zinc-950 group-hover:text-white md:h-20 md:w-20 md:rounded-[26px]">
-                  <Icon className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#f7f6f2] text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.05] transition duration-300 group-hover:bg-zinc-950 group-hover:text-white md:h-14 md:w-14 md:rounded-[18px]">
+                  <Icon className="h-5 w-5 md:h-6 md:w-6" />
                 </div>
-                <h3 className="mt-7 max-w-[430px] text-[22px] font-extrabold leading-[1.08] md:mt-16 md:text-[38px]">{title}</h3>
-                <p className="mt-3 max-w-[470px] text-sm font-semibold leading-6 text-[#605a51] md:mt-7 md:text-xl md:leading-9">{body}</p>
+                <div className="min-w-0 pt-0.5">
+                  <h3 className="text-[23px] font-extrabold leading-[1.08] md:text-[28px]">{title}</h3>
+                  <p className="mt-3 text-[14px] font-semibold leading-6 text-[#605a51] md:text-[16px] md:leading-7">{body}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -1692,9 +1691,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       window.clearInterval(progressTimer);
       setScanResult(errorScan);
       setScanProgress(100);
-      setScanProgressText('Saved with image check error');
+      setScanProgressText('Saved with visual estimate unavailable');
       setScanState('done');
-      await saveEntry(`Image check error: ${file.name.replace(/\.[^.]+$/, '') || 'uploaded image'}`);
+      await saveEntry(`Visual estimate unavailable: ${file.name.replace(/\.[^.]+$/, '') || 'uploaded image'}`);
       const recentScan: RecentScan = {
         id: crypto.randomUUID(),
         imageDataUrl,
@@ -1721,11 +1720,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       const result = await scanImageWithClientTimeout(file, {
         userLang: language,
         userTriggers: getProfileScanTriggers(storedProfile),
-        slowAfterMs: 1_800,
-        hardTimeoutMs: 9_000,
+        slowAfterMs: 2_500,
+        hardTimeoutMs: 18_000,
       });
 
-      if (isUnreadableScan(result.scan, result.usedFallback)) {
+      if (isHardImageFailure(result.scan)) {
         await saveImageCheckError(result.compressedImage.imageBase64
           ? `data:${result.compressedImage.mimeType};base64,${result.compressedImage.imageBase64}`
           : stableImageDataUrl);

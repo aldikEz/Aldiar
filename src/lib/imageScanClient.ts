@@ -46,37 +46,36 @@ type FoodTextScanOptions = ScanOptions & {
 
 export async function scanImageWithClientTimeout(file: File, options: ScanOptions = {}): Promise<ImageScanResult> {
   const compressedImage = await compressImageForUpload(file);
-  const fallback = makeFallbackScan(file.name);
 
-  const scan = await runWithClientTimeout<ImageScanPayload>({
-    slowAfterMs: options.slowAfterMs,
-    hardTimeoutMs: options.hardTimeoutMs,
-    onSlow: options.onSlow,
-    onTimeout: options.onTimeout,
-    fallback: () => fallback,
-    task: async () => {
-      const { data, error } = await supabase.functions.invoke<ImageScanPayload>('ai', {
-        body: {
-          imageBase64: compressedImage.imageBase64,
-          mimeType: compressedImage.mimeType,
-          userTriggers: options.userTriggers ?? [],
-          userLang: options.userLang ?? 'English',
-        },
-      });
+  let slowTimer: number | undefined;
+  if (options.slowAfterMs && options.onSlow) {
+    slowTimer = window.setTimeout(options.onSlow, options.slowAfterMs);
+  }
 
-      if (error || !data?.result) {
-        return fallback;
-      }
+  try {
+    const { data, error } = await supabase.functions.invoke<ImageScanPayload>('ai', {
+      body: {
+        imageBase64: compressedImage.imageBase64,
+        mimeType: compressedImage.mimeType,
+        userTriggers: options.userTriggers ?? [],
+        userLang: options.userLang ?? 'English',
+      },
+    });
 
-      return data;
-    },
-  });
+    if (error || !data?.result) {
+      throw new Error(error?.message ?? 'AI scan failed');
+    }
 
-  return {
-    scan,
-    compressedImage,
-    usedFallback: scan === fallback,
-  };
+    return {
+      scan: data,
+      compressedImage,
+      usedFallback: false,
+    };
+  } finally {
+    if (slowTimer !== undefined) {
+      window.clearTimeout(slowTimer);
+    }
+  }
 }
 
 export async function scanFoodTextWithClientTimeout(options: FoodTextScanOptions): Promise<ImageScanPayload> {
@@ -198,23 +197,6 @@ function makeFoodTextFallback(name: string): ImageScanPayload {
           chemicalName: 'Not medical advice',
           severity: 'Caution',
           reason: 'Use this as a pattern hint only.',
-        },
-      ],
-    },
-  };
-}
-
-function makeFallbackScan(fileName: string): ImageScanPayload {
-  return {
-    result: {
-      productName: fileName.replace(/\.[^.]+$/, '') || 'Uploaded image',
-      overallRating: 'Caution',
-      score: 50,
-      flaggedChemicals: [
-        {
-          chemicalName: 'Slow scan',
-          severity: 'Caution',
-          reason: 'We used a quick fallback so you are not stuck waiting.',
         },
       ],
     },

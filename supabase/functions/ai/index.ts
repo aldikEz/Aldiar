@@ -6,7 +6,7 @@
 //
 // Optional:
 //   npm run ai:secret -- GEMINI_MODEL=gemini-2.5-flash-lite
-//   npm run ai:secret -- GEMINI_TIMEOUT_MS=10000
+//   npm run ai:secret -- GEMINI_TIMEOUT_MS=18000
 //
 // The allowlist keeps this function from becoming a public AI proxy. If
 // AI_ALLOWED_ORIGINS is missing, only localhost and 127.0.0.1 are allowed.
@@ -24,8 +24,8 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
-const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 10_000, 5_000, 15_000);
-const SCAN_CACHE_VERSION = 'label-v4-visual-inference-20260625';
+const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
+const SCAN_CACHE_VERSION = 'label-v5-image-first-visual-estimate-20260625';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -159,7 +159,7 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
   },
   {
     id: 'fried-snack',
-    patterns: [/\bchips?\b/i, /\bcrisps?\b/i, /\bcheetos\b/i, /\bdoritos\b/i, /\bpringles\b/i, /\bcrackers?\b/i, /\bdeep[-\s]?fried\b/i],
+    patterns: [/\bchips?\b/i, /\bcrisps?\b/i, /\bcheetos\b/i, /\bdoritos\b/i, /\bpringles\b/i, /\bcrackers?\b/i, /\bdeep[-\s]?fried\b/i, /\bfried\b/i, /\bfries\b/i, /\bfrench\s*fries\b/i, /\bfried\s*chicken\b/i, /\bnuggets?\b/i, /\bcrispy\s*chicken\b/i],
     rating: 'Avoid',
     maxScore: 42,
     concern: { en: 'Fried snack', ru: 'Жареный снек' },
@@ -212,6 +212,14 @@ const STRICT_FOOD_RISK_RULES: FoodRiskRule[] = [
     maxScore: 58,
     concern: { en: 'Ultra-processed signals', ru: 'Сигналы ультра-обработки' },
     reason: { en: 'Multiple additives reduce confidence.', ru: 'Много добавок снижает доверие.' },
+  },
+  {
+    id: 'fast-food-meal',
+    patterns: [/\bburger\b/i, /\bcheeseburger\b/i, /\bfast\s*food\b/i, /\bshawarma\b/i, /\bkebab\b/i, /\bfried\s*meal\b/i, /\btakeout\b/i, /\btakeaway\b/i],
+    rating: 'Avoid',
+    maxScore: 44,
+    concern: { en: 'Fast-food profile', ru: 'Профиль фастфуда' },
+    reason: { en: 'Fat, sodium, and sauces stack.', ru: 'Жир, соль и соусы вместе.' },
   },
 ];
 
@@ -529,7 +537,9 @@ function makeLabelPrompt(targetLang: string, triggers: string[] = []) {
 
   return `You are DigestSnap's strict food vision scanner.
 
-First read/OCR every visible label word you can. If the label text is blurry, blocked, tiny, or unreadable, do NOT return "Unreadable Label". Instead, use visual food/product recognition from the image itself: packaging shape, brand colors, visible food, drink type, category, container, and common similar products. Return a cautious visual estimate with a productName like "Likely iced tea drink", "Likely fried snack", "Likely chocolate bar", "Likely burger meal", or "Likely packaged sauce".
+First identify what is in the image visually. Then read/OCR every visible label word you can.
+If the label text is blurry, blocked, tiny, or unreadable, do NOT return "Unreadable Label", "Image unclear", or "Could not verify image" unless the image contains no recognizable food/product at all.
+Instead, use visual food/product recognition from the image itself: packaging shape, brand colors, visible food, drink type, category, container, serving style, restaurant/takeout cues, and common similar products. Return a cautious visual estimate with a productName like "Likely iced tea drink", "Likely fried snack", "Likely chocolate bar", "Likely burger meal", "Likely fried chicken plate", "Likely soda bottle", or "Likely packaged sauce".
 
 Analyze visible text, branding, nutrition facts, ingredients, and visual product category. Extract the product name when readable; otherwise extract the best visual classification. Then rate possible gut-trigger quality for a normal consumer and for the user's trigger profile.
 User possible triggers and profile context: ${triggerLine}
@@ -540,12 +550,14 @@ Rules:
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
 - Do not invent ingredients that are not visible, but use strong product-category inference when ingredients are hidden.
 - If OCR is unreadable but the food/product category is visually recognizable, return the likely category and mark concerns as "visual estimate", "label not verified", or "category-based risk".
-- If both label text and visual category are impossible to identify, return productName as "Image unclear" and overallRating as "Caution".
+- If both label text and visual category are impossible to identify, return productName as "Visual estimate unavailable" and overallRating as "Caution".
+- Never leave productName generic if any food/drink/package category is visible.
 - For flaggedChemicals, return 2 to 4 ingredients/additives/category concerns.
 - If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; they are at least "Caution".
 - If visible sugar is high, or the product is a sweetened beverage, score must be 0-45.
 - Major "Avoid" categories: sugary soda/iced tea, energy drinks, candy, fried chips/crisps, instant noodles, deep-fried snacks.
+- Major visible "Avoid" foods even without OCR: burger meals, fries, fried chicken, deep-fried snacks, soda/iced tea bottles, candy bars, chips/crisps.
 - Major "Caution" categories: processed meats, sweet pastries, sugary cereals/granola, heavy sauces, additive-heavy ultra-processed foods.
 - If the product is soda/energy drink/sweetened tea with sugar, caffeine, acid, sweeteners, or preservatives, use "Avoid".
 - Only use "Safe" above 75 when the label clearly shows a simple, low-trigger product with no meaningful additives/sugar concerns.
@@ -676,7 +688,7 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   });
 
   if ('error' in geminiResult) {
-    return jsonResponse(req, fallbackScanPayload(targetLang), 200);
+    return jsonResponse(req, { error: geminiResult.error }, geminiResult.status);
   }
 
   const parsed = parseModelJson(geminiResult.text);
@@ -753,7 +765,7 @@ function normalizeScanPayload(value: unknown, targetLang: string, fallback: Scan
 
   return enforceFoodRiskRules({
     result: {
-      productName: asBoundedString(value.result.productName, targetLang === 'Russian' ? 'Нечитаемая этикетка' : 'Unreadable Label', 120),
+      productName: asBoundedString(value.result.productName, targetLang === 'Russian' ? 'Визуальная оценка продукта' : 'Visual product estimate', 120),
       overallRating: asRating(value.result.overallRating, flaggedChemicals.length > 0 ? 'Caution' : 'Safe'),
       score: asScore(value.result.score),
       flaggedChemicals,
@@ -908,14 +920,14 @@ function fallbackScanPayload(targetLang: string): ScanPayload {
   if (targetLang === 'Russian') {
     return {
       result: {
-        productName: 'Нечитаемая этикетка',
+        productName: 'Визуальная оценка продукта',
         overallRating: 'Caution',
         score: 50,
         flaggedChemicals: [
           {
-            chemicalName: 'Размытый текст',
+            chemicalName: 'Оценка по фото',
             severity: 'Caution',
-            reason: 'Сделайте фото при хорошем освещении и держите упаковку ровно.',
+            reason: 'Состав не подтвержден, оценка осторожная.',
           },
         ],
       },
@@ -924,14 +936,14 @@ function fallbackScanPayload(targetLang: string): ScanPayload {
 
   return {
     result: {
-      productName: 'Unreadable Label',
+      productName: 'Visual product estimate',
       overallRating: 'Caution',
       score: 50,
       flaggedChemicals: [
         {
-          chemicalName: 'Blurry label text',
+          chemicalName: 'Image-based estimate',
           severity: 'Caution',
-          reason: 'Use brighter light and hold the package flat.',
+          reason: 'Label not verified, rating stays cautious.',
         },
       ],
     },
