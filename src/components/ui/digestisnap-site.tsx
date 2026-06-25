@@ -2374,7 +2374,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           <div className="absolute bottom-[-220px] right-[-140px] h-[520px] w-[620px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.82)_0%,rgba(226,222,232,0.46)_50%,transparent_74%)] blur-3xl" />
         </div>
 
-        <div className={cn('relative z-10 mx-auto min-h-0 w-full flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', activeTab === 'home' ? 'max-w-[1440px] pb-36 pt-0' : 'max-w-[1120px] pb-36 pt-0')}>
+        <div className={cn('relative z-10 mx-auto min-h-0 w-full flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', activeTab === 'home' ? 'max-w-[1280px] pb-32 pt-0' : 'max-w-[1120px] pb-32 pt-0')}>
           <AnimatePresence mode="wait">
             <motion.div
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -2385,92 +2385,92 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               {activeTab === 'home' && (
-              <div className="min-h-full pb-8 pt-[max(22px,env(safe-area-inset-top))]">
-                <div className="flex items-center justify-between px-1 lg:mx-auto lg:max-w-[1120px]">
+              <div className="min-h-full pb-6 pt-[max(14px,env(safe-area-inset-top))] sm:pt-[max(22px,env(safe-area-inset-top))]">
+                <div className="flex items-center justify-between px-0 sm:px-1 lg:mx-auto lg:max-w-[1040px]">
                   <button
                     aria-label="Open profile"
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-black transition hover:bg-white/70 active:scale-95"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-black transition hover:bg-white/70 active:scale-95 sm:h-11 sm:w-11"
                     onClick={() => setActiveTab('profile')}
                     type="button"
                   >
-                    <CircleUserRound className="h-9 w-9 stroke-[2.4]" />
+                    <CircleUserRound className="h-8 w-8 stroke-[2.4] sm:h-9 sm:w-9" />
                   </button>
                   <div className="text-center">
-                    <h1 className="text-[33px] font-black leading-none md:text-[38px]">DigestSnap</h1>
+                    <h1 className="text-[29px] font-black leading-none sm:text-[33px] md:text-[38px]">DigestSnap</h1>
                   </div>
-                  <div className="h-11 w-11" />
+                  <div className="h-10 w-10 sm:h-11 sm:w-11" />
                 </div>
 
-                <div className="mt-7 grid grid-cols-7 px-1 text-center lg:mx-auto lg:max-w-[760px]">
+                <div className="mx-auto mt-5 grid max-w-[520px] grid-cols-7 px-0 text-center sm:mt-7 lg:max-w-[680px]">
                   {homeWeek.map(({ day, date, key, selected, future }) => (
                     <button
-                      className="flex min-h-[74px] flex-col items-center gap-3 rounded-[18px] transition hover:bg-white/60 active:scale-[0.97]"
+                      className="flex min-h-[58px] flex-col items-center gap-2 rounded-[16px] transition hover:bg-white/60 active:scale-[0.97] sm:min-h-[72px] sm:gap-3"
                       key={`${day}-${date}`}
                       onClick={() => setSelectedHomeDate(key)}
                       type="button"
                     >
-                      <span className="text-[15px] font-black md:text-[16px]">{day}</span>
-                      <span className={cn('flex h-9 w-9 items-center justify-center rounded-full text-[16px] font-black md:h-10 md:w-10 md:text-[18px]', selected ? 'bg-white text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.12)] ring-1 ring-zinc-950/10' : future ? 'text-zinc-400' : 'text-black')}>
+                      <span className="text-[12px] font-black sm:text-[15px] md:text-[16px]">{day}</span>
+                      <span className={cn('flex h-8 w-8 items-center justify-center rounded-full text-[14px] font-black sm:h-9 sm:w-9 sm:text-[16px] md:h-10 md:w-10 md:text-[18px]', selected ? 'bg-white text-zinc-950 shadow-[0_10px_24px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10' : future ? 'text-zinc-400' : 'text-black')}>
                         {date}
                       </span>
                     </button>
                   ))}
                 </div>
 
-                <div className="mt-8 space-y-5">
-                  <div className="w-full rounded-[34px] bg-white px-6 py-8 text-center shadow-[0_14px_42px_rgba(15,15,15,0.07)] ring-1 ring-black/[0.05] md:px-10 md:py-10">
-                    <div className="mx-auto flex h-[104px] w-[104px] items-center justify-center rounded-full bg-zinc-100 shadow-inner">
-                      <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-white shadow-inner">
-                        <Camera className="h-8 w-8 text-black" />
+                <div className="mx-auto mt-5 max-w-[1120px] space-y-3.5 sm:mt-8 sm:space-y-5">
+                  <div className="w-full rounded-[28px] bg-white px-5 py-5 text-center shadow-[0_10px_30px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[34px] sm:px-6 sm:py-8 md:px-10 md:py-10">
+                    <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-full bg-zinc-100 shadow-inner sm:h-[104px] sm:w-[104px]">
+                      <div className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-white shadow-inner sm:h-[76px] sm:w-[76px]">
+                        <Camera className="h-6 w-6 text-black sm:h-8 sm:w-8" />
                       </div>
                     </div>
-                    <div className="mt-6 flex items-end justify-center gap-1">
-                      <span className="text-[52px] font-black leading-none tracking-normal md:text-[68px]">{latestScore ?? 'Ready'}</span>
+                    <div className="mt-4 flex items-end justify-center gap-1 sm:mt-6">
+                      <span className="text-[42px] font-black leading-none tracking-normal sm:text-[52px] md:text-[68px]">{latestScore ?? 'Ready'}</span>
                       {latestScore !== null && <span className="pb-2 text-[25px] font-black text-zinc-400">/100</span>}
                     </div>
-                    <p className="mx-auto mt-3 max-w-[520px] text-[15px] font-black leading-6 text-zinc-500 md:text-base">
+                    <p className="mx-auto mt-2 max-w-[520px] text-[13px] font-black leading-5 text-zinc-500 sm:mt-3 sm:text-[15px] sm:leading-6 md:text-base">
                       {latestScore !== null ? latestRating : 'Your first scan will start your food timeline'}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-5">
-                    <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_30px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] md:p-7">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
+                    <div className="min-w-0 rounded-[24px] bg-white p-4 shadow-[0_8px_24px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-7">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[20px] font-black md:text-[24px]">Health score</p>
-                          <p className="mt-2 text-[30px] font-black leading-none md:text-[36px]">
+                          <p className="text-[16px] font-black sm:text-[20px] md:text-[24px]">Health score</p>
+                          <p className="mt-2 text-[25px] font-black leading-none sm:text-[30px] md:text-[36px]">
                             {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
                           </p>
-                          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-zinc-100">
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100 sm:mt-4 sm:h-2.5">
                             <div
                               className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)}
                               style={{ width: healthScoreBarWidth }}
                             />
                           </div>
-                          <p className="mt-3 text-[12px] font-semibold leading-5 text-zinc-500 md:text-[13px]">
+                          <p className="mt-2 text-[11px] font-semibold leading-4 text-zinc-500 sm:mt-3 sm:text-[12px] sm:leading-5 md:text-[13px]">
                             {healthScoreExplanation}
                           </p>
                         </div>
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100">
+                        <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 sm:flex">
                           <Activity className="h-5 w-5 text-black" />
                         </span>
                       </div>
                     </div>
 
                     <button
-                      className="rounded-[28px] bg-white p-5 text-left shadow-[0_10px_30px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] md:p-7"
+                      className="min-w-0 rounded-[24px] bg-white p-4 text-left shadow-[0_8px_24px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[28px] sm:p-5 md:p-7"
                       onClick={() => setWaterSheetOpen(true)}
                       type="button"
                     >
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex h-full flex-col justify-between gap-4 sm:flex-row sm:items-center">
                         <div className="min-w-0">
-                          <p className="text-[20px] font-black text-zinc-500 md:text-[24px]">
-                            <span className="mb-1 block text-[24px] leading-none">💧</span>
+                          <p className="text-[16px] font-black text-zinc-500 sm:text-[20px] md:text-[24px]">
+                            <span className="mb-1 block text-[20px] leading-none sm:text-[24px]">💧</span>
                             Water intake
                           </p>
-                          <p className="mt-2 truncate text-[26px] font-black leading-none md:text-[34px]">{waterCardLabel}</p>
+                          <p className="mt-2 truncate text-[22px] font-black leading-none sm:text-[26px] md:text-[34px]">{waterCardLabel}</p>
                         </div>
-                        <span className="shrink-0 rounded-full bg-white px-4 py-3 text-sm font-black shadow-sm ring-1 ring-zinc-950/10">
+                        <span className="w-fit shrink-0 rounded-full bg-white px-3 py-2 text-xs font-black shadow-sm ring-1 ring-zinc-950/10 sm:px-4 sm:py-3 sm:text-sm">
                           Log Water
                         </span>
                       </div>
@@ -2478,26 +2478,26 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </div>
 
                   <button
-                    className="group flex w-full items-center rounded-[24px] bg-white px-5 py-4 text-left shadow-[0_8px_24px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.99] md:px-7 md:py-5"
+                    className="group flex w-full items-center rounded-[22px] bg-white px-4 py-3.5 text-left shadow-[0_7px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.99] sm:rounded-[24px] sm:px-5 sm:py-4 md:px-7 md:py-5"
                     onClick={() => setActiveTab('progress')}
                     type="button"
                   >
                     <div className="flex w-full items-center justify-between gap-4">
                       <div>
-                        <p className="text-[22px] font-black md:text-[26px]">My progress</p>
-                        <p className="mt-1 text-[13px] font-semibold leading-5 text-zinc-500 md:text-sm">Timeline, streak, and weight</p>
+                        <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">My progress</p>
+                        <p className="mt-1 text-[12px] font-semibold leading-4 text-zinc-500 sm:text-[13px] sm:leading-5 md:text-sm">Timeline, streak, and weight</p>
                       </div>
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 transition group-hover:scale-105">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 transition group-hover:scale-105 sm:h-11 sm:w-11">
                         {hasActivity ? <BarChart3 className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                       </span>
                     </div>
                   </button>
 
-                  <section className="pt-2">
-                    <h2 className="text-[28px] font-black leading-none md:text-[34px]">Recently uploaded</h2>
+                  <section className="pt-1 sm:pt-2">
+                    <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">Recently uploaded</h2>
 
                     {scanState === 'scanning' && scanPreviewUrl ? (
-                      <div className="mt-5 rounded-[28px] bg-white p-5 shadow-[0_14px_36px_rgba(15,15,15,0.07)] ring-1 ring-black/[0.05]">
+                      <div className="mt-3 rounded-[24px] bg-white p-4 shadow-[0_10px_28px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] sm:mt-5 sm:rounded-[28px] sm:p-5">
                         <div className="flex items-center gap-4">
                           <img
                             alt="Meal being analyzed"
@@ -2519,10 +2519,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         </div>
                       </div>
                     ) : recentScans.length > 0 ? (
-                      <div className="mt-5 space-y-3">
+                      <div className="mt-3 space-y-2.5 sm:mt-5 sm:space-y-3">
                         {recentScans.slice(0, 10).map((item) => (
                           <button
-                            className="flex w-full items-center gap-4 rounded-[28px] bg-white p-4 text-left shadow-[0_14px_36px_rgba(15,15,15,0.07)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99]"
+                            className="flex w-full items-center gap-3 rounded-[24px] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:gap-4 sm:rounded-[28px] sm:p-4"
                             key={item.id}
                             onClick={() => {
                               setScanResult({ result: item.result });
@@ -2533,12 +2533,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           >
                           <img
                             alt={item.result.productName}
-                            className="h-20 w-20 shrink-0 rounded-[22px] object-cover"
+                            className="h-16 w-16 shrink-0 rounded-[18px] object-cover sm:h-20 sm:w-20 sm:rounded-[22px]"
                             src={item.imageDataUrl}
                           />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-[18px] font-black">{item.result.productName}</p>
-                              <p className="mt-1 text-sm font-semibold leading-5 text-zinc-500">
+                              <p className="truncate text-[16px] font-black sm:text-[18px]">{item.result.productName}</p>
+                              <p className="mt-1 text-xs font-semibold leading-4 text-zinc-500 sm:text-sm sm:leading-5">
                                 {isImageCheckErrorResult(item.result) ? 'Needs retake · not scored' : `${item.result.overallRating} · ${item.result.score}/100`}
                               </p>
                               <p className="mt-1 line-clamp-1 text-xs font-semibold text-zinc-400">
@@ -2550,8 +2550,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         ))}
                       </div>
                     ) : (
-                      <div className="mt-5 rounded-[28px] bg-[#f7f6fb] p-5 text-center shadow-[0_14px_36px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05]">
-                        <div className="mx-auto max-w-[560px] rounded-[24px] bg-white p-4 shadow-[0_16px_34px_rgba(15,15,15,0.07)]">
+                      <div className="mt-3 rounded-[24px] bg-[#f7f6fb] p-4 text-center shadow-[0_10px_28px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:mt-5 sm:rounded-[28px] sm:p-5">
+                        <div className="mx-auto max-w-[560px] rounded-[22px] bg-white p-3.5 shadow-[0_12px_28px_rgba(15,15,15,0.06)] sm:rounded-[24px] sm:p-4">
                           <div className="flex items-center gap-4">
                             <img
                               alt="Example bowl"
@@ -2564,7 +2564,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             </div>
                           </div>
                         </div>
-                        <p className="mt-6 text-[22px] font-black text-zinc-500">Tap + to add your first meal of the day</p>
+                        <p className="mt-4 text-[17px] font-black text-zinc-500 sm:mt-6 sm:text-[22px]">Tap + to add your first meal of the day</p>
                       </div>
                     )}
                   </section>
