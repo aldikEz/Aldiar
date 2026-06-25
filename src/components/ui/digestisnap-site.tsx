@@ -48,7 +48,7 @@ type ProfileRow = {
   username: string;
 };
 type GenderOption = 'Male' | 'Female' | 'Other';
-type SensiGoal = 'Find triggers' | 'Reduce bloating' | 'Build consistency';
+type SensiGoal = 'Lose weight' | 'Maintain weight' | 'Gain weight' | 'Find triggers' | 'Reduce bloating' | 'Build consistency';
 type UnitSystem = 'metric' | 'imperial';
 type OnboardingStepKind = 'intro' | 'single' | 'multi' | 'basics' | 'timeline' | 'insight' | 'processing';
 type BmiCategory = 'Underweight' | 'Balanced' | 'Elevated' | 'High';
@@ -81,7 +81,8 @@ type OnboardingStep = {
 };
 
 const genderOptions: GenderOption[] = ['Male', 'Female', 'Other'];
-const goalOptions: SensiGoal[] = ['Find triggers', 'Reduce bloating', 'Build consistency'];
+const goalOptions: SensiGoal[] = ['Lose weight', 'Maintain weight', 'Gain weight', 'Find triggers', 'Reduce bloating', 'Build consistency'];
+const isSensiGoal = (value: unknown): value is SensiGoal => typeof value === 'string' && goalOptions.includes(value as SensiGoal);
 const processingInsights = ['Calculating digestive thresholds...', 'Mapping symptom timing...', 'Building your trigger baseline...', 'Preparing your DigestSnap profile...'];
 const onboardingSteps: OnboardingStep[] = [
   {
@@ -547,7 +548,7 @@ function readStoredProfile(userId?: string): StoredSensiProfile | null {
       checkInsPerDay: typeof parsed.checkInsPerDay === 'number' ? parsed.checkInsPerDay : 2,
       dietType: typeof parsed.dietType === 'string' ? parsed.dietType : 'No specific diet',
       gender: parsed.gender === 'Male' || parsed.gender === 'Other' ? parsed.gender : 'Female',
-      goal: parsed.goal === 'Reduce bloating' || parsed.goal === 'Build consistency' ? parsed.goal : 'Find triggers',
+      goal: isSensiGoal(parsed.goal) ? parsed.goal : 'Maintain weight',
       heightCm: typeof parsed.heightCm === 'number' ? parsed.heightCm : 170,
       multiAnswers: isRecord(parsed.multiAnswers)
         ? Object.fromEntries(
@@ -615,6 +616,23 @@ function getBmiFromProfile(profile: StoredSensiProfile | null) {
     pointer,
     range: `${Math.round(profile.weightKg)} kg / ${Math.round(profile.heightCm)} cm`,
   };
+}
+
+function getCalorieGoalMode(profile: StoredSensiProfile | null): 'lose' | 'maintain' | 'gain' {
+  const goalText = `${profile?.goal ?? ''} ${profile?.answers?.goal ?? ''}`.toLowerCase();
+  if (/gain|bulk|muscle|build/.test(goalText)) return 'gain';
+  if (/lose|cut|reduce|weight loss/.test(goalText)) return 'lose';
+  return 'maintain';
+}
+
+function estimateDailyCalories(profile: StoredSensiProfile | null) {
+  const weightKg = profile?.weightKg && profile.weightKg > 0 ? profile.weightKg : 70;
+  const heightCm = profile?.heightCm && profile.heightCm > 0 ? profile.heightCm : 170;
+  const age = profile?.age && profile.age > 0 ? profile.age : 24;
+  const sexAdjustment = profile?.gender === 'Male' ? 5 : profile?.gender === 'Female' ? -161 : -78;
+  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + sexAdjustment;
+  const maintenance = bmr * 1.45;
+  return Math.round(Math.min(3600, Math.max(1400, maintenance)) / 25) * 25;
 }
 
 function normalizeProfileName(value: string) {
@@ -1509,7 +1527,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     checkInsPerDay: 2,
     dietType: 'No specific diet',
     gender: 'Female',
-    goal: 'Find triggers',
+    goal: 'Maintain weight',
     heightCm: 170,
     multiAnswers: {},
     symptoms: [],
@@ -1536,6 +1554,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [manualWaterAmount, setManualWaterAmount] = useState('');
   const [streak, setStreak] = useState<StoredStreak>(() => readStoredStreak(session.user.id));
   const [selectedHomeDate, setSelectedHomeDate] = useState(() => new Date().toDateString());
+  const [nutritionPanel, setNutritionPanel] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const syncErrorMessage = language === 'Russian' ? 'Не удалось синхронизировать записи. Проверьте подключение.' : 'Unable to sync entries. Please check your connection.';
@@ -1965,6 +1984,34 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         : waterMl;
   const waterValueLabel = waterValue % 1 === 0 ? String(waterValue) : waterValue.toFixed(1);
   const waterCardLabel = `${Math.round(waterOz)} fl oz (${Math.round(waterCups)} cups)`;
+  const calorieMode = getCalorieGoalMode(storedProfile);
+  const maintenanceCalories = estimateDailyCalories(storedProfile);
+  const calorieTarget =
+    calorieMode === 'gain'
+      ? maintenanceCalories + 350
+      : calorieMode === 'lose'
+        ? Math.max(1200, maintenanceCalories - 350)
+        : maintenanceCalories;
+  const caloriesEaten = 0;
+  const caloriesBurned = 0;
+  const weightKg = storedProfile?.weightKg && storedProfile.weightKg > 0 ? storedProfile.weightKg : 70;
+  const proteinTarget = Math.round(weightKg * (calorieMode === 'gain' ? 2 : calorieMode === 'lose' ? 1.8 : 1.6));
+  const fatTarget = Math.round((calorieTarget * 0.27) / 9);
+  const carbsTarget = Math.max(90, Math.round((calorieTarget - proteinTarget * 4 - fatTarget * 9) / 4));
+  const fiberTarget = calorieMode === 'gain' ? 38 : 30;
+  const sugarTarget = calorieMode === 'lose' ? 45 : calorieMode === 'gain' ? 65 : 55;
+  const sodiumTarget = 2300;
+  const calorieGoalLabel = calorieMode === 'gain' ? 'gain weight' : calorieMode === 'lose' ? 'lose weight' : 'maintain';
+  const macroCards = [
+    { label: 'Protein eaten', value: 0, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
+    { label: 'Carbs eaten', value: 0, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
+    { label: 'Fat eaten', value: 0, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
+  ];
+  const microCards = [
+    { label: 'Fiber eaten', value: 0, target: fiberTarget, unit: 'g', icon: 'Fi', color: 'text-purple-500' },
+    { label: 'Sugar eaten', value: 0, target: sugarTarget, unit: 'g', icon: 'S', color: 'text-pink-500' },
+    { label: 'Sodium eaten', value: 0, target: sodiumTarget, unit: 'mg', icon: 'Na', color: 'text-yellow-600' },
+  ];
   const manualWaterNumber = Number(manualWaterAmount);
   const manualWaterMl =
     Number.isFinite(manualWaterNumber) && manualWaterNumber > 0
@@ -2554,64 +2601,147 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 </div>
 
                   <div className="mx-auto mt-5 w-full max-w-[430px] space-y-3.5 sm:mt-8 sm:max-w-[620px] sm:space-y-5 lg:max-w-[1040px] xl:max-w-[1120px]">
-                  <div className="w-full rounded-[28px] bg-white px-5 py-5 text-center shadow-[0_10px_30px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[34px] sm:px-6 sm:py-8 md:px-10 md:py-10">
-                    <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-full bg-zinc-100 shadow-inner sm:h-[104px] sm:w-[104px]">
-                      <div className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-white shadow-inner sm:h-[76px] sm:w-[76px]">
-                        <Camera className="h-6 w-6 text-black sm:h-8 sm:w-8" />
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-end justify-center gap-1 sm:mt-6">
-                      <span className="text-[42px] font-black leading-none tracking-normal sm:text-[52px] md:text-[68px]">{latestScore ?? 'Ready'}</span>
-                      {latestScore !== null && <span className="pb-2 text-[25px] font-black text-zinc-400">/100</span>}
-                    </div>
-                    <p className="mx-auto mt-2 max-w-[520px] text-[13px] font-black leading-5 text-zinc-500 sm:mt-3 sm:text-[15px] sm:leading-6 md:text-base">
-                      {latestScore !== null ? latestRating : 'Your first scan will start your food timeline'}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 sm:gap-5">
-                    <div className="min-w-0 rounded-[24px] bg-white p-4 shadow-[0_8px_24px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-7">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[16px] font-black sm:text-[20px] md:text-[24px]">Health score</p>
-                          <p className="mt-2 text-[25px] font-black leading-none sm:text-[30px] md:text-[36px]">
-                            {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
-                          </p>
-                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100 sm:mt-4 sm:h-2.5">
-                            <div
-                              className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)}
-                              style={{ width: healthScoreBarWidth }}
-                            />
+                  <section className="overflow-hidden rounded-[30px] sm:rounded-[36px]">
+                    <AnimatePresence mode="wait">
+                      {nutritionPanel === 0 && (
+                        <motion.div
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          className="space-y-3 sm:space-y-5"
+                          exit={{ opacity: 0, scale: 0.985, y: -10 }}
+                          initial={{ opacity: 0, scale: 0.985, y: 14 }}
+                          key="calories-panel"
+                          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                          <div className="grid gap-3 rounded-[30px] bg-white p-5 shadow-[0_14px_36px_rgba(15,15,15,0.065)] ring-1 ring-black/[0.05] sm:gap-5 sm:rounded-[36px] sm:p-7 md:grid-cols-[1fr_auto] md:items-center md:p-10">
+                            <div>
+                              <div className="flex items-end gap-2">
+                                <span className="text-[58px] font-black leading-none sm:text-[72px] md:text-[88px]">{caloriesEaten}</span>
+                                <span className="pb-2 text-[28px] font-black leading-none text-zinc-400 sm:text-[36px] md:text-[44px]">/{calorieTarget}</span>
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[17px] font-black text-zinc-500 sm:text-[21px] md:text-[26px]">
+                                <span>Calories eaten</span>
+                                <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-500 sm:text-sm">{calorieGoalLabel}</span>
+                              </div>
+                            </div>
+                            <div className="mx-auto flex h-[126px] w-[126px] items-center justify-center rounded-full border-[16px] border-[#f4f2f8] bg-white shadow-inner sm:h-[154px] sm:w-[154px] sm:border-[18px] md:mx-0">
+                              <Flame className="h-10 w-10 fill-black text-black sm:h-12 sm:w-12" />
+                            </div>
                           </div>
-                          <p className="mt-2 text-[11px] font-semibold leading-4 text-zinc-500 sm:mt-3 sm:text-[12px] sm:leading-5 md:text-[13px]">
-                            {healthScoreExplanation}
-                          </p>
-                        </div>
-                        <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 sm:flex">
-                          <Activity className="h-5 w-5 text-black" />
-                        </span>
-                      </div>
-                    </div>
 
-                    <button
-                      className="min-w-0 rounded-[24px] bg-white p-4 text-left shadow-[0_8px_24px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[28px] sm:p-5 md:p-7"
-                      onClick={() => setWaterSheetOpen(true)}
-                      type="button"
-                    >
-                      <div className="flex h-full flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                        <div className="min-w-0">
-                          <p className="text-[16px] font-black text-zinc-500 sm:text-[20px] md:text-[24px]">
-                            <span className="mb-1 block text-[20px] leading-none sm:text-[24px]">💧</span>
-                            Water intake
-                          </p>
-                          <p className="mt-2 truncate text-[22px] font-black leading-none sm:text-[26px] md:text-[34px]">{waterCardLabel}</p>
-                        </div>
-                        <span className="w-fit shrink-0 rounded-full bg-white px-3 py-2 text-xs font-black shadow-sm ring-1 ring-zinc-950/10 sm:px-4 sm:py-3 sm:text-sm">
-                          Log Water
-                        </span>
-                      </div>
-                    </button>
-                  </div>
+                          <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                            {macroCards.map((card) => (
+                              <div
+                                className="min-w-0 rounded-[24px] bg-white p-3.5 shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[30px] sm:p-5 md:p-6"
+                                key={card.label}
+                              >
+                                <p className="whitespace-nowrap text-[24px] font-black leading-none sm:text-[34px] md:text-[44px]">
+                                  {card.value}<span className="text-[17px] text-zinc-400 sm:text-[23px] md:text-[30px]">/{card.target}{card.unit}</span>
+                                </p>
+                                <p className="mt-2 min-h-[34px] text-[12px] font-black leading-4 text-zinc-500 sm:text-[15px] sm:leading-5 md:text-[18px]">{card.label}</p>
+                                <div className="mt-4 flex aspect-square w-full items-center justify-center rounded-full border-[10px] border-[#f4f2f8] sm:mt-6 sm:border-[13px]">
+                                  <span className={cn('text-[16px] font-black sm:text-[20px] md:text-[24px]', card.color)}>{card.icon}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {nutritionPanel === 1 && (
+                        <motion.div
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          className="space-y-3 sm:space-y-5"
+                          exit={{ opacity: 0, scale: 0.985, y: -10 }}
+                          initial={{ opacity: 0, scale: 0.985, y: 14 }}
+                          key="health-panel"
+                          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                          <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                            {microCards.map((card) => (
+                              <div
+                                className="min-w-0 rounded-[24px] bg-white p-3.5 shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[30px] sm:p-5 md:p-6"
+                                key={card.label}
+                              >
+                                <p className="whitespace-nowrap text-[24px] font-black leading-none sm:text-[34px] md:text-[44px]">
+                                  {card.value}<span className="text-[17px] text-zinc-400 sm:text-[23px] md:text-[30px]">/{card.target}{card.unit}</span>
+                                </p>
+                                <p className="mt-2 min-h-[34px] text-[12px] font-black leading-4 text-zinc-500 sm:text-[15px] sm:leading-5 md:text-[18px]">{card.label}</p>
+                                <div className="mt-4 flex aspect-square w-full items-center justify-center rounded-full border-[10px] border-[#f4f2f8] sm:mt-6 sm:border-[13px]">
+                                  <span className={cn('text-[15px] font-black sm:text-[19px] md:text-[22px]', card.color)}>{card.icon}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="rounded-[30px] bg-white p-5 shadow-[0_14px_36px_rgba(15,15,15,0.065)] ring-1 ring-black/[0.05] sm:rounded-[36px] sm:p-7 md:p-9">
+                            <div className="flex items-start justify-between gap-5">
+                              <p className="text-[28px] font-black leading-none sm:text-[38px] md:text-[48px]">Health Score</p>
+                              <p className="text-[28px] font-black leading-none sm:text-[38px] md:text-[48px]">
+                                {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
+                              </p>
+                            </div>
+                            <div className="mt-6 h-3 overflow-hidden rounded-full bg-[#f4f2f8]">
+                              <div className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)} style={{ width: healthScoreBarWidth }} />
+                            </div>
+                            <p className="mt-6 max-w-[720px] text-[18px] font-black leading-7 text-zinc-500 sm:text-[22px] sm:leading-9 md:text-[28px] md:leading-[1.25]">
+                              {healthScoreExplanation} DigestSnap weighs scan quality, nutrition flags, and your logged reactions
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {nutritionPanel === 2 && (
+                        <motion.div
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          className="space-y-3 sm:space-y-5"
+                          exit={{ opacity: 0, scale: 0.985, y: -10 }}
+                          initial={{ opacity: 0, scale: 0.985, y: 14 }}
+                          key="water-panel"
+                          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                          <div className="grid gap-3 min-[390px]:grid-cols-2 sm:gap-5">
+                            <div className="rounded-[30px] bg-white p-6 shadow-[0_14px_36px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] sm:rounded-[36px] sm:p-8">
+                              <p className="text-[24px] font-black text-zinc-500 sm:text-[32px]">Calories burned</p>
+                              <p className="mt-2 text-[58px] font-black leading-none sm:text-[72px]">{caloriesBurned}<span className="text-[24px] text-zinc-400 sm:text-[32px]"> cal</span></p>
+                              <div className="mt-8 flex items-center gap-4">
+                                <Activity className="h-8 w-8 text-black sm:h-10 sm:w-10" />
+                                <div>
+                                  <p className="text-[30px] font-black leading-none sm:text-[40px]">Steps</p>
+                                  <p className="mt-1 text-[22px] font-black text-zinc-400 sm:text-[30px]">0 cal</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              className="rounded-[30px] bg-white p-6 text-left shadow-[0_14px_36px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[36px] sm:p-8"
+                              onClick={() => setWaterSheetOpen(true)}
+                              type="button"
+                            >
+                              <p className="text-[24px] font-black text-zinc-500 sm:text-[32px]">Water</p>
+                              <p className="mt-2 text-[36px] font-black leading-none sm:text-[48px]">{waterCardLabel}</p>
+                              <span className="mt-8 inline-flex h-14 items-center justify-center rounded-full bg-white px-6 text-base font-black shadow-sm ring-1 ring-zinc-950/10 transition sm:h-16 sm:px-8 sm:text-lg">
+                                Log Water
+                              </span>
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="mt-4 flex justify-center gap-2 sm:mt-6">
+                      {[0, 1, 2].map((index) => (
+                        <button
+                          aria-label={`Show dashboard panel ${index + 1}`}
+                          className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/70 active:scale-90"
+                          key={index}
+                          onClick={() => setNutritionPanel(index)}
+                          type="button"
+                        >
+                          <span className={cn('h-3 w-3 rounded-full ring-2 transition-all duration-200', nutritionPanel === index ? 'scale-110 bg-black ring-black' : 'bg-white ring-zinc-300')} />
+                        </button>
+                      ))}
+                    </div>
+                  </section>
 
                   <button
                     className="group flex w-full items-center rounded-[22px] bg-white px-4 py-3.5 text-left shadow-[0_7px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.99] sm:rounded-[24px] sm:px-5 sm:py-4 md:px-7 md:py-5"
@@ -2862,9 +2992,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       onChange={(event) => setGoalDraft((current) => ({ ...current, goal: event.target.value as SensiGoal }))}
                       value={goalDraft.goal}
                     >
-                      <option>Find triggers</option>
-                      <option>Reduce bloating</option>
-                      <option>Build consistency</option>
+                      {goalOptions.map((option) => (
+                        <option key={option}>{option}</option>
+                      ))}
                     </select>
                   </label>
 
@@ -3310,7 +3440,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
     age: 24,
     heightCm: 170,
     weightKg: 64,
-    goal: 'Find triggers',
+    goal: 'Maintain weight',
     dietType: 'No specific diet',
     checkInsPerDay: 2,
     triggers: ['Fried food', 'Bread'],
