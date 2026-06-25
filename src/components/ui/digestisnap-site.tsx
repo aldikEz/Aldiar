@@ -681,8 +681,7 @@ function isHardImageFailure(scan: ImageScanPayload) {
     text.includes('quota') ||
     text.includes('rate-limited') ||
     text.includes('ai request failed') ||
-    text.includes('ai request timed out') ||
-    text.includes('could not verify image')
+    text.includes('ai request timed out')
   );
 }
 

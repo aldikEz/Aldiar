@@ -5,14 +5,14 @@
 //   npm run ai:secret -- AI_ALLOWED_ORIGINS=https://your-domain.com,http://localhost:5173
 //
 // Optional:
-//   npm run ai:secret -- GEMINI_MODEL=gemini-2.5-flash-lite
+//   npm run ai:secret -- GEMINI_MODEL=gemini-2.0-flash
 //   npm run ai:secret -- GEMINI_TIMEOUT_MS=18000
 //
 // The allowlist keeps this function from becoming a public AI proxy. If
 // AI_ALLOWED_ORIGINS is missing, only localhost and 127.0.0.1 are allowed.
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash-lite';
+const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -25,7 +25,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v8-everyday-foods-20260625';
+const SCAN_CACHE_VERSION = 'label-v9-visual-rescue-20260625';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -721,6 +721,8 @@ function makeLabelPrompt(targetLang: string, triggers: string[] = []) {
   return `You are DigestSnap's strict food vision scanner.
 
 First identify what is in the image visually. Then read/OCR every visible label word you can.
+You must always try visual recognition before giving up.
+If the image clearly shows any food, drink, package, bottle, can, bar, fruit, vegetable, cooked meal, snack, or label, the scan is valid even when OCR is weak.
 There are two valid scan types:
 1. Packaged product scan: use brand, logo, packaging, visible label text, nutrition facts, and ingredients.
 2. Whole food scan: if the image shows unpackaged basic food, do not search for a label. Identify it by shape, color, texture, and serving context.
@@ -735,6 +737,8 @@ Rules:
 - Use ${targetLang} for human-facing strings: productName, chemicalName, and reason.
 - If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
+- Forbidden productName values unless there is truly no food or drink visible: "Unreadable Label", "Image check error", "Image unclear", "Could not verify image", "Visual estimate unavailable", "Unknown product".
+- If brand/name is visible in any language, transliterate or preserve the brand. Example: Russian "молочный ломтик" with Kinder logo should become "Kinder Молочный ломтик", not an error.
 - Do not invent ingredients that are not visible, but use strong product-category inference when ingredients are hidden.
 - You are not just OCR. Use logo shape, colors, bottle/can/bag design, mascot, typography fragments, and common product knowledge to identify global packaged foods and drinks.
 - For common packaged products, prefer a specific product identity when visually supported: e.g. "Coca-Cola", "Pepsi", "Sprite", "Fanta", "Red Bull", "Monster Energy", "Lay's potato chips", "Doritos", "Cheetos", "Pringles", "Snickers", "Kinder Bueno".
@@ -746,6 +750,7 @@ Rules:
 - If OCR is unreadable but the food/product category is visually recognizable, return the likely category and mark concerns as "visual estimate", "label not verified", or "category-based risk".
 - If both label text and visual category are impossible to identify, return productName as "Visual estimate unavailable" and overallRating as "Caution".
 - Never leave productName generic if any food/drink/package category is visible.
+- If you can identify only category, productName must be "Likely [specific category]" in ${targetLang}, e.g. "Likely chocolate dairy snack", "Likely avocado", "Likely bottled water", "Likely chips".
 - For flaggedChemicals, return 2 to 4 ingredients/additives/category concerns.
 - If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; they are at least "Caution".
@@ -776,6 +781,33 @@ Return this exact shape:
     ]
   }
 }`;
+}
+
+function makeVisualRescuePrompt(targetLang: string, triggers: string[] = []) {
+  const triggerLine = triggers.length > 0 ? triggers.join(', ') : 'none provided';
+
+  return `You are DigestSnap's visual food recognition fallback.
+
+The previous scan was too uncertain. Ignore OCR perfection and identify the visible food/drink/package from image appearance.
+Use packaging, color, logo fragments, shape, container, visible food texture, and common product knowledge.
+If any food, drink, snack, candy, meal, bottle, package, fruit, vegetable, egg, meat, pasta, bread, dairy, chips, soda, tea, water, or bar is visible, return a usable estimate.
+Do not return unreadable, unknown, not checked, or visual estimate unavailable unless there is no food/drink/product visible at all.
+User triggers: ${triggerLine}
+
+Language:
+- Use ${targetLang} for productName, chemicalName, and reason.
+- If ${targetLang} is Russian, write natural Cyrillic for generic food names and reasons. Keep real brand names as written.
+- Keep overallRating and severity exactly "Safe", "Caution", or "Avoid".
+
+Scoring:
+- Plain water/mineral water: Safe 82-95.
+- Whole fruits/vegetables/eggs/plain meat/fish/rice/oats/potato: Safe 75-92 unless fried/sauced/sweetened.
+- Pasta/bread/dairy/nuts/coffee/juice: Caution 50-70.
+- Soda/sweet tea/energy drinks/chips/candy/fried fast food: Avoid 0-45.
+- If uncertain but a category is visible, use Caution 45-60.
+
+Return JSON only:
+{"result":{"productName":"Specific visual estimate","overallRating":"Caution","score":55,"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified"},{"chemicalName":"Category risk","severity":"Caution","reason":"Based on visible product type"}]}}`;
 }
 
 function makeFoodTextPrompt(payload: FoodTextPayload, targetLang: string) {
@@ -896,8 +928,35 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   const parsed = parseModelJson(geminiResult.text);
   let scan = normalizeScanPayload(parsed, targetLang);
 
-  if (isUnreadableProductName(scan.result.productName)) {
-    scan = visualEstimateFallback(targetLang);
+  if (isUnusableVisualScan(scan)) {
+    const rescueResult = await callGemini({
+      contents: [
+        {
+          parts: [
+            { text: makeVisualRescuePrompt(targetLang, image.payload.triggers) },
+            {
+              inlineData: {
+                mimeType: image.payload.mimeType,
+                data: image.payload.data,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.35,
+        maxOutputTokens: 300,
+      },
+    });
+
+    if (!('error' in rescueResult)) {
+      const rescueParsed = parseModelJson(rescueResult.text);
+      const rescueScan = normalizeScanPayload(rescueParsed, targetLang);
+      scan = isUnusableVisualScan(rescueScan) ? visualEstimateFallback(targetLang) : rescueScan;
+    } else {
+      scan = visualEstimateFallback(targetLang);
+    }
   }
 
   runAfterResponse(cacheScan(cacheKey, targetLang, scan));
