@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { AboutPage, AuthPage, DashboardPage, LandingPage, LegalPage } from './components/ui/sensibite-site';
+import { AboutPage, AuthPage, DashboardPage, LandingPage, LegalPage } from './components/ui/digestisnap-site';
 import { supabase } from './lib/supabase';
 
 export default function App() {
@@ -68,9 +68,9 @@ export default function App() {
 
   if (!authReady) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fbfbf8] text-zinc-950">
+      <main className="flex min-h-screen items-center justify-center bg-white text-zinc-950">
         <div className="text-center">
-          <p className="text-lg font-black">SensiBite AI</p>
+          <p className="text-lg font-black">DigestSnap AI</p>
           <p className="mt-2 text-sm font-bold text-zinc-500">Loading your session...</p>
         </div>
       </main>

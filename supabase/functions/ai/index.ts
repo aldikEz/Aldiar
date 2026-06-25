@@ -1,4 +1,4 @@
-// SensiBite AI helper function.
+// DigestSnap AI helper function.
 //
 // Required secrets before deployment:
 //   npm run ai:secret -- GEMINI_API_KEY=your_key
@@ -25,7 +25,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 10_000, 5_000, 15_000);
-const SCAN_CACHE_VERSION = 'label-v3-strict-20260624';
+const SCAN_CACHE_VERSION = 'label-v4-visual-inference-20260625';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -332,7 +332,7 @@ function getSafetyBlockReason(text: string, mode: string) {
   }
 
   if (BLOCKED_PATTERNS.some((pattern) => pattern.test(text))) {
-    return 'SensiBite AI cannot help with harmful, illegal, hateful, or unsafe requests.';
+    return 'DigestSnap AI cannot help with harmful, illegal, hateful, or unsafe requests.';
   }
 
   return '';
@@ -527,9 +527,11 @@ async function handleTextRequest(req: Request, body: RequestBody) {
 function makeLabelPrompt(targetLang: string, triggers: string[] = []) {
   const triggerLine = triggers.length > 0 ? triggers.join(', ') : 'none provided';
 
-  return `You are SensiBite's strict packaged-food label scanner.
+  return `You are DigestSnap's strict food vision scanner.
 
-First read/OCR every visible label word you can. Analyze only visible text, branding, nutrition facts, and ingredients in the image. Extract the product name or best product classification, then rate possible gut-trigger quality for a normal consumer and for the user's trigger profile.
+First read/OCR every visible label word you can. If the label text is blurry, blocked, tiny, or unreadable, do NOT return "Unreadable Label". Instead, use visual food/product recognition from the image itself: packaging shape, brand colors, visible food, drink type, category, container, and common similar products. Return a cautious visual estimate with a productName like "Likely iced tea drink", "Likely fried snack", "Likely chocolate bar", "Likely burger meal", or "Likely packaged sauce".
+
+Analyze visible text, branding, nutrition facts, ingredients, and visual product category. Extract the product name when readable; otherwise extract the best visual classification. Then rate possible gut-trigger quality for a normal consumer and for the user's trigger profile.
 User possible triggers and profile context: ${triggerLine}
 
 Rules:
@@ -537,7 +539,8 @@ Rules:
 - Use ${targetLang} for human-facing strings: productName, chemicalName, and reason.
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
 - Do not invent ingredients that are not visible, but use strong product-category inference when ingredients are hidden.
-- If the image is unreadable, return productName as "Unreadable Label" and overallRating as "Caution".
+- If OCR is unreadable but the food/product category is visually recognizable, return the likely category and mark concerns as "visual estimate", "label not verified", or "category-based risk".
+- If both label text and visual category are impossible to identify, return productName as "Image unclear" and overallRating as "Caution".
 - For flaggedChemicals, return 2 to 4 ingredients/additives/category concerns.
 - If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; they are at least "Caution".
@@ -547,6 +550,7 @@ Rules:
 - If the product is soda/energy drink/sweetened tea with sugar, caffeine, acid, sweeteners, or preservatives, use "Avoid".
 - Only use "Safe" above 75 when the label clearly shows a simple, low-trigger product with no meaningful additives/sugar concerns.
 - Use "Avoid" for obvious strong trigger products: sugary soda/energy drinks, very high sugar, fried snacks, or user-trigger overlap.
+- For unclear images, do not pretend certainty. Use "likely", "visual estimate", or "label not verified" in reasons.
 - Keep each reason under 12 words.
 - This is consumer information, not medical advice.
 
@@ -570,7 +574,7 @@ Return this exact shape:
 function makeFoodTextPrompt(payload: FoodTextPayload, targetLang: string) {
   const triggerLine = payload.triggers.length > 0 ? payload.triggers.join(', ') : 'none provided';
 
-  return `You are SensiBite AI. Return one minified JSON object only. Do not include markdown, prose, code fences, or commentary.
+  return `You are DigestSnap AI. Return one minified JSON object only. Do not include markdown, prose, code fences, or commentary.
 
 Task: rate likely food-trigger risk from ${payload.inputType === 'label' ? 'ingredient label text' : 'a restaurant dish name'}.
 Input: ${payload.text}
@@ -1137,10 +1141,10 @@ async function cacheScan(imageHash: string, targetLang: string, scan: ScanPayloa
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
-      console.error('SensiBite cache write failed.', response.status, errorText.slice(0, 300));
+      console.error('DigestSnap cache write failed.', response.status, errorText.slice(0, 300));
     }
   } catch (error) {
-    console.error('SensiBite cache write failed.', error);
+    console.error('DigestSnap cache write failed.', error);
   }
 }
 

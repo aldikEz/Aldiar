@@ -10,16 +10,16 @@ import {
   Camera,
   Check,
   ChevronRight,
+  CircleUserRound,
   ClipboardList,
   Flame,
   Home,
   LogOut,
   Mail,
-  Moon,
+  Plus,
   ScanLine,
   ShieldCheck,
   Sparkles,
-  Sun,
   Target,
   User,
 } from 'lucide-react';
@@ -33,6 +33,7 @@ type DashboardTab = 'home' | 'progress' | 'profile';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
 type LandingPhoneVariant = 'scan' | 'feeling';
 type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
+type WaterUnit = 'cups' | 'oz' | 'ml';
 type LegalPageKind = 'privacy' | 'terms' | 'subscription' | 'contact' | 'support';
 type DashboardEntry = {
   id: string;
@@ -80,19 +81,19 @@ type OnboardingStep = {
 
 const genderOptions: GenderOption[] = ['Male', 'Female', 'Other'];
 const goalOptions: SensiGoal[] = ['Find triggers', 'Reduce bloating', 'Build consistency'];
-const processingInsights = ['Calculating digestive thresholds...', 'Mapping symptom timing...', 'Building your trigger baseline...', 'Preparing your SensiBite profile...'];
+const processingInsights = ['Calculating digestive thresholds...', 'Mapping symptom timing...', 'Building your trigger baseline...', 'Preparing your DigestSnap profile...'];
 const onboardingSteps: OnboardingStep[] = [
   {
     id: 'welcome',
     kind: 'intro',
     title: 'You are closer than you think.',
-    subtitle: 'Answer a few fast questions. SensiBite will make every scan feel more personal from the start.',
+    subtitle: 'Answer a few fast questions. DigestSnap will make every scan feel more personal from the start.',
   },
   {
     id: 'goal',
     kind: 'single',
     field: 'goal',
-    title: 'What should SensiBite help with first?',
+    title: 'What should DigestSnap help with first?',
     subtitle: 'Good choice already: you are turning confusion into a system.',
     options: goalOptions,
   },
@@ -101,7 +102,6 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'multi',
     field: 'symptoms',
     title: 'What do you notice most often?',
-    subtitle: 'You do not need perfect answers. Pick what happens enough to remember.',
     options: ['Bloating', 'Pain', 'Nausea', 'Gas', 'Acid reflux', 'Low energy'],
   },
   {
@@ -109,7 +109,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'symptomTime',
     title: 'When does it usually hit?',
-    subtitle: 'This timing helps SensiBite connect the right meal later.',
+    subtitle: 'This timing helps DigestSnap connect the right meal later.',
     options: ['Right after eating', '1-2 hours later', 'At night', 'Next morning'],
   },
   {
@@ -141,7 +141,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'dietType',
     title: 'What eating style fits you best?',
-    subtitle: 'Solid. This helps SensiBite avoid generic advice.',
+    subtitle: 'Solid. This helps DigestSnap avoid generic advice.',
     options: ['No specific diet', 'High protein', 'Vegetarian', 'Vegan', 'Low carb', 'Halal', 'Low FODMAP'],
   },
   {
@@ -213,7 +213,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'spiceTolerance',
     title: 'How do spicy foods treat you?',
-    subtitle: 'This gives SensiBite a personal sensitivity baseline.',
+    subtitle: 'This gives DigestSnap a personal sensitivity baseline.',
     options: ['Fine', 'Sometimes bad', 'Usually bad', 'I avoid them'],
   },
   {
@@ -259,7 +259,7 @@ const onboardingSteps: OnboardingStep[] = [
   {
     id: 'timeline',
     kind: 'timeline',
-    title: 'How patient should SensiBite be?',
+    title: 'How patient should DigestSnap be?',
     subtitle: 'Patterns need repeat signals. Choose a pace you will actually keep.',
   },
   {
@@ -295,7 +295,7 @@ const onboardingSteps: OnboardingStep[] = [
     id: 'processing',
     kind: 'processing',
     title: 'AI Analytics Engine Processing...',
-    subtitle: 'SensiBite is building your initial digestive profile.',
+    subtitle: 'DigestSnap is building your initial digestive profile.',
   },
 ];
 const personalizationStepIds = new Set([
@@ -330,13 +330,29 @@ const personalizationStepIds = new Set([
 ]);
 const setupSteps = onboardingSteps.filter((step) => personalizationStepIds.has(step.id));
 const SETUP_TOTAL_STEPS = setupSteps.length;
-const SENSIBITE_PROFILE_STORAGE_KEY = 'sensibite-profile-v1';
-const SENSIBITE_PENDING_PROFILE_KEY = 'sensibite-profile-pending';
+const SENSIBITE_PROFILE_STORAGE_KEY = 'digestisnap-profile-v1';
+const SENSIBITE_PENDING_PROFILE_KEY = 'digestisnap-profile-pending';
+const SENSIBITE_STREAK_STORAGE_KEY = 'digestisnap-streak-v1';
+const SENSIBITE_RECENT_SCANS_STORAGE_KEY = 'digestisnap-recent-scans-v1';
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 type StoredSensiProfile = Pick<
   SetupProfile,
   'age' | 'allergies' | 'answers' | 'checkInsPerDay' | 'dietType' | 'gender' | 'goal' | 'heightCm' | 'multiAnswers' | 'symptoms' | 'timelineWeeks' | 'triggers' | 'unitSystem' | 'weightKg'
 >;
+
+type StoredStreak = {
+  count: number;
+  maxCount: number;
+  lastLoggedAt: string;
+};
+
+type RecentScan = {
+  id: string;
+  imageDataUrl: string;
+  result: ImageScanPayload['result'];
+  createdAt: string;
+};
 
 function toStoredProfile(profile: SetupProfile): StoredSensiProfile {
   return {
@@ -359,6 +375,104 @@ function toStoredProfile(profile: SetupProfile): StoredSensiProfile {
 
 function profileStorageKey(userId?: string) {
   return userId ? `${SENSIBITE_PROFILE_STORAGE_KEY}:${userId}` : SENSIBITE_PROFILE_STORAGE_KEY;
+}
+
+function streakStorageKey(userId?: string) {
+  return userId ? `${SENSIBITE_STREAK_STORAGE_KEY}:${userId}` : SENSIBITE_STREAK_STORAGE_KEY;
+}
+
+function recentScansStorageKey(userId?: string) {
+  return userId ? `${SENSIBITE_RECENT_SCANS_STORAGE_KEY}:${userId}` : SENSIBITE_RECENT_SCANS_STORAGE_KEY;
+}
+
+function readRecentScans(userId?: string): RecentScan[] {
+  try {
+    const raw = window.localStorage.getItem(recentScansStorageKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Partial<RecentScan>[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is RecentScan => (
+        typeof item.id === 'string' &&
+        typeof item.imageDataUrl === 'string' &&
+        typeof item.createdAt === 'string' &&
+        Boolean(item.result?.productName)
+      ))
+      .slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentScans(scans: RecentScan[], userId?: string) {
+  try {
+    window.localStorage.setItem(recentScansStorageKey(userId), JSON.stringify(scans.slice(0, 10)));
+  } catch {
+    // Recent scan thumbnails are a convenience cache; scanning still works without it.
+  }
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function normalizeStreak(streak: StoredStreak | null): StoredStreak {
+  if (!streak) {
+    return { count: 1, maxCount: 1, lastLoggedAt: '' };
+  }
+
+  const lastLogTime = Date.parse(streak.lastLoggedAt);
+  const now = Date.now();
+  const maxCount = Math.min(365, Math.max(1, streak.maxCount || streak.count || 1));
+  if (!Number.isFinite(lastLogTime) || now - lastLogTime > ONE_DAY_MS) {
+    return { count: 1, maxCount, lastLoggedAt: streak.lastLoggedAt };
+  }
+
+  const count = Math.min(365, Math.max(1, streak.count));
+  return {
+    count,
+    maxCount: Math.max(maxCount, count),
+    lastLoggedAt: streak.lastLoggedAt,
+  };
+}
+
+function readStoredStreak(userId?: string): StoredStreak {
+  try {
+    const raw = window.localStorage.getItem(streakStorageKey(userId));
+    if (!raw) return normalizeStreak(null);
+    const parsed = JSON.parse(raw) as Partial<StoredStreak>;
+    return normalizeStreak({
+      count: typeof parsed.count === 'number' ? parsed.count : 1,
+      maxCount: typeof parsed.maxCount === 'number' ? parsed.maxCount : typeof parsed.count === 'number' ? parsed.count : 1,
+      lastLoggedAt: typeof parsed.lastLoggedAt === 'string' ? parsed.lastLoggedAt : '',
+    });
+  } catch {
+    return normalizeStreak(null);
+  }
+}
+
+function saveStoredStreak(streak: StoredStreak, userId?: string) {
+  try {
+    window.localStorage.setItem(streakStorageKey(userId), JSON.stringify(streak));
+  } catch {
+    // Streak display is local polish; storage failures should not block logging.
+  }
+}
+
+function touchStoredStreak(current: StoredStreak, userId?: string): StoredStreak {
+  const now = new Date();
+  const lastLogTime = Date.parse(current.lastLoggedAt);
+  const sameDay = Number.isFinite(lastLogTime) && new Date(lastLogTime).toDateString() === now.toDateString();
+  const missedWindow = !Number.isFinite(lastLogTime) || now.getTime() - lastLogTime > ONE_DAY_MS;
+  const nextCount = missedWindow ? 1 : sameDay ? current.count : current.count >= 365 ? 1 : current.count + 1;
+  const next = { count: nextCount, maxCount: Math.max(current.maxCount || 1, nextCount), lastLoggedAt: now.toISOString() };
+  saveStoredStreak(next, userId);
+  return next;
 }
 
 function saveStoredProfile(profile: SetupProfile, userId?: string) {
@@ -452,7 +566,7 @@ function getBmiFromProfile(profile: StoredSensiProfile | null) {
 }
 
 function normalizeProfileName(value: string) {
-  return value.replace(/\s+/g, ' ').trim().slice(0, 80) || 'SensiBite user';
+  return value.replace(/\s+/g, ' ').trim().slice(0, 80) || 'DigestSnap user';
 }
 
 function usernameFromName(value: string) {
@@ -502,41 +616,86 @@ function isUnreadableScan(scan: ImageScanPayload, usedFallback = false) {
   );
 }
 
+function makeImageCheckErrorResult(fileName: string): ImageScanPayload['result'] {
+  return {
+    productName: 'Image check error',
+    overallRating: 'Caution',
+    score: 50,
+    flaggedChemicals: [
+      {
+        chemicalName: 'Could not verify image',
+        severity: 'Caution',
+        reason: `There was an error while checking ${fileName.replace(/\.[^.]+$/, '') || 'this image'}. Save kept. Retake with the label or food sharper for a real result`,
+      },
+    ],
+  };
+}
+
+function isImageCheckErrorResult(result: ImageScanPayload['result']) {
+  return result.productName === 'Image check error';
+}
+
 const friedFoodPreviewUrl = 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=1000&auto=format&fit=crop';
 
 function LandingPhoneMockup({ className = '', variant = 'scan' }: { className?: string; variant?: LandingPhoneVariant }) {
-  const surface = 'bg-[#f8f8f8] text-zinc-950';
+  const surface = 'bg-white text-zinc-950';
   const card = 'bg-white ring-zinc-950/[0.04]';
-  const soft = 'bg-[#f2f1f8]';
+  const soft = 'bg-[#f7f6f2] ring-zinc-950/[0.04]';
   const isFeeling = variant === 'feeling';
+  const week = [
+    ['Sun', '21'],
+    ['Mon', '22'],
+    ['Tue', '23'],
+    ['Wed', '24'],
+    ['Thu', '25'],
+    ['Fri', '26'],
+    ['Sat', '27'],
+  ];
 
   return (
-    <div className={cn('pointer-events-none select-none', className)}>
+    <div className={cn('select-none', className)}>
       <IPhoneMockup
         model="15-pro"
         color="natural-titanium"
         scale={0.66}
-        screenBg="#f8f8f8"
+        screenBg="#ffffff"
         showHomeIndicator={false}
         safeArea={false}
         shadow="0 34px 90px rgba(15,23,42,0.22), 0 10px 28px rgba(15,23,42,0.12)"
       >
-        <div className={cn('flex h-full w-full flex-col px-5 pb-5 pt-12', surface)}>
+        <div
+          className={cn('h-full w-full overflow-y-auto px-5 pb-24 pt-12', surface)}
+          style={{ scrollbarWidth: 'none' }}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase text-zinc-400">Today</p>
-              <p className="mt-1 text-2xl font-black">SensiBite</p>
+              <p className="text-[11px] font-black uppercase text-zinc-400">June 24</p>
+              <p className="mt-1 text-2xl font-black">DigestSnap</p>
             </div>
             <div className={cn('flex h-10 w-10 items-center justify-center rounded-full', card)}>
-              <Moon className="h-4 w-4" />
+              <User className="h-4 w-4" />
             </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-7 gap-1 text-center">
+            {week.map(([day, date]) => {
+              const active = date === '24';
+              return (
+                <div className="space-y-2" key={date}>
+                  <p className="text-[10px] font-black text-zinc-950">{day}</p>
+                  <div className={cn('mx-auto flex h-8 w-8 items-center justify-center rounded-full text-sm font-black', active ? 'bg-zinc-950 text-white' : Number(date) > 24 ? 'text-zinc-400' : 'text-zinc-950')}>
+                    {date}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-2">
             {[
-              isFeeling ? ['8/10', 'Meal'] : ['3', 'Scans'],
-              isFeeling ? ['2h', 'Later'] : ['2', 'Patterns'],
-              isFeeling ? ['Bloated', 'Feel'] : ['7/10', 'Score'],
+              isFeeling ? ['8/10', 'Meal'] : ['0', 'Scans'],
+              isFeeling ? ['2h', 'Later'] : ['Later', 'Check-in'],
+              isFeeling ? ['Bloated', 'Feel'] : ['Ready', 'Score'],
             ].map(([value, label]) => (
               <div className={cn('rounded-[18px] p-3 ring-1', card)} key={label}>
                 <p className="text-xl font-black leading-none">{value}</p>
@@ -545,50 +704,82 @@ function LandingPhoneMockup({ className = '', variant = 'scan' }: { className?: 
             ))}
           </div>
 
-          {isFeeling ? (
-            <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
-              <p className="text-sm font-black">How do you feel?</p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {(['Fine', 'Bloated', 'Pain', 'Nausea'] as FeelingOption[]).map((label) => (
-                  <div className={cn('rounded-[16px] px-3 py-3 text-center text-xs font-black', label === 'Bloated' ? 'bg-zinc-950 text-white' : soft)} key={label}>
-                    {label}
+          <div className={cn('mt-4 rounded-[26px] p-5 ring-1', card)}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[48px] font-black leading-none">{isFeeling ? 'Logged' : 'Ready'}</p>
+                <p className="mt-3 text-sm font-black text-zinc-500">{isFeeling ? 'Meal and reaction saved' : 'First scan starts your timeline'}</p>
+              </div>
+              <div className={cn('flex h-24 w-24 shrink-0 items-center justify-center rounded-full', soft)}>
+                <div className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-white shadow-inner">
+                  <Camera className="h-5 w-5" />
+                  <span className="mt-1 text-lg font-black">{isFeeling ? '1' : '0'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-7 grid grid-cols-3 gap-3">
+              {[
+                ['Scan', isFeeling ? 'Done' : 'Start'],
+                ['Check-in', isFeeling ? 'Bloated' : 'Later'],
+                ['Latest', isFeeling ? '8/10' : 'None'],
+              ].map(([label, value], index) => (
+                <div key={label}>
+                  <p className="text-xs font-black">{label}</p>
+                  <div className={cn('mt-2 h-1.5 rounded-full', soft)}>
+                    <div className={cn('h-full rounded-full bg-zinc-950', index === 0 ? 'w-full' : isFeeling ? 'w-2/3' : 'w-1.5')} />
                   </div>
-                ))}
-              </div>
-              <p className="mt-3 text-[11px] font-semibold leading-4 text-zinc-500">This check-in connects back to the scanned meal.</p>
+                  <p className="mt-2 text-xs font-black text-zinc-600">{value}</p>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-black">Meal rating</p>
-                <p className="text-sm font-black">8/10</p>
+          </div>
+
+          <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-base font-black">How do you feel?</p>
+                <p className="mt-1 text-xs font-bold text-zinc-500">One tap after eating.</p>
               </div>
-              <div className={cn('mt-3 h-2 rounded-full', soft)}>
-                <div className="h-full w-[80%] rounded-full bg-zinc-950" />
-              </div>
-              <p className="mt-3 text-[11px] font-semibold leading-4 text-zinc-500">Fried meal scanned and saved with time context.</p>
+              <Activity className="h-5 w-5" />
             </div>
-          )}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {(['Fine', 'Bloated', 'Pain', 'Nausea'] as FeelingOption[]).map((label) => (
+                <div className={cn('rounded-[16px] px-3 py-3 text-center text-xs font-black', isFeeling && label === 'Bloated' ? 'bg-zinc-950 text-white' : soft)} key={label}>
+                  {label}
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-5">
-            <p className="text-base font-black">Food scan</p>
+            <p className="text-base font-black">{isFeeling ? 'Saved reaction' : 'Start with one photo'}</p>
             <div className={cn('mt-3 rounded-[24px] p-4 ring-1', soft)}>
+              {!isFeeling && (
+                <img alt="Fried food scan" className="mb-3 h-28 w-full rounded-[18px] object-cover" src={friedFoodPreviewUrl} />
+              )}
               <div className="flex items-center gap-3">
                 <div className={cn('flex h-11 w-11 items-center justify-center rounded-full', card)}>
                   {isFeeling ? <Activity className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  {!isFeeling && (
-                    <img alt="Fried food scan" className="mb-3 h-20 w-full rounded-[16px] object-cover" src={friedFoodPreviewUrl} />
-                  )}
-                  <p className="text-sm font-black">{isFeeling ? 'Feeling saved' : 'Fried chicken plate'}</p>
-                  <p className="mt-1 text-xs font-bold text-zinc-500">{isFeeling ? 'Bloated after scan' : '8/10 meal rating'}</p>
+                  <p className="text-sm font-black">{isFeeling ? 'Bloated check-in saved' : 'Fried chicken plate'}</p>
+                  <p className="mt-1 text-xs font-bold text-zinc-500">{isFeeling ? 'Connected to the latest meal' : 'Scan quality ready'}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-auto flex items-center justify-between rounded-full bg-white px-4 py-3 text-zinc-950 shadow-[0_14px_36px_rgba(15,23,42,0.12)]">
+          <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-base font-black">Timeline</p>
+                <p className="mt-1 text-xs font-bold text-zinc-500">{isFeeling ? '1 meal and 1 check-in today' : 'Your first scan will appear here'}</p>
+              </div>
+              <ChevronRight className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="mt-5 flex items-center justify-between rounded-full bg-white px-4 py-3 text-zinc-950 shadow-[0_14px_36px_rgba(15,23,42,0.16)] ring-1 ring-zinc-950/[0.06]">
             <Home className="h-4 w-4" />
             <BarChart3 className="h-4 w-4 text-zinc-400" />
             <User className="h-4 w-4 text-zinc-400" />
@@ -614,7 +805,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       icon: Camera,
       preview: 'scan',
       title: 'Snap the meal',
-      body: 'Take one photo when you eat. SensiBite saves the meal, time, and context before the detail disappears.',
+      body: 'Take one photo when you eat. DigestSnap saves the meal, time, and context before the detail disappears.',
     },
     {
       icon: Activity,
@@ -625,8 +816,8 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
     {
       icon: BarChart3,
       preview: 'timeline',
-      title: 'See the pattern',
-      body: 'SensiBite looks across your meals and check-ins, then highlights possible repeat triggers so the same pattern does not disappear from memory.',
+      title: 'Private timeline',
+      body: 'DigestSnap looks across your meals and check-ins, then highlights possible repeat triggers so the same pattern does not disappear from memory.',
     },
     {
       icon: Bell,
@@ -637,14 +828,14 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
   ];
 
   return (
-    <main className="min-h-screen bg-[#fffef7] text-zinc-950 antialiased">
-      <header className="sticky top-0 z-50 border-b border-black/5 bg-[#fffef7]/85 backdrop-blur-xl">
+    <main className="min-h-screen bg-white text-zinc-950 antialiased">
+      <header className="sticky top-0 z-50 border-b border-black/5 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] w-full max-w-[1680px] items-center justify-between px-5 md:h-[86px] md:px-10 xl:px-12">
           <button className="flex items-center gap-2.5 text-2xl font-black md:text-4xl" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">
             <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-zinc-950 text-white md:h-12 md:w-12 md:rounded-[14px]">
               <Sparkles className="h-5 w-5 md:h-7 md:w-7" />
             </span>
-            SensiBite
+            DigestSnap
           </button>
           <nav className="hidden items-center gap-8 text-base font-black xl:flex">
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} type="button">Home</button>
@@ -668,14 +859,11 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
       <section className="mx-auto grid min-h-[calc(100svh-76px)] w-full max-w-[1680px] items-center gap-8 px-5 pb-10 pt-7 md:min-h-[calc(100svh-86px)] md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
         <div className="relative z-10 max-w-[700px]">
-          <p className="mb-5 inline-flex min-h-10 items-center rounded-full bg-white px-4 text-sm font-black text-zinc-600 shadow-sm ring-1 ring-zinc-950/[0.06]">
-            Scan once. Check in later.
-          </p>
           <h1 className="max-w-[760px] text-[42px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:text-[84px]">
             Find the food pattern faster.
           </h1>
           <p className="mt-6 max-w-[660px] text-[18px] font-semibold leading-8 text-[#5f574d] md:text-[23px] md:leading-[1.42]">
-            Take a photo when you eat. Tap how you felt later. SensiBite turns those tiny moments into a private timeline you can actually use.
+            Take a photo when you eat. Tap how you felt later. DigestSnap turns those tiny moments into a private timeline you can actually use.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row md:gap-4">
             <button
@@ -695,7 +883,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </div>
         </div>
 
-        <div className="relative min-h-[560px] overflow-hidden rounded-[38px] bg-[radial-gradient(circle_at_50%_34%,rgba(24,24,27,0.12),transparent_52%)] lg:min-h-[640px]">
+        <div className="relative min-h-[560px] overflow-hidden rounded-[38px] bg-white lg:min-h-[640px]">
           <div className="absolute left-[8%] top-10 z-20 sm:left-[17%] lg:left-[10%] xl:left-[14%]">
             <LandingPhoneMockup variant="scan" />
           </div>
@@ -705,86 +893,21 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section className="scroll-mt-28 bg-[#fffff4] px-5 py-24 md:px-10 md:py-28" id="includes">
+      <section className="scroll-mt-28 bg-white px-5 py-24 md:px-10 md:py-28" id="includes">
         <div className="mx-auto max-w-[1480px]">
           <div className="mx-auto max-w-[960px] text-center">
               <h2 className="mx-auto max-w-[850px] text-5xl font-black leading-[1.02] md:text-7xl">
                 One scan, one check-in, then a pattern.
               </h2>
-              <p className="mx-auto mt-6 max-w-[820px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
-                SensiBite keeps the loop short enough for real life: capture the meal, log the reaction, and let repeated signals surface naturally.
-              </p>
           </div>
 
           <div className="mt-14 grid items-start gap-6 lg:grid-cols-[0.82fr_1.18fr]">
             <div className="lg:sticky lg:top-28">
-              <div className="overflow-hidden rounded-[34px] bg-white p-5 text-zinc-950 shadow-[0_26px_80px_rgba(15,23,42,0.10)] ring-1 ring-zinc-950/[0.06] md:p-7">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-black text-zinc-500">Product loop</p>
-                  <span className="rounded-full bg-[#f4f3ef] px-3 py-1 text-xs font-black text-zinc-950">{includeCards[activeIncludeIndex].title}</span>
-                </div>
-                <div className="mt-7 rounded-[28px] bg-[#fbfaf7] p-5 text-zinc-950 ring-1 ring-zinc-950/[0.04]">
-                  {includeCards[activeIncludeIndex].preview === 'scan' && (
-                    <>
-                      <div className="overflow-hidden rounded-[24px]">
-                        <img
-                          alt="Meal scan preview"
-                          className="h-56 w-full object-cover"
-                          src={friedFoodPreviewUrl}
-                        />
-                      </div>
-                      <div className="mt-5 flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Saved event</p>
-                          <p className="mt-2 text-3xl font-black">Late fried meal</p>
-                        </div>
-                        <span className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-black text-white">82</span>
-                      </div>
-                    </>
-                  )}
-                  {includeCards[activeIncludeIndex].preview === 'symptoms' && (
-                    <>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Check-in</p>
-                      <h3 className="mt-3 text-4xl font-black leading-tight">How do you feel now?</h3>
-                      <div className="mt-7 grid grid-cols-2 gap-3">
-                        {['Fine', 'Bloated', 'Pain', 'Nausea'].map((label) => (
-                          <div className={cn('rounded-[18px] px-4 py-4 text-center text-sm font-black', label === 'Bloated' ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.12]' : 'bg-[#f4f3ef] text-zinc-600')} key={label}>
-                            {label}
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  {includeCards[activeIncludeIndex].preview === 'timeline' && (
-                    <>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Repeat pattern</p>
-                      <h3 className="mt-3 text-4xl font-black">3 signals</h3>
-                      <div className="mt-8 space-y-4">
-                        {['Burger after 8 PM', 'Fried food', 'Bloated later'].map((label, index) => (
-                          <div className="grid grid-cols-[34px_1fr] items-center gap-3" key={label}>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]">{index + 1}</span>
-                            <div>
-                              <p className="text-sm font-black">{label}</p>
-                              <div className="mt-2 h-2 rounded-full bg-zinc-100">
-                                <div className="h-full rounded-full bg-zinc-950" style={{ width: `${58 + index * 14}%` }} />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  {includeCards[activeIncludeIndex].preview === 'speed' && (
-                    <>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Low effort loop</p>
-                      <h3 className="mt-3 text-4xl font-black leading-tight">Photo. Tap. Pattern.</h3>
-                      <div className="mt-7 grid gap-3">
-                        {['Capture food in seconds', 'Check in only when it matters', 'Let repeat context build quietly'].map((label) => (
-                          <div className="rounded-[18px] bg-[#f4f3ef] px-4 py-4 text-sm font-black text-zinc-700" key={label}>{label}</div>
-                        ))}
-                      </div>
-                    </>
-                  )}
+              <div className="relative overflow-hidden rounded-[34px] bg-white p-6 text-zinc-950 shadow-[0_26px_80px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.05] md:p-8">
+                <div className="relative flex min-h-[560px] items-center justify-center overflow-hidden rounded-[30px] bg-white ring-1 ring-zinc-950/[0.04]">
+                  <div className="origin-center scale-[0.92] sm:scale-100">
+                    <LandingPhoneMockup variant={includeCards[activeIncludeIndex].preview === 'scan' ? 'scan' : 'feeling'} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -817,107 +940,54 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section className="scroll-mt-28 overflow-hidden bg-white px-5 py-24 md:px-12 md:py-28" id="product">
+      <section className="scroll-mt-28 overflow-hidden bg-white px-5 py-24 md:px-12 md:py-32" id="product">
         <div className="mx-auto max-w-[1500px]">
-          <div className="mx-auto max-w-[1120px] text-center">
-            <h2 className="text-[48px] font-black leading-[0.98] md:text-[86px]">
-              Track the reaction,
-              <br />
-              not just the meal.
+          <div className="mx-auto max-w-[1040px] text-center">
+            <h2 className="text-[46px] font-extrabold leading-[1.02] md:text-[76px]">
+              Why DigestSnap feels different
             </h2>
-            <p className="mx-auto mt-7 max-w-[850px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
-              A meal photo is only half the story. SensiBite links what you ate with when you felt fine, bloated, nauseous, or in pain.
+            <p className="mx-auto mt-6 max-w-[760px] text-lg font-semibold leading-8 text-[#605a51] md:text-2xl md:leading-10">
+              It is built around the moment people actually forget: after the meal, when the reaction starts and the pattern disappears.
             </p>
-            <div className="mx-auto mt-10 grid max-w-[1040px] gap-3 text-left md:grid-cols-3">
-              {[
-                ['Snap the meal', 'Save what you ate in seconds with a photo.'],
-                ['Check in later', 'Tap how you feel when the reaction actually happens.'],
-                ['See the pattern', 'Spot the meals that keep showing up.'],
-              ].map(([title, body], index) => (
-                <div className="rounded-[24px] bg-[#fbfaf7] p-5 shadow-[0_16px_38px_rgba(15,23,42,0.06)] ring-1 ring-zinc-950/[0.05]" key={title}>
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]">{index + 1}</div>
-                    <div>
-                      <h3 className="text-xl font-black">{title}</h3>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-zinc-500">{body}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
-          <div className="relative mt-14 grid gap-6 lg:grid-cols-[1.45fr_0.85fr]">
-            <div className="rounded-[34px] bg-white p-7 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-zinc-950/[0.06] md:p-10">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Pattern timeline</p>
-                  <p className="mt-4 text-5xl font-black md:text-7xl">3 repeats</p>
+          <div className="mt-16 grid gap-6 lg:grid-cols-3">
+            {[
+              {
+                icon: Camera,
+                title: 'The scan becomes a memory',
+                body: 'A photo is saved with time, food context, and a clear rating, so the meal does not turn into another vague note later.',
+              },
+              {
+                icon: Activity,
+                title: 'The check-in happens later',
+                body: 'Fine, bloated, pain, or nausea gets logged when it actually matters. One tap connects the reaction back to the right meal.',
+              },
+              {
+                icon: ShieldCheck,
+                title: 'The timeline stays private',
+                body: 'DigestSnap turns repeated meals and reactions into a personal pattern view, without public feeds, sponsored rankings, or noisy dashboards.',
+              },
+            ].map(({ icon: Icon, title, body }) => (
+              <div
+                className="group min-h-[430px] rounded-[42px] bg-white p-8 shadow-[0_30px_100px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.06] transition duration-300 hover:-translate-y-1 hover:shadow-[0_36px_120px_rgba(15,23,42,0.12)] md:p-10"
+                key={title}
+              >
+                <div className="flex h-20 w-20 items-center justify-center rounded-[26px] bg-[#f7f6f2] text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.05] transition duration-300 group-hover:bg-zinc-950 group-hover:text-white">
+                  <Icon className="h-8 w-8" />
                 </div>
-                <span className="rounded-full bg-[#f7f3ea] px-4 py-2 text-sm font-black text-[#5f574d]">This week</span>
+                <h3 className="mt-16 max-w-[430px] text-3xl font-extrabold leading-[1.08] md:text-[38px]">{title}</h3>
+                <p className="mt-7 max-w-[470px] text-[17px] font-semibold leading-8 text-[#605a51] md:text-xl md:leading-9">{body}</p>
               </div>
-
-              <div className="relative mt-12 h-[300px] overflow-hidden rounded-[26px] bg-[#fbfaf7] p-5">
-                <div className="absolute inset-x-8 bottom-16 top-10 grid grid-rows-4">
-                  {[0, 1, 2, 3].map((line) => (
-                    <span className="border-t border-zinc-200" key={line} />
-                  ))}
-                </div>
-                <svg aria-hidden className="absolute inset-x-8 bottom-16 top-10 h-[220px] w-[calc(100%-4rem)] overflow-visible" preserveAspectRatio="none" viewBox="0 0 700 220">
-                  <path d="M0 156 C110 124 168 142 244 104 C331 60 414 76 498 54 C579 33 645 45 700 22" fill="none" stroke="#18181b" strokeLinecap="round" strokeWidth="8" />
-                  <path d="M0 156 C110 124 168 142 244 104 C331 60 414 76 498 54 C579 33 645 45 700 22 L700 220 L0 220 Z" fill="url(#patternFade)" opacity="0.16" />
-                  <circle cx="700" cy="22" fill="#fff" r="10" stroke="#18181b" strokeWidth="6" />
-                  <defs>
-                    <linearGradient id="patternFade" x1="0" x2="0" y1="0" y2="1">
-                      <stop stopColor="#18181b" />
-                      <stop offset="1" stopColor="#18181b" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="absolute bottom-8 left-8 right-8 flex justify-between">
-                  {[0, 1, 2, 3, 4].map((dot) => (
-                    <span className="h-2 w-2 rounded-full bg-zinc-300" key={dot} />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[34px] bg-white p-7 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-zinc-950/[0.06] md:p-9">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Feeling check-ins</p>
-                <span className="rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-black text-zinc-500">4 entries</span>
-              </div>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                {['Fine', 'Bloated', 'Pain', 'Nausea'].map((status) => (
-                  <div className="rounded-[20px] bg-[#fbfaf7] px-4 py-5 text-center ring-1 ring-zinc-950/[0.04]" key={status}>
-                    <p className="text-[20px] font-black text-zinc-950">{status}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-7 rounded-[26px] bg-[#fbfaf7] p-5 text-zinc-950 ring-1 ring-zinc-950/[0.04]">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Pattern clarity</p>
-                <div className="mt-4 flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-6xl font-black leading-none">6/10</p>
-                  </div>
-                  <div className="relative h-16 w-16 shrink-0 rounded-full bg-zinc-100 p-1.5">
-                    <div className="absolute inset-1.5 rounded-full bg-[conic-gradient(#18181b_0_60%,#e7e5e4_60%_100%)]" />
-                    <div className="absolute inset-4 rounded-full bg-[#fbfaf7]" />
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-
         </div>
       </section>
 
-      <footer className="bg-[#fffef7] px-6 py-14 md:px-12">
+      <footer className="bg-white px-6 py-14 md:px-12">
         <div className="mx-auto grid max-w-[1500px] gap-8 border-t border-zinc-200 pt-10 md:grid-cols-[1fr_auto_auto]">
           <div>
-            <p className="text-2xl font-black">SensiBite</p>
-            <p className="mt-4 max-w-[360px] text-sm font-semibold leading-6 text-zinc-500">Private meal scans, symptom check-ins, and possible repeat patterns.</p>
+            <p className="text-2xl font-black">DigestSnap</p>
           </div>
           <div className="space-y-3 text-sm font-bold text-zinc-500">
             <p className="font-black text-zinc-950">Legal</p>
@@ -949,11 +1019,11 @@ const legalPageContent: Record<
   privacy: {
     eyebrow: 'Legal',
     title: 'Privacy Policy',
-    lede: 'SensiBite is built around private food and symptom memory. This page explains what we collect, why we collect it, and the controls users should have before trusting the product.',
+    lede: 'DigestSnap is built around private food and symptom memory. This page explains what we collect, why we collect it, and the controls users should have before trusting the product.',
     sections: [
       {
         title: 'Information we collect',
-        body: 'We collect only the information needed to operate SensiBite and improve the experience.',
+        body: 'We collect only the information needed to operate DigestSnap and improve the experience.',
         items: [
           'Account information, such as your name, email address, and sign-in provider details when you use Google sign-in.',
           'Profile information you choose to provide, such as age, biological sex, height, weight, goals, diet preferences, allergies, avoided foods, and common symptoms.',
@@ -980,12 +1050,12 @@ const legalPageContent: Record<
           'We do not sell your food photos, symptoms, allergies, or personal pattern history.',
           'We do not use your symptom history for third-party targeted advertising.',
           'We do not share identifiable health-adjacent data with sponsors or food brands for ranking or promotion.',
-          'We only share data with service providers needed to operate SensiBite, such as hosting, authentication, AI analysis, analytics, and payment infrastructure, under appropriate processing restrictions.',
+          'We only share data with service providers needed to operate DigestSnap, such as hosting, authentication, AI analysis, analytics, and payment infrastructure, under appropriate processing restrictions.',
         ],
       },
       {
         title: 'AI processing',
-        body: 'SensiBite may use AI providers to analyze photos, labels, text, and patterns. AI output can be incomplete or wrong. The product is designed for wellness tracking and personal pattern memory, not medical diagnosis, treatment, emergency care, or guaranteed allergy safety.',
+        body: 'DigestSnap may use AI providers to analyze photos, labels, text, and patterns. AI output can be incomplete or wrong. The product is designed for wellness tracking and personal pattern memory, not medical diagnosis, treatment, emergency care, or guaranteed allergy safety.',
       },
       {
         title: 'Storage, deletion, and control',
@@ -997,34 +1067,34 @@ const legalPageContent: Record<
       },
       {
         title: 'Children and teens',
-        body: 'SensiBite is not directed to children under 13. Users under the age of majority should use SensiBite only with involvement from a parent or guardian, especially when entering allergy, symptom, or body-profile information.',
+        body: 'DigestSnap is not directed to children under 13. Users under the age of majority should use DigestSnap only with involvement from a parent or guardian, especially when entering allergy, symptom, or body-profile information.',
       },
       {
         title: 'Contact',
-        body: 'For privacy requests, account deletion, or data questions, contact SensiBite support at support@sensibite.ai or use the Support page.',
+        body: 'For privacy requests, account deletion, or data questions, contact DigestSnap support at support@digestisnap.ai or use the Support page.',
       },
     ],
   },
   terms: {
     eyebrow: 'Legal',
     title: 'Terms of Use',
-    lede: 'These terms explain the rules for using SensiBite. They are written to keep the product honest: useful wellness tracking, no fake medical promises.',
+    lede: 'These terms explain the rules for using DigestSnap. They are written to keep the product honest: useful wellness tracking, no fake medical promises.',
     sections: [
       {
-        title: 'What SensiBite does',
-        body: 'SensiBite helps users log meals, symptoms, feelings, and timing so they can notice possible repeat patterns. It is a wellness and personal tracking product.',
+        title: 'What DigestSnap does',
+        body: 'DigestSnap helps users log meals, symptoms, feelings, and timing so they can notice possible repeat patterns. It is a wellness and personal tracking product.',
       },
       {
         title: 'Not medical advice',
-        body: 'SensiBite does not provide medical advice, diagnosis, treatment, emergency support, or professional dietary care. Do not ignore professional medical advice because of anything shown in SensiBite. If you have severe pain, allergic reactions, breathing trouble, blood in stool, persistent vomiting, or another urgent symptom, seek medical help immediately.',
+        body: 'DigestSnap does not provide medical advice, diagnosis, treatment, emergency support, or professional dietary care. Do not ignore professional medical advice because of anything shown in DigestSnap. If you have severe pain, allergic reactions, breathing trouble, blood in stool, persistent vomiting, or another urgent symptom, seek medical help immediately.',
       },
       {
         title: 'Food and allergy limitations',
-        body: 'SensiBite may miss ingredients, hidden allergens, cross-contamination, preparation methods, or label details. A scan or pattern result must never be treated as a guarantee that a food is safe. Users with allergies, medical conditions, pregnancy, eating disorders, chronic illness, or prescribed diets should confirm decisions with a qualified professional.',
+        body: 'DigestSnap may miss ingredients, hidden allergens, cross-contamination, preparation methods, or label details. A scan or pattern result must never be treated as a guarantee that a food is safe. Users with allergies, medical conditions, pregnancy, eating disorders, chronic illness, or prescribed diets should confirm decisions with a qualified professional.',
       },
       {
         title: 'User responsibilities',
-        body: 'You are responsible for the information you enter, the decisions you make, and how you use results. You agree not to misuse the product, upload illegal content, attempt to access another account, reverse engineer the service, or use SensiBite to harm yourself or others.',
+        body: 'You are responsible for the information you enter, the decisions you make, and how you use results. You agree not to misuse the product, upload illegal content, attempt to access another account, reverse engineer the service, or use DigestSnap to harm yourself or others.',
       },
       {
         title: 'AI and content accuracy',
@@ -1036,15 +1106,15 @@ const legalPageContent: Record<
       },
       {
         title: 'Account termination',
-        body: 'We may suspend or terminate access if an account violates these terms, creates security risk, abuses infrastructure, or uses the product in a way that could harm users, SensiBite, or third parties.',
+        body: 'We may suspend or terminate access if an account violates these terms, creates security risk, abuses infrastructure, or uses the product in a way that could harm users, DigestSnap, or third parties.',
       },
       {
         title: 'Disclaimers and liability',
-        body: 'To the maximum extent permitted by applicable law, SensiBite is provided as is and as available. We do not promise uninterrupted service, perfect accuracy, medical outcomes, or that every food trigger will be detected. Liability is limited to the extent allowed by applicable law.',
+        body: 'To the maximum extent permitted by applicable law, DigestSnap is provided as is and as available. We do not promise uninterrupted service, perfect accuracy, medical outcomes, or that every food trigger will be detected. Liability is limited to the extent allowed by applicable law.',
       },
       {
         title: 'Contact',
-        body: 'For questions about these terms, contact SensiBite at support@sensibite.ai or use the Contact page.',
+        body: 'For questions about these terms, contact DigestSnap at support@digestisnap.ai or use the Contact page.',
       },
     ],
   },
@@ -1055,7 +1125,7 @@ const legalPageContent: Record<
     sections: [
       {
         title: 'Before billing goes live',
-        body: 'SensiBite should show the plan price, renewal period, trial length, billing date, cancellation method, and refund rules before a user starts a paid plan.',
+        body: 'DigestSnap should show the plan price, renewal period, trial length, billing date, cancellation method, and refund rules before a user starts a paid plan.',
         items: [
           'Show the exact monthly or yearly price in the user-facing checkout.',
           'Show whether the trial is free, when it ends, and when billing starts.',
@@ -1065,7 +1135,7 @@ const legalPageContent: Record<
       },
       {
         title: 'How to cancel',
-        body: 'If you subscribed through an app store or payment provider, cancel through that same provider. If SensiBite bills you directly, cancellation should be available from your account dashboard after payment integration is enabled.',
+        body: 'If you subscribed through an app store or payment provider, cancel through that same provider. If DigestSnap bills you directly, cancellation should be available from your account dashboard after payment integration is enabled.',
       },
       {
         title: 'Refunds',
@@ -1080,19 +1150,19 @@ const legalPageContent: Record<
   contact: {
     eyebrow: 'Company',
     title: 'Contact',
-    lede: 'Reach SensiBite for product questions, partnerships, privacy requests, or account help.',
+    lede: 'Reach DigestSnap for product questions, partnerships, privacy requests, or account help.',
     sections: [
       {
         title: 'General contact',
-        body: 'Use this page for product questions, feedback, and non-urgent account questions. You can also contact support@sensibite.ai.',
+        body: 'Use this page for product questions, feedback, and non-urgent account questions. You can also contact support@digestisnap.ai.',
       },
       {
         title: 'Privacy requests',
-        body: 'For account deletion, data export, or privacy questions, include the email used for your SensiBite account so the request can be verified.',
+        body: 'For account deletion, data export, or privacy questions, include the email used for your DigestSnap account so the request can be verified.',
       },
       {
         title: 'Medical concerns',
-        body: 'SensiBite cannot answer urgent medical questions. If symptoms are severe, sudden, recurring, or dangerous, contact a doctor or emergency service.',
+        body: 'DigestSnap cannot answer urgent medical questions. If symptoms are severe, sudden, recurring, or dangerous, contact a doctor or emergency service.',
       },
     ],
   },
@@ -1144,7 +1214,7 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
             Home
           </button>
           <button className="text-lg font-black" onClick={() => navigate('/')} type="button">
-            SensiBite
+            DigestSnap
           </button>
         </header>
 
@@ -1181,7 +1251,7 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
               <div className="mt-7 rounded-[24px] bg-white p-5 shadow-sm ring-1 ring-zinc-950/[0.05]">
                 <p className="text-sm font-black">Important</p>
                 <p className="mt-2 text-xs font-semibold leading-5 text-zinc-500">
-                  SensiBite is a wellness tracker for personal pattern memory. It is not emergency care, diagnosis, or guaranteed allergy safety.
+                  DigestSnap is a wellness tracker for personal pattern memory. It is not emergency care, diagnosis, or guaranteed allergy safety.
                 </p>
               </div>
             </aside>
@@ -1249,7 +1319,7 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
 export function AboutPage({ navigate }: { navigate: Navigate }) {
   const principles: Array<[typeof Camera, string, string]> = [
     [Camera, 'Capture first', 'Food memory starts with the moment, not with a long form. A photo creates the first clean event.'],
-    [Activity, 'Check in later', 'Symptoms often arrive after the meal. SensiBite keeps the second signal simple enough to actually log.'],
+    [Activity, 'Check in later', 'Symptoms often arrive after the meal. DigestSnap keeps the second signal simple enough to actually log.'],
     [BarChart3, 'Learn from repeats', 'The product becomes useful when meals, timing, and reactions appear together more than once.'],
   ];
   const timeline: Array<[string, string, string]> = [
@@ -1277,12 +1347,12 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
 
         <section className="grid min-h-[calc(100vh-110px)] items-center gap-10 py-16 lg:grid-cols-[0.92fr_1.08fr]">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">About SensiBite</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">About DigestSnap</p>
             <h1 className="mt-5 max-w-[760px] text-[48px] font-black leading-[1.02] md:text-[78px]">
               Food memory for people who need proof, not guesses.
             </h1>
             <p className="mt-7 max-w-[680px] text-lg font-semibold leading-8 text-[#5f574d] md:text-2xl md:leading-10">
-              SensiBite exists because the hard part is not knowing that your stomach feels off. The hard part is remembering exactly what happened before it became obvious.
+              DigestSnap exists because the hard part is not knowing that your stomach feels off. The hard part is remembering exactly what happened before it became obvious.
             </p>
           </div>
 
@@ -1313,7 +1383,7 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
               </div>
               <h3 className="mt-6 text-2xl font-black">Built with caution</h3>
               <p className="mt-3 text-sm font-semibold leading-6 text-zinc-500">
-                SensiBite shows possible patterns. It avoids guaranteed safety claims and keeps health decisions in the user’s control.
+                DigestSnap shows possible patterns. It avoids guaranteed safety claims and keeps health decisions in the user’s control.
               </p>
             </article>
           </div>
@@ -1346,13 +1416,16 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
 }
 
 export function DashboardPage({ navigate, session }: { navigate: Navigate; session: Session }) {
-  const initialName = normalizeProfileName(session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'SensiBite user');
+  const initialName = normalizeProfileName(session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'DigestSnap user');
   const initialUsername = usernameFromName(initialName);
   const [storedProfile, setStoredProfile] = useState<StoredSensiProfile | null>(() => readStoredProfile(session.user.id));
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle');
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanProgressText, setScanProgressText] = useState('Analyzing image...');
   const [scanResult, setScanResult] = useState<ImageScanPayload | null>(null);
+  const [recentScans, setRecentScans] = useState<RecentScan[]>(() => readRecentScans(session.user.id));
   const [logs, setLogs] = useState<DashboardEntry[]>([]);
-  const [dashboardError, setDashboardError] = useState('');
+  const [, setDashboardError] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [profileName, setProfileName] = useState(initialName);
@@ -1361,6 +1434,27 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [profileDraftName, setProfileDraftName] = useState(initialName);
   const [profileDraftUsername, setProfileDraftUsername] = useState(initialUsername);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
+  const [goalDraft, setGoalDraft] = useState<StoredSensiProfile>(() => readStoredProfile(session.user.id) ?? {
+    age: 24,
+    allergies: [],
+    answers: {},
+    checkInsPerDay: 2,
+    dietType: 'No specific diet',
+    gender: 'Female',
+    goal: 'Find triggers',
+    heightCm: 170,
+    multiAnswers: {},
+    symptoms: [],
+    timelineWeeks: 6,
+    triggers: [],
+    unitSystem: 'metric',
+    weightKg: 64,
+  });
+
+  useEffect(() => {
+    if (isDarkMode) setIsDarkMode(false);
+  }, [isDarkMode]);
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
   const [language] = useState<'English' | 'Russian'>('English');
@@ -1369,11 +1463,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [cameraError, setCameraError] = useState('');
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [waterSheetOpen, setWaterSheetOpen] = useState(false);
+  const [waterUnit, setWaterUnit] = useState<WaterUnit>('oz');
+  const [waterMl, setWaterMl] = useState(0);
+  const [manualWaterAmount, setManualWaterAmount] = useState('');
+  const [streak, setStreak] = useState<StoredStreak>(() => readStoredStreak(session.user.id));
+  const [selectedHomeDate, setSelectedHomeDate] = useState(() => new Date().toDateString());
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const syncErrorMessage = 'Unable to sync entries. Please check your connection.';
-  const scanErrorMessage = 'Unable to analyze this right now. Please try again.';
 
   useEffect(() => {
     let active = true;
@@ -1494,7 +1592,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
     async function startCamera() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError('Camera is not available in this browser. Upload a photo instead.');
+        setCameraError('Camera is not available in this browser. Try opening DigestSnap in a browser with camera access.');
         return;
       }
 
@@ -1519,7 +1617,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           await videoRef.current.play().catch(() => undefined);
         }
       } catch {
-        setCameraError('Camera permission was blocked. Upload a photo instead.');
+        setCameraError('Camera permission was blocked. Allow camera access and try again.');
       }
     }
 
@@ -1558,6 +1656,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       setLogs((items) => items.map((item) => (item.id === optimisticEntry.id ? data : item)));
     }
 
+    setStreak((current) => touchStoredStreak(current, session.user.id));
     return true;
   };
 
@@ -1565,6 +1664,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     if (!file) return;
     setActiveTab('home');
     setScanState('scanning');
+    setScanProgress(4);
+    setScanProgressText('Analyzing image...');
     setDashboardError('');
     setSelectedFeeling(null);
     setResultSheetOpen(false);
@@ -1572,6 +1673,43 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       if (current) URL.revokeObjectURL(current);
       return URL.createObjectURL(file);
     });
+    let stableImageDataUrl = '';
+    try {
+      stableImageDataUrl = await fileToDataUrl(file);
+    } catch {
+      stableImageDataUrl = '';
+    }
+
+    const saveImageCheckError = async (imageDataUrl = stableImageDataUrl) => {
+      const errorResult = makeImageCheckErrorResult(file.name);
+      const errorScan: ImageScanPayload = { result: errorResult };
+      window.clearInterval(progressTimer);
+      setScanResult(errorScan);
+      setScanProgress(100);
+      setScanProgressText('Saved with image check error');
+      setScanState('done');
+      await saveEntry(`Image check error: ${file.name.replace(/\.[^.]+$/, '') || 'uploaded image'}`);
+      const recentScan: RecentScan = {
+        id: crypto.randomUUID(),
+        imageDataUrl,
+        result: errorResult,
+        createdAt: new Date().toISOString(),
+      };
+      setRecentScans((items) => {
+        const next = [recentScan, ...items].slice(0, 10);
+        saveRecentScans(next, session.user.id);
+        return next;
+      });
+      window.setTimeout(() => setResultSheetOpen(true), 450);
+    };
+
+    const progressTimer = window.setInterval(() => {
+      setScanProgress((current) => {
+        const next = Math.min(92, current + 7);
+        if (next > 58) setScanProgressText('Checking portions and context...');
+        return next;
+      });
+    }, 260);
 
     try {
       const result = await scanImageWithClientTimeout(file, {
@@ -1582,31 +1720,40 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       });
 
       if (isUnreadableScan(result.scan, result.usedFallback)) {
-        setScanResult(null);
-        setScanState('error');
-        setResultSheetOpen(false);
-        setDashboardError('Could not read the label clearly. Retake the photo with the label flat, closer, and in brighter light.');
+        await saveImageCheckError(result.compressedImage.imageBase64
+          ? `data:${result.compressedImage.mimeType};base64,${result.compressedImage.imageBase64}`
+          : stableImageDataUrl);
         return;
       }
 
+      window.clearInterval(progressTimer);
       setScanResult(result.scan);
+      setScanProgress(100);
+      setScanProgressText('Saved to Recently uploaded');
       setScanState('done');
-      setResultSheetOpen(true);
       await saveEntry(`${result.scan.result.overallRating}: ${result.scan.result.productName} scored ${result.scan.result.score}/100`);
+      const recentScan: RecentScan = {
+        id: crypto.randomUUID(),
+        imageDataUrl: result.compressedImage.imageBase64
+          ? `data:${result.compressedImage.mimeType};base64,${result.compressedImage.imageBase64}`
+          : stableImageDataUrl,
+        result: result.scan.result,
+        createdAt: new Date().toISOString(),
+      };
+      setRecentScans((items) => {
+        const next = [recentScan, ...items].slice(0, 10);
+        saveRecentScans(next, session.user.id);
+        return next;
+      });
+      window.setTimeout(() => setResultSheetOpen(true), 450);
     } catch (error) {
-      setScanState('error');
-      setDashboardError(scanErrorMessage);
+      await saveImageCheckError();
     }
   };
 
   const openCamera = () => {
     setResultSheetOpen(false);
     setCameraSheetOpen(true);
-  };
-
-  const openFilePicker = () => {
-    setCameraSheetOpen(false);
-    fileInputRef.current?.click();
   };
 
   const captureCameraFrame = async () => {
@@ -1621,18 +1768,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     canvas.height = video.videoHeight || 1080;
     const context = canvas.getContext('2d');
     if (!context) {
-      setCameraError('Unable to capture this frame. Upload a photo instead.');
+      setCameraError('Unable to capture this frame. Try again with the label inside the square.');
       return;
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
     if (!blob) {
-      setCameraError('Unable to capture this frame. Upload a photo instead.');
+      setCameraError('Unable to capture this frame. Try again with the label inside the square.');
       return;
     }
 
-    const file = new File([blob], `sensibite-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    const file = new File([blob], `digestisnap-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
     setCameraSheetOpen(false);
     await runImageScan(file);
   };
@@ -1714,7 +1861,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }
   };
 
-  const visibleLogs = logs.filter((item) => !/check-in saved/i.test(item.title));
+  const visibleLogs = logs.filter((item) => !/check-in saved|unreadable label|image check error/i.test(item.title));
   const hasActivity = visibleLogs.length > 0 || Boolean(scanResult);
   const isRussian = language === 'Russian';
   const scanCount = visibleLogs.length;
@@ -1722,44 +1869,78 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const latestTitle = scanResult?.result.productName ?? visibleLogs[0]?.title ?? '';
   const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
   const profileBmi = getBmiFromProfile(storedProfile);
-  const homePulseCards: Array<[typeof Camera, string, string, string, string]> = [
-    [
-      ScanLine,
-      isRussian ? 'Сканы' : 'Scans',
-      hasActivity ? String(scanCount) : '0',
-      hasActivity ? (isRussian ? 'сохранено' : 'saved') : (isRussian ? 'начните' : 'start'),
-      isDarkMode ? 'bg-white/[0.07] text-white ring-white/10' : 'bg-[#fff0d6] text-[#2a2118] ring-[#f0cf95]',
+  const today = new Date();
+  const homeWeek = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - today.getDay() + index);
+    return {
+      day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      date: String(date.getDate()),
+      key: date.toDateString(),
+      selected: date.toDateString() === selectedHomeDate,
+      future: date > today,
+    };
+  });
+  const checkInCount = logs.filter((item) => /check-in saved/i.test(item.title)).length;
+  const latestScore = scanResult?.result.score ?? null;
+  const latestRating = scanResult?.result.overallRating ?? null;
+  const healthScoreBarColor =
+    gutScoreOutOfTen === null
+      ? 'bg-zinc-200'
+      : gutScoreOutOfTen >= 7
+        ? 'bg-emerald-500'
+        : gutScoreOutOfTen >= 5
+          ? 'bg-yellow-400'
+          : 'bg-red-500';
+  const healthScoreBarWidth = gutScoreOutOfTen === null ? '0%' : `${gutScoreOutOfTen * 10}%`;
+  const healthScoreExplanation =
+    gutScoreOutOfTen === null
+      ? 'Track a couple foods to generate your health score'
+      : 'Your health score reflects recent scan ratings and logged reactions';
+  const waterCups = waterMl / 250;
+  const waterOz = waterMl / 29.5735;
+  const waterValue =
+    waterUnit === 'cups'
+      ? waterCups
+      : waterUnit === 'oz'
+        ? waterOz
+        : waterMl;
+  const waterValueLabel = waterValue % 1 === 0 ? String(waterValue) : waterValue.toFixed(1);
+  const waterCardLabel = `${Math.round(waterOz)} fl oz (${Math.round(waterCups)} cups)`;
+  const manualWaterNumber = Number(manualWaterAmount);
+  const manualWaterMl =
+    Number.isFinite(manualWaterNumber) && manualWaterNumber > 0
+      ? waterUnit === 'cups'
+        ? manualWaterNumber * 250
+        : waterUnit === 'oz'
+          ? manualWaterNumber * 29.5735
+          : manualWaterNumber
+      : 0;
+  const waterQuickAdds: Record<WaterUnit, Array<{ label: string; amount: string; ml: number }>> = {
+    cups: [
+      { label: '+1 Glass', amount: '1 cup', ml: 250 },
+      { label: '+1 Bottle', amount: '2 cups', ml: 500 },
+      { label: '+1 Large Bottle', amount: '3 cups', ml: 750 },
     ],
-    [
-      Activity,
-      isRussian ? 'Самочувствие' : 'Feeling',
-      selectedFeeling ?? (hasActivity ? 'Later' : 'Tap'),
-      isRussian ? 'после еды' : 'after eating',
-      isDarkMode ? 'bg-white/[0.07] text-white ring-white/10' : 'bg-[#f3edff] text-[#261b3f] ring-[#d7c7ff]',
+    oz: [
+      { label: '+1 Glass', amount: '8 oz', ml: 250 },
+      { label: '+1 Bottle', amount: '16 oz', ml: 500 },
+      { label: '+1 Large Bottle', amount: '24 oz', ml: 750 },
     ],
-    [
-      BarChart3,
-      isRussian ? 'Паттерн' : 'Pattern',
-      hasActivity ? 'Building' : 'Ready',
-      isRussian ? 'из повторов' : 'from repeats',
-      isDarkMode ? 'bg-white/[0.07] text-white ring-white/10' : 'bg-[#eaf2ff] text-[#13233f] ring-[#c8dcff]',
+    ml: [
+      { label: '+1 Glass', amount: '250 mL', ml: 250 },
+      { label: '+1 Bottle', amount: '500 mL', ml: 500 },
+      { label: '+1 Large Bottle', amount: '750 mL', ml: 750 },
     ],
-  ];
-  const navItems: Array<{ id: DashboardTab; label: string; icon: typeof Home }> = [
-    { id: 'home', label: isRussian ? 'Главная' : 'Home', icon: Home },
-    { id: 'progress', label: isRussian ? 'Паттерны' : 'Patterns', icon: BarChart3 },
-    { id: 'profile', label: isRussian ? 'Профиль' : 'Profile', icon: User },
-  ];
+  };
   const theme = {
-    app: isDarkMode ? 'bg-[#050505] text-white' : 'bg-[#fffaf0] text-zinc-950',
-    card: isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.05]' : 'bg-white text-zinc-950 ring-zinc-950/[0.05]',
-    soft: isDarkMode ? 'bg-white/[0.06] text-white ring-white/[0.05]' : 'bg-[#fff4df] text-zinc-950 ring-[#edd6ac]',
-    input: isDarkMode
-      ? 'border-white/[0.12] bg-[#101012] text-white placeholder:text-white/30 focus:border-white/30 focus:ring-white/20'
-      : 'border-zinc-200 bg-white text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-zinc-950/15',
-    muted: isDarkMode ? 'text-white/[0.52]' : 'text-zinc-500',
-    faint: isDarkMode ? 'text-white/[0.35]' : 'text-zinc-400',
-    line: isDarkMode ? 'border-white/10' : 'border-zinc-200',
+    app: 'bg-white text-zinc-950',
+    card: 'bg-white text-zinc-950 ring-black/[0.03]',
+    soft: 'bg-zinc-100 text-zinc-950 ring-black/[0.03]',
+    input: 'border-zinc-200 bg-white text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-zinc-950/15',
+    muted: 'text-zinc-500',
+    faint: 'text-zinc-400',
+    line: 'border-zinc-200',
   };
   const copy = {
     aiResult: isRussian ? 'Результат AI' : 'AI result',
@@ -1767,9 +1948,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     score: isRussian ? 'балл' : 'score',
     noMajorFlags: isRussian ? 'Сильных сигналов нет' : 'No major flags',
     noMajorFlagsReason: isRussian
-      ? 'SensiBite не нашел сильный сигнал в этом скане.'
-      : 'SensiBite did not find a strong issue in this scan.',
-    scanAgain: isRussian ? 'Сканировать еще' : 'Scan again',
+      ? 'DigestSnap не нашел сильный сигнал в этом скане.'
+      : 'DigestSnap did not find a strong issue in this scan.',
     saveToTimeline: isRussian ? 'Сохранить самочувствие' : 'Save feeling',
     profileDetails: isRussian ? 'Профиль' : 'Profile details',
     name: isRussian ? 'Имя' : 'Name',
@@ -1786,8 +1966,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     deleteAccount: isRussian ? 'Удалить аккаунт' : 'Delete Account',
     deleteTitle: isRussian ? 'Удалить аккаунт?' : 'Delete account?',
     deleteBody: isRussian
-      ? 'Это удалит ваш аккаунт и выйдет из SensiBite на этом устройстве.'
-      : 'This permanently deletes your account and signs you out of SensiBite on this device.',
+      ? 'Это удалит ваш аккаунт и выйдет из DigestSnap на этом устройстве.'
+      : 'This permanently deletes your account and signs you out of DigestSnap on this device.',
     cancel: isRussian ? 'Отмена' : 'Cancel',
     deleteConfirm: isRussian ? 'Удалить навсегда' : 'Delete permanently',
     deleteError: isRussian ? 'Не удалось удалить аккаунт. Попробуйте позже.' : 'Unable to delete account. Please try again.',
@@ -1798,71 +1978,167 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     if (rating === 'Avoid') return 'Избегать';
     return 'Осторожно';
   };
-  const cardClass = cn('rounded-[30px] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card);
+  const ratingTone = (rating: ImageScanPayload['result']['overallRating']) => {
+    if (rating === 'Avoid') {
+      return {
+        block: 'bg-red-50 text-red-950 ring-red-200',
+        badge: 'bg-red-600 text-white',
+        circle: 'bg-red-600 text-white ring-red-200',
+        bar: 'bg-red-600',
+        muted: 'text-red-800/75',
+        chip: 'bg-white text-red-950 ring-red-200',
+      };
+    }
+
+    if (rating === 'Caution') {
+      return {
+        block: 'bg-amber-50 text-amber-950 ring-amber-200',
+        badge: 'bg-amber-500 text-amber-950',
+        circle: 'bg-amber-500 text-amber-950 ring-amber-200',
+        bar: 'bg-amber-500',
+        muted: 'text-amber-900/70',
+        chip: 'bg-white text-amber-950 ring-amber-200',
+      };
+    }
+
+    return {
+      block: 'bg-emerald-50 text-emerald-950 ring-emerald-200',
+      badge: 'bg-emerald-600 text-white',
+      circle: 'bg-emerald-600 text-white ring-emerald-200',
+      bar: 'bg-emerald-600',
+      muted: 'text-emerald-900/70',
+      chip: 'bg-white text-emerald-950 ring-emerald-200',
+    };
+  };
+  const resultVibe = (result: ImageScanPayload['result']) => {
+    if (isImageCheckErrorResult(result)) {
+      return 'DigestSnap saved the image, but the scan was not clear enough to trust. Retake it sharper if you want the real read';
+    }
+
+    if (result.overallRating === 'Avoid') {
+      return 'This is a skip for now. The scan has enough red flags that it is more likely to be a bad bet for your stomach';
+    }
+
+    if (result.overallRating === 'Caution') {
+      return 'Not an instant no, but do not treat it like a clean win. Log how you feel later and see if it keeps showing up';
+    }
+
+    return 'Looks solid enough to keep in rotation. Still check in later so DigestSnap learns your actual reaction';
+  };
+  const getBetterAlternative = (result: ImageScanPayload['result']) => {
+    if (isImageCheckErrorResult(result)) return null;
+
+    const name = result.productName.toLowerCase();
+    const flagged = result.flaggedChemicals.map((item) => `${item.chemicalName} ${item.reason}`.toLowerCase()).join(' ');
+
+    if (name.includes('soda') || name.includes('cola') || name.includes('fuse') || flagged.includes('sugar') || flagged.includes('sweetener')) {
+      return {
+        title: 'Sparkling water with lemon',
+        reason: 'Lower sugar and easier to log as a repeat drink pattern',
+      };
+    }
+
+    if (name.includes('fried') || name.includes('burger') || name.includes('fries') || flagged.includes('oil')) {
+      return {
+        title: 'Grilled bowl with rice and sauce on the side',
+        reason: 'Keeps the meal filling while reducing fried oil and heavy sauce signals',
+      };
+    }
+
+    if (name.includes('bread') || name.includes('pastry') || name.includes('cookie') || flagged.includes('flour')) {
+      return {
+        title: 'Protein yogurt with berries',
+        reason: 'Still quick, but gives DigestSnap a cleaner baseline than refined flour',
+      };
+    }
+
+    if (name.includes('milk') || name.includes('cream') || name.includes('dairy') || flagged.includes('dairy')) {
+      return {
+        title: 'Lactose-free yogurt or oat-based option',
+        reason: 'A gentler swap if dairy keeps showing up before discomfort',
+      };
+    }
+
+    return result.score >= 75
+      ? {
+          title: 'Keep this as a baseline meal',
+          reason: 'This looks like a useful comparison meal for future check-ins',
+        }
+      : {
+          title: 'Simple whole-food bowl',
+          reason: 'Choose a clearer ingredient list so patterns are easier to trust',
+        };
+  };
+  const betterAlternative = scanResult ? getBetterAlternative(scanResult.result) : null;
+  const isResultImageCheckError = scanResult ? isImageCheckErrorResult(scanResult.result) : false;
+  const resultTone = scanResult ? ratingTone(scanResult.result.overallRating) : ratingTone('Caution');
+  const resultReasons = scanResult
+    ? (scanResult.result.flaggedChemicals.length ? scanResult.result.flaggedChemicals : [
+        {
+          chemicalName: copy.noMajorFlags,
+          severity: scanResult.result.overallRating,
+          reason: copy.noMajorFlagsReason,
+        },
+      ]).slice(0, 3)
+    : [];
+  const cardClass = cn('rounded-[24px] bg-white p-5 shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card);
+  const normalizedStreak = normalizeStreak(streak);
+  const activeStreak = normalizedStreak.count;
+  const maxStreak = normalizedStreak.maxCount;
+  const daysSinceLastLog = normalizedStreak.lastLoggedAt
+    ? Math.max(0, Math.floor((Date.now() - Date.parse(normalizedStreak.lastLoggedAt)) / ONE_DAY_MS))
+    : 0;
   const openProfileEditor = () => {
     setProfileDraftName(profileName);
     setProfileDraftUsername(profileUsername);
     setProfileSheetOpen(true);
   };
-  const dashboardNoticeIsSuccess =
-    dashboardError.includes('updated') ||
-    dashboardError.includes('changed') ||
-    dashboardError.includes('created') ||
-    dashboardError.includes('saved');
-  const dashboardNoticeTitle = dashboardNoticeIsSuccess ? dashboardError.replace('.', '') : dashboardError === scanErrorMessage ? 'Scan issue' : 'Notice';
-
+  const openGoalsEditor = () => {
+    const latestProfile = readStoredProfile(session.user.id) ?? storedProfile ?? goalDraft;
+    setGoalDraft(latestProfile);
+    setGoalsSheetOpen(true);
+  };
+  const updateGoalDraftList = (key: 'allergies' | 'symptoms' | 'triggers', value: string) => {
+    setGoalDraft((current) => ({
+      ...current,
+      [key]: value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    }));
+  };
+  const saveGoalDetails = () => {
+    try {
+      window.localStorage.setItem(profileStorageKey(session.user.id), JSON.stringify(goalDraft));
+    } catch {
+      // Keep the in-memory draft if local storage is unavailable.
+    }
+    setStoredProfile(goalDraft);
+    setGoalsSheetOpen(false);
+  };
   const progressPage = (
-    <div className="space-y-5">
-      <h1 className="text-[44px] font-black leading-none">{isRussian ? 'Паттерны' : 'Patterns'}</h1>
-
-      <div className={cn(cardClass, 'overflow-hidden')}>
-        <div className="flex items-start justify-between gap-5">
-          <div className="min-w-0">
-            <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
-              {hasActivity ? (isRussian ? 'Последний результат' : 'Latest result') : (isRussian ? 'Первый шаг' : 'First step')}
-            </p>
-            <h2 className="mt-3 text-3xl font-black leading-none">
-              {hasActivity ? (latestTitle || (isRussian ? 'Скан сохранен' : 'Scan saved')) : (isRussian ? 'Сканируйте этикетку' : 'Scan a label')}
-            </h2>
-            <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
-              {hasActivity
-                ? latestReason || (isRussian ? 'Новые сканы будут сравниваться с этим результатом.' : 'Future scans will compare against this first food event.')
-                : (isRussian ? 'Сделайте четкое фото состава. Размытые фото не будут сохраняться.' : 'Take a clear ingredient photo. Blurry scans will be rejected instead of polluting your history.')}
-            </p>
-          </div>
-          <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
-            <span className="text-3xl font-black">{gutScoreOutOfTen ? `${gutScoreOutOfTen}` : '--'}</span>
-            <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{isRussian ? 'балл' : 'score'}</span>
-          </div>
-        </div>
-
-        <button
-          className={cn('mt-6 h-14 w-full rounded-full text-base font-black transition active:scale-[0.98]', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
-          onClick={openCamera}
-          type="button"
-        >
-          {hasActivity ? (isRussian ? 'Сканировать еще' : 'Scan another label') : (isRussian ? 'Открыть камеру' : 'Open camera')}
+    <div className="min-h-full space-y-4 pb-6 pt-[max(28px,env(safe-area-inset-top))]">
+      <div className="flex items-center justify-between px-1">
+        <button className="flex h-11 w-11 items-center justify-center rounded-full text-black transition active:scale-95" onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
+          <ArrowLeft className="h-6 w-6" />
+        </button>
+        <h1 className="text-[33px] font-black leading-none">{isRussian ? 'Прогресс' : 'Progress'}</h1>
+        <button className="flex h-11 w-11 items-center justify-center rounded-full text-black transition active:scale-95" onClick={() => setActiveTab('profile')} type="button" aria-label="Open profile">
+          <CircleUserRound className="h-9 w-9 stroke-[2.4]" />
         </button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         {[
-          [isRussian ? 'Сканы' : 'Scans', String(scanCount), isRussian ? 'сохранено' : 'saved', ScanLine],
-          [isRussian ? 'Серия' : 'Streak', hasActivity ? '1' : '0', isRussian ? 'день' : 'day', Flame],
-          [isRussian ? 'Сигналы' : 'Signals', hasActivity ? 'Building' : 'No signal yet', isRussian ? 'после сканов' : 'after scans', Activity],
-          [isRussian ? 'База' : 'Baseline', hasActivity ? 'Set' : 'Empty', isRussian ? 'после первого скана' : 'after first scan', Target],
-        ].map(([label, value, helper, Icon], index) => (
+          ['Current streak', String(activeStreak), 'days', Flame],
+          ['Best streak', String(maxStreak), 'max', Target],
+          ['Scans', String(scanCount), 'saved', ScanLine],
+          ['Last log', normalizedStreak.lastLoggedAt ? (daysSinceLastLog === 0 ? 'Today' : `${daysSinceLastLog}d ago`) : 'None', 'activity', Activity],
+        ].map(([label, value, helper, Icon]) => (
           <div
             className={cn(
-              'min-h-[138px] rounded-[30px] p-5 text-left shadow-[0_20px_50px_rgba(0,0,0,0.10)] ring-1 transition-colors duration-700',
-              isDarkMode
-                ? theme.card
-                : [
-                    'bg-[#fff0d6] text-[#2a2118] ring-[#f0cf95]',
-                    'bg-[#fff8e8] text-[#2a2118] ring-[#edd6ac]',
-                    'bg-[#f3edff] text-[#261b3f] ring-[#d7c7ff]',
-                    'bg-[#eaf2ff] text-[#13233f] ring-[#c8dcff]',
-                  ][index],
+              'min-h-[126px] rounded-[24px] bg-white p-5 text-left text-zinc-950 shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700',
+              isDarkMode && theme.card,
             )}
             key={String(label)}
           >
@@ -1874,9 +2150,55 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         ))}
       </div>
 
+      {hasActivity && (
+        <>
+          <div className={cn(cardClass, 'overflow-hidden')}>
+            <div className="flex items-start justify-between gap-5">
+              <div className="min-w-0">
+                <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
+                  {isRussian ? 'Последний скан' : 'Latest scan'}
+                </p>
+                <h2 className="mt-3 text-3xl font-black leading-none">
+                  {latestTitle || (isRussian ? 'Скан сохранен' : 'Scan saved')}
+                </h2>
+                <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
+                  {latestReason || (isRussian ? 'Этот скан теперь в вашем таймлайне.' : 'This scan is now saved in your timeline.')}
+                </p>
+              </div>
+              <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 ring-black/[0.03]')}>
+                <span className="text-3xl font-black">{gutScoreOutOfTen}</span>
+                <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{isRussian ? 'балл' : 'score'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              [isRussian ? 'Сканы' : 'Scans', String(scanCount), isRussian ? 'сохранено' : 'saved', ScanLine],
+              [isRussian ? 'Самочувствие' : 'Check-ins', String(checkInCount), isRussian ? 'отмечено' : 'saved', Activity],
+              [isRussian ? 'Последний' : 'Latest', latestRating ?? 'None', isRussian ? 'результат' : 'result', Target],
+              [isRussian ? 'BMI' : 'BMI', profileBmi?.display ?? '--', isRussian ? 'из профиля' : 'from setup', Flame],
+            ].map(([label, value, helper, Icon]) => (
+              <div
+                className={cn(
+                  'min-h-[130px] rounded-[24px] bg-white p-5 text-left text-zinc-950 shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700',
+                  isDarkMode && theme.card,
+                )}
+                key={String(label)}
+              >
+                <Icon className="h-6 w-6 opacity-70" />
+                <p className="mt-5 text-3xl font-black">{value as string}</p>
+                <p className="mt-1 text-sm font-black opacity-70">{label as string}</p>
+                <p className="mt-1 text-xs font-semibold opacity-45">{helper as string}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className={cardClass}>
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-2xl font-black">{isRussian ? 'История еды' : 'Food history'}</h2>
+          <h2 className="text-2xl font-black">{isRussian ? 'Таймлайн' : 'Timeline'}</h2>
           <span className={cn('rounded-full px-3 py-1.5 text-xs font-black', theme.soft)}>{String(scanCount)}</span>
         </div>
 
@@ -1897,10 +2219,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           )) : (
             <div className={cn('rounded-[24px] p-5 text-center', theme.soft)}>
               <ScanLine className={cn('mx-auto h-8 w-8', theme.muted)} />
-              <p className="mt-3 text-base font-black">{isRussian ? 'История начнется после скана' : 'History starts after one scan'}</p>
-              <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>
-                {isRussian ? 'Здесь будут только ваши сохраненные результаты.' : 'Only your saved scan results appear here.'}
-              </p>
+              <p className="mt-3 text-base font-black">{isRussian ? 'Пусто' : 'Empty'}</p>
             </div>
           )}
         </div>
@@ -1909,15 +2228,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       <div className={cn(cardClass, 'overflow-hidden')}>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>{isRussian ? 'Профиль тела' : 'Body profile'}</p>
-            <h2 className="mt-3 text-3xl font-black leading-none">{isRussian ? 'BMI' : 'BMI'}</h2>
+            <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>{isRussian ? 'Вес' : 'Weight progress'}</p>
+            <h2 className="mt-3 text-3xl font-black leading-none">
+              {storedProfile ? `${storedProfile.weightKg} kg` : '--'}
+            </h2>
             <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
               {profileBmi
-                ? (isRussian ? 'Рассчитано из роста и веса, которые вы указали в настройке.' : `Calculated from your saved setup: ${profileBmi.range}.`)
-                : (isRussian ? 'Заполните рост и вес в настройке, чтобы увидеть BMI.' : 'Finish setup with height and weight to unlock your BMI baseline.')}
+                ? (isRussian ? 'Рассчитано из роста и веса, которые вы указали в настройке.' : `BMI ${profileBmi.display} · ${profileBmi.range}`)
+                : (isRussian ? 'Заполните рост и вес в настройке, чтобы увидеть BMI.' : 'Finish setup with height and weight to unlock your baseline')}
             </p>
           </div>
-          <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-50 ring-zinc-200')}>
+          <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 ring-black/[0.03]')}>
             <span className="text-3xl font-black">{profileBmi?.display ?? '--'}</span>
             <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{profileBmi?.category ?? (isRussian ? 'нет' : 'none')}</span>
           </div>
@@ -1928,7 +2249,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           <div
             className={cn(
               'absolute top-1/2 h-8 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.92)] transition-all duration-500',
-              isDarkMode ? 'bg-white' : 'bg-zinc-950',
+              isDarkMode ? 'bg-white' : 'bg-black',
             )}
             style={{ left: `${profileBmi?.pointer ?? 0}%` }}
           />
@@ -1946,9 +2267,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               className={cn(
                 'rounded-[16px] px-2 py-3 text-center text-[11px] font-black transition-colors',
                 profileBmi?.category === label
-                  ? isDarkMode
-                    ? 'bg-white text-zinc-950'
-                    : 'bg-zinc-950 text-white'
+                  ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/10'
                   : theme.soft,
               )}
               key={label}
@@ -1963,7 +2282,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   const profileRows = [
     { label: 'Personal Details', icon: ClipboardList, action: openProfileEditor },
-    { label: isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode', icon: Moon, action: () => setIsDarkMode((value) => !value) },
+    { label: 'Edit Goals', icon: Target, action: openGoalsEditor },
     { label: 'Manage Subscription', icon: ShieldCheck, action: () => navigate('/manage-subscription') },
   ];
   const supportRows = [
@@ -1978,12 +2297,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       <ChevronRight className={cn('h-6 w-6 shrink-0', theme.muted)} />
     </button>
   );
-
   const profilePage = (
-    <div className="space-y-7">
-      <h1 className="text-[46px] font-black leading-none">Profile</h1>
+    <div className="min-h-full space-y-4 pb-6 pt-[max(28px,env(safe-area-inset-top))]">
+      <div className="flex items-center justify-between px-1">
+        <button className="flex h-11 w-11 items-center justify-center rounded-full text-black transition active:scale-95" onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
+          <ArrowLeft className="h-6 w-6" />
+        </button>
+        <h1 className="text-[33px] font-black leading-none">Profile</h1>
+        <div className="h-11 w-11" />
+      </div>
       <button className={cn(cardClass, 'flex w-full items-center gap-5 text-left transition active:scale-[0.99]')} onClick={openProfileEditor} type="button">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-black text-white">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-inner ring-1 ring-zinc-950/10">
           <User className="h-9 w-9" />
         </div>
         <div className="min-w-0 flex-1">
@@ -1994,23 +2318,38 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         <ChevronRight className={cn('h-7 w-7', theme.muted)} />
       </button>
 
+      <div className={cn(cardClass, 'flex items-center justify-between gap-5')}>
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-[30px] shadow-inner">
+            🔥
+          </div>
+          <div>
+            <p className="text-2xl font-black">{activeStreak}</p>
+            <p className={cn('text-sm font-black', theme.muted)}>Day streak</p>
+          </div>
+        </div>
+        <p className={cn('max-w-[180px] text-right text-xs font-semibold leading-5', theme.muted)}>
+          Log once every 24 hours to keep it alive
+        </p>
+      </div>
+
       <div>
-        <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Account</p>
-        <div className={cn('overflow-hidden rounded-[30px] shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card)}>
+        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>Account</p>
+        <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
           {profileRows.map(renderRow)}
         </div>
       </div>
 
       <div>
-        <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Support & Legal</p>
-        <div className={cn('overflow-hidden rounded-[30px] shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card)}>
+        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>Support & Legal</p>
+        <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
           {supportRows.map(renderRow)}
         </div>
       </div>
 
       <div>
-        <p className={cn('mb-4 text-2xl font-black', theme.muted)}>Account Actions</p>
-        <div className={cn('overflow-hidden rounded-[30px] shadow-[0_20px_50px_rgba(0,0,0,0.12)] ring-1 transition-colors duration-700', theme.card)}>
+        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>Account Actions</p>
+        <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
           <button className={cn('flex min-h-[66px] w-full items-center gap-4 border-b px-5 text-left transition active:scale-[0.99]', theme.line)} onClick={signOut} type="button">
             <LogOut className="h-6 w-6" />
             <span className="flex-1 text-xl font-black">Logout</span>
@@ -2027,26 +2366,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   );
 
   return (
-    <AppFrame darkMode={isDarkMode} fullScreen>
-      <div className={cn('relative flex h-full w-full flex-col overflow-hidden px-5 pb-0 pt-6 transition-colors duration-700 md:px-8 xl:px-10', theme.app)}>
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-12%,rgba(255,255,255,0.08),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent_34%)]" />
-        <div className="relative z-10 flex items-center justify-between">
-          {activeTab === 'home' ? <div className="h-11 w-11" /> : (
-            <button className={cn('flex h-11 w-11 items-center justify-center rounded-full transition active:scale-95', theme.soft)} onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          )}
-          <button
-            aria-label="Toggle dark mode"
-            className={cn('flex h-11 w-11 items-center justify-center rounded-full shadow-sm ring-1 transition-all duration-700 active:scale-[0.96]', theme.card)}
-            onClick={() => setIsDarkMode((value) => !value)}
-            type="button"
-          >
-            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
+    <AppFrame darkMode={false} fullScreen>
+      <div className={cn('relative flex h-full w-full flex-col overflow-hidden px-4 pb-0 pt-0 transition-colors duration-700 sm:px-6 lg:px-10 2xl:px-14', theme.app)}>
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute left-1/2 top-[-220px] h-[560px] w-[960px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.96)_0%,rgba(245,240,248,0.92)_34%,rgba(230,223,236,0.40)_58%,transparent_76%)] blur-3xl" />
+          <div className="absolute bottom-[-260px] left-[-180px] h-[520px] w-[640px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.88)_0%,rgba(233,228,238,0.52)_52%,transparent_76%)] blur-3xl" />
+          <div className="absolute bottom-[-220px] right-[-140px] h-[520px] w-[620px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.82)_0%,rgba(226,222,232,0.46)_50%,transparent_74%)] blur-3xl" />
         </div>
 
-        <div className="relative z-10 mx-auto min-h-0 w-full max-w-[760px] flex-1 overflow-y-auto pb-32 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className={cn('relative z-10 mx-auto min-h-0 w-full flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', activeTab === 'home' ? 'max-w-[1440px] pb-36 pt-0' : 'max-w-[1120px] pb-36 pt-0')}>
           <AnimatePresence mode="wait">
             <motion.div
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -2057,180 +2385,209 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               {activeTab === 'home' && (
-              <>
-                <div className="mt-6 flex items-end justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
-                      {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
-                    </p>
-                    <h1 className="mt-2 truncate text-[38px] font-black leading-none">
-                      {profileName.split(' ')[0] || 'SensiBite'}
-                    </h1>
-                  </div>
+              <div className="min-h-full pb-8 pt-[max(22px,env(safe-area-inset-top))]">
+                <div className="flex items-center justify-between px-1 lg:mx-auto lg:max-w-[1120px]">
                   <button
-                    className={cn('flex h-12 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-black shadow-sm ring-1 transition active:scale-[0.98]', theme.card)}
-                    onClick={openCamera}
+                    aria-label="Open profile"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-black transition hover:bg-white/70 active:scale-95"
+                    onClick={() => setActiveTab('profile')}
                     type="button"
                   >
-                    <Camera className="h-4 w-4" />
-                    Scan
+                    <CircleUserRound className="h-9 w-9 stroke-[2.4]" />
                   </button>
+                  <div className="text-center">
+                    <h1 className="text-[33px] font-black leading-none md:text-[38px]">DigestSnap</h1>
+                  </div>
+                  <div className="h-11 w-11" />
                 </div>
 
-                <div className="mt-6 grid grid-cols-3 gap-2.5">
-                  {homePulseCards.map(([Icon, label, value, helper, className]) => (
-                    <div
-                      className={cn('min-h-[112px] rounded-[26px] p-3.5 shadow-[0_16px_38px_rgba(32,24,12,0.08)] ring-1 transition duration-300', className)}
-                      key={label}
+                <div className="mt-7 grid grid-cols-7 px-1 text-center lg:mx-auto lg:max-w-[760px]">
+                  {homeWeek.map(({ day, date, key, selected, future }) => (
+                    <button
+                      className="flex min-h-[74px] flex-col items-center gap-3 rounded-[18px] transition hover:bg-white/60 active:scale-[0.97]"
+                      key={`${day}-${date}`}
+                      onClick={() => setSelectedHomeDate(key)}
+                      type="button"
                     >
-                      <Icon className="h-5 w-5" />
-                      <p className="mt-4 truncate text-[22px] font-black leading-none">{value}</p>
-                      <p className="mt-1 truncate text-[12px] font-black">{label}</p>
-                      <p className="mt-1 truncate text-[10px] font-bold opacity-55">{helper}</p>
-                    </div>
+                      <span className="text-[15px] font-black md:text-[16px]">{day}</span>
+                      <span className={cn('flex h-9 w-9 items-center justify-center rounded-full text-[16px] font-black md:h-10 md:w-10 md:text-[18px]', selected ? 'bg-white text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.12)] ring-1 ring-zinc-950/10' : future ? 'text-zinc-400' : 'text-black')}>
+                        {date}
+                      </span>
+                    </button>
                   ))}
                 </div>
 
-                <section
-                  className={cn(
-                    'mt-5 overflow-hidden rounded-[36px] p-5 shadow-[0_24px_70px_rgba(36,24,8,0.16)] ring-1 transition-colors duration-700',
-                    isDarkMode ? theme.card : 'bg-[linear-gradient(145deg,#ffffff_0%,#fff6e5_56%,#eef5ff_100%)] text-zinc-950 ring-[#ead3aa]',
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
-                        {hasActivity ? (isRussian ? 'Последний скан' : 'Latest scan') : (isRussian ? 'Начните здесь' : 'Start here')}
-                      </p>
-                      <h2 className="mt-3 text-[34px] font-black leading-[0.98]">
-                        {hasActivity ? (latestTitle || 'Scan saved') : (isRussian ? 'Сфотографируйте этикетку' : 'Scan the label')}
-                      </h2>
-                      <p className={cn('mt-3 max-w-[520px] text-sm font-semibold leading-6', theme.muted)}>
-                        {hasActivity
-                          ? latestReason || 'Result saved. Add a later feeling check-in when your body reacts.'
-                          : 'Fill the camera square with the ingredients. If the label is blurry, SensiBite will ask you to retake it instead of saving a weak result.'}
-                      </p>
+                <div className="mt-8 space-y-5">
+                  <div className="w-full rounded-[34px] bg-white px-6 py-8 text-center shadow-[0_14px_42px_rgba(15,15,15,0.07)] ring-1 ring-black/[0.05] md:px-10 md:py-10">
+                    <div className="mx-auto flex h-[104px] w-[104px] items-center justify-center rounded-full bg-zinc-100 shadow-inner">
+                      <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-white shadow-inner">
+                        <Camera className="h-8 w-8 text-black" />
+                      </div>
                     </div>
-                    <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1 shadow-inner', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-white/70 ring-[#e8d2aa]')}>
-                      <Camera className="h-7 w-7" />
-                      <span className={cn('mt-1 text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>AI</span>
+                    <div className="mt-6 flex items-end justify-center gap-1">
+                      <span className="text-[52px] font-black leading-none tracking-normal md:text-[68px]">{latestScore ?? 'Ready'}</span>
+                      {latestScore !== null && <span className="pb-2 text-[25px] font-black text-zinc-400">/100</span>}
                     </div>
+                    <p className="mx-auto mt-3 max-w-[520px] text-[15px] font-black leading-6 text-zinc-500 md:text-base">
+                      {latestScore !== null ? latestRating : 'Your first scan will start your food timeline'}
+                    </p>
                   </div>
 
-                  {scanState === 'scanning' && (
-                    <div className={cn('mt-4 rounded-[22px] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] ring-1', isDarkMode ? 'bg-[#1b1b1d] text-white ring-white/[0.06]' : 'bg-white text-zinc-950 ring-zinc-950/[0.05]')}>
-                      <div className="flex items-center gap-4">
-                        <div className={cn('relative h-14 w-14 overflow-hidden rounded-[18px]', isDarkMode ? 'bg-white/10' : 'bg-[#f2f1f8]')}>
-                          <div className={cn('absolute inset-0 animate-pulse bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.76),transparent)]', isDarkMode && 'opacity-35')} />
-                          <div className={cn('absolute inset-3 rounded-full border-4', isDarkMode ? 'border-white/[0.15] border-t-zinc-300' : 'border-zinc-200 border-t-zinc-950')} />
-                        </div>
+                  <div className="grid grid-cols-2 gap-5">
+                    <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_30px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] md:p-7">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-black">Analyzing food...</p>
-                          <div className="mt-3 space-y-2">
-                            <div className={cn('h-2 w-full rounded-full', isDarkMode ? 'bg-white/[0.18]' : 'bg-zinc-100')} />
-                            <div className={cn('h-2 w-2/3 rounded-full', isDarkMode ? 'bg-white/[0.18]' : 'bg-zinc-100')} />
+                          <p className="text-[20px] font-black md:text-[24px]">Health score</p>
+                          <p className="mt-2 text-[30px] font-black leading-none md:text-[36px]">
+                            {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
+                          </p>
+                          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-zinc-100">
+                            <div
+                              className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)}
+                              style={{ width: healthScoreBarWidth }}
+                            />
                           </div>
+                          <p className="mt-3 text-[12px] font-semibold leading-5 text-zinc-500 md:text-[13px]">
+                            {healthScoreExplanation}
+                          </p>
                         </div>
-                        <p className={cn('text-[12px] font-black', theme.muted)}>Reading</p>
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100">
+                          <Activity className="h-5 w-5 text-black" />
+                        </span>
                       </div>
-                      <p className={cn('mt-4 text-[11px] font-semibold', theme.muted)}>Reading the label, ingredients, and visible product context.</p>
                     </div>
-                  )}
+
+                    <button
+                      className="rounded-[28px] bg-white p-5 text-left shadow-[0_10px_30px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] md:p-7"
+                      onClick={() => setWaterSheetOpen(true)}
+                      type="button"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-[20px] font-black text-zinc-500 md:text-[24px]">
+                            <span className="mb-1 block text-[24px] leading-none">💧</span>
+                            Water intake
+                          </p>
+                          <p className="mt-2 truncate text-[26px] font-black leading-none md:text-[34px]">{waterCardLabel}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-white px-4 py-3 text-sm font-black shadow-sm ring-1 ring-zinc-950/10">
+                          Log Water
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+
                   <button
-                    className={cn('mt-5 flex min-h-[86px] w-full items-center justify-between gap-4 rounded-[28px] p-5 text-left shadow-[0_18px_46px_rgba(0,0,0,0.14)] ring-1 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.985]', isDarkMode ? 'bg-white text-zinc-950 ring-white/10' : 'bg-zinc-950 text-white ring-zinc-950')}
-                    onClick={openCamera}
+                    className="group flex w-full items-center rounded-[24px] bg-white px-5 py-4 text-left shadow-[0_8px_24px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.99] md:px-7 md:py-5"
+                    onClick={() => setActiveTab('progress')}
                     type="button"
                   >
-                    <div className="flex min-w-0 items-center gap-4">
-                      <span className={cn('flex h-14 w-14 shrink-0 items-center justify-center rounded-full', isDarkMode ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-950')}>
-                        <Camera className="h-6 w-6" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[20px] font-black">{scanResult ? 'Scan another label' : 'Open camera'}</span>
-                        <span className={cn('mt-1 block text-sm font-bold', isDarkMode ? 'text-zinc-600' : 'text-white/68')}>
-                          {scanResult ? `${scanResult.result.score}/100 latest score` : 'Ingredients first. No blurry saves.'}
-                        </span>
+                    <div className="flex w-full items-center justify-between gap-4">
+                      <div>
+                        <p className="text-[22px] font-black md:text-[26px]">My progress</p>
+                        <p className="mt-1 text-[13px] font-semibold leading-5 text-zinc-500 md:text-sm">Timeline, streak, and weight</p>
+                      </div>
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 transition group-hover:scale-105">
+                        {hasActivity ? <BarChart3 className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                       </span>
                     </div>
-                    <ChevronRight className="h-6 w-6 shrink-0" />
                   </button>
 
-                  <div className={cn('mt-5 rounded-[24px] p-4 ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-white/72 ring-[#ead3aa]')}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black">{hasActivity ? 'Next useful action' : 'Today starts simple'}</p>
-                        <p className={cn('mt-1 text-xs font-semibold leading-5', theme.muted)}>
-                          {hasActivity ? 'Add how you feel later so this scan can become a pattern.' : 'One clear label photo is enough to start your timeline.'}
-                        </p>
+                  <section className="pt-2">
+                    <h2 className="text-[28px] font-black leading-none md:text-[34px]">Recently uploaded</h2>
+
+                    {scanState === 'scanning' && scanPreviewUrl ? (
+                      <div className="mt-5 rounded-[28px] bg-white p-5 shadow-[0_14px_36px_rgba(15,15,15,0.07)] ring-1 ring-black/[0.05]">
+                        <div className="flex items-center gap-4">
+                          <img
+                            alt="Meal being analyzed"
+                            className="h-20 w-20 shrink-0 rounded-[22px] object-cover blur-[2px]"
+                            src={scanPreviewUrl}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="truncate text-[18px] font-black">{scanProgress}% progress</p>
+                              <p className="text-xs font-black text-zinc-400">{scanProgressText}</p>
+                            </div>
+                            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-zinc-100">
+                              <div
+                                className="h-full rounded-full bg-black transition-all duration-300"
+                                style={{ width: `${scanProgress}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', isDarkMode ? 'bg-white text-zinc-950' : 'bg-[#261b3f] text-white')}>
-                        <Activity className="h-5 w-5" />
-                      </span>
-                    </div>
-                  </div>
-                </section>
-              </>
+                    ) : recentScans.length > 0 ? (
+                      <div className="mt-5 space-y-3">
+                        {recentScans.slice(0, 10).map((item) => (
+                          <button
+                            className="flex w-full items-center gap-4 rounded-[28px] bg-white p-4 text-left shadow-[0_14px_36px_rgba(15,15,15,0.07)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99]"
+                            key={item.id}
+                            onClick={() => {
+                              setScanResult({ result: item.result });
+                              setScanPreviewUrl(item.imageDataUrl);
+                              setResultSheetOpen(true);
+                            }}
+                            type="button"
+                          >
+                          <img
+                            alt={item.result.productName}
+                            className="h-20 w-20 shrink-0 rounded-[22px] object-cover"
+                            src={item.imageDataUrl}
+                          />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[18px] font-black">{item.result.productName}</p>
+                              <p className="mt-1 text-sm font-semibold leading-5 text-zinc-500">
+                                {isImageCheckErrorResult(item.result) ? 'Needs retake · not scored' : `${item.result.overallRating} · ${item.result.score}/100`}
+                              </p>
+                              <p className="mt-1 line-clamp-1 text-xs font-semibold text-zinc-400">
+                                {item.result.flaggedChemicals[0]?.reason ?? 'Saved with scan context'}
+                              </p>
+                            </div>
+                            <ChevronRight className="h-6 w-6 shrink-0 text-zinc-400" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-5 rounded-[28px] bg-[#f7f6fb] p-5 text-center shadow-[0_14px_36px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05]">
+                        <div className="mx-auto max-w-[560px] rounded-[24px] bg-white p-4 shadow-[0_16px_34px_rgba(15,15,15,0.07)]">
+                          <div className="flex items-center gap-4">
+                            <img
+                              alt="Example bowl"
+                              className="h-16 w-16 shrink-0 rounded-full object-cover"
+                              src="https://images.unsplash.com/photo-1546793665-c74683f339c1?q=80&w=500&auto=format&fit=crop"
+                            />
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="h-3 w-full rounded-full bg-zinc-200" />
+                              <div className="h-3 w-2/3 rounded-full bg-zinc-200" />
+                            </div>
+                          </div>
+                        </div>
+                        <p className="mt-6 text-[22px] font-black text-zinc-500">Tap + to add your first meal of the day</p>
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+              </div>
               )}
               {activeTab === 'progress' && progressPage}
               {activeTab === 'profile' && profilePage}
 
-              {dashboardError && (
-                <div
-                  className={cn(
-                    'mt-4 flex items-start gap-3 rounded-[18px] border px-4 py-3 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
-                    dashboardNoticeIsSuccess ? 'border-zinc-200 bg-white text-zinc-950' : 'border-red-100 bg-red-50',
-                  )}
-                  role="alert"
-                >
-                  <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white', dashboardNoticeIsSuccess ? 'text-zinc-950 ring-1 ring-zinc-200' : 'text-red-600')}>
-                    {dashboardNoticeIsSuccess ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                  </div>
-                  <div>
-                    <p className={cn('text-sm font-black', dashboardNoticeIsSuccess ? 'text-zinc-950' : 'text-red-950')}>{dashboardNoticeTitle}</p>
-                    <p className={cn('mt-0.5 text-xs font-semibold leading-5', dashboardNoticeIsSuccess ? 'text-zinc-500' : 'text-red-700')}>{dashboardError}</p>
-                  </div>
-                </div>
-              )}
             </motion.div>
           </AnimatePresence>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 z-30 px-5 pb-[max(18px,env(safe-area-inset-bottom))] md:px-8">
-          <div className="mx-auto flex max-w-[520px] items-center gap-3">
-            <div className={cn('grid h-[82px] flex-1 grid-cols-3 items-center rounded-full border px-3 shadow-[0_18px_44px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-colors duration-700', isDarkMode ? 'border-white/[0.12] bg-black/70' : 'border-zinc-200 bg-white/85')}>
-              {navItems.map(({ id, label, icon: Icon }) => {
-                const selected = activeTab === id;
-                return (
-                  <button
-                    className={cn(
-                      'flex h-[62px] min-w-0 flex-col items-center justify-center gap-1 rounded-full text-[11px] font-black transition-all duration-300 active:scale-[0.96]',
-                      selected
-                        ? isDarkMode
-                          ? 'bg-white/10 text-white'
-                          : 'bg-zinc-950 text-white'
-                        : isDarkMode
-                          ? 'text-white/[0.45] hover:text-white'
-                          : 'text-zinc-500 hover:text-zinc-950',
-                    )}
-                    key={id}
-                    onClick={() => setActiveTab(id)}
-                    type="button"
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              aria-label={copy.logFood}
-              className={cn('flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-full shadow-[0_18px_44px_rgba(0,0,0,0.25)] ring-4 transition-all duration-300 active:scale-[0.94]', isDarkMode ? 'bg-white text-black ring-black' : 'bg-zinc-950 text-white ring-white')}
-              onClick={openCamera}
-              type="button"
-            >
-              <Camera className="h-8 w-8 stroke-[3]" />
-            </button>
-          </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-5 pb-[max(22px,env(safe-area-inset-bottom))]">
+          <button
+            aria-label={copy.logFood}
+            className="pointer-events-auto flex h-[82px] w-[82px] items-center justify-center rounded-full bg-black text-white shadow-[0_22px_48px_rgba(15,15,15,0.28)] ring-1 ring-black transition hover:-translate-y-1 active:scale-95"
+            onClick={openCamera}
+            type="button"
+          >
+            <Plus className="h-12 w-12 stroke-[1.9]" />
+          </button>
         </div>
 
         <AnimatePresence>
@@ -2259,17 +2616,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <div className="text-center">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">SensiBite camera</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">DigestSnap camera</p>
                     <p className="mt-1 text-sm font-black">Fill the square with the label</p>
                   </div>
-                  <button
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/12 backdrop-blur-xl transition active:scale-95"
-                    onClick={openFilePicker}
-                    type="button"
-                    aria-label="Upload photo"
-                  >
-                    <ScanLine className="h-5 w-5" />
-                  </button>
+                  <div aria-hidden className="h-12 w-12" />
                 </div>
 
                 <div className="pointer-events-none absolute inset-x-10 top-1/2 aspect-square -translate-y-1/2 rounded-[34px] border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]">
@@ -2282,18 +2632,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className="absolute inset-x-5 top-28 rounded-[22px] bg-white p-4 text-zinc-950 shadow-2xl">
                     <p className="text-sm font-black">Camera unavailable</p>
                     <p className="mt-1 text-xs font-semibold leading-5 text-zinc-500">{cameraError}</p>
-                    <button className="mt-3 h-11 w-full rounded-full bg-zinc-950 text-sm font-black text-white" onClick={openFilePicker} type="button">
-                      Upload food photo
-                    </button>
                   </div>
                 )}
               </div>
 
               <div className="shrink-0 bg-black px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-5">
-                <div className="mx-auto flex max-w-[420px] items-center justify-between">
-                  <button className="h-14 rounded-full px-5 text-sm font-black text-white/65 transition hover:text-white" onClick={openFilePicker} type="button">
-                    Upload
-                  </button>
+                <div className="mx-auto flex max-w-[420px] items-center justify-center">
                   <button
                     className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_0_0_8px_rgba(255,255,255,0.16)] transition active:scale-95"
                     onClick={captureCameraFrame}
@@ -2301,9 +2645,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     aria-label="Capture food photo"
                   >
                     <Camera className="h-9 w-9 stroke-[2.8]" />
-                  </button>
-                  <button className="h-14 rounded-full px-5 text-sm font-black text-white/65 transition hover:text-white" onClick={() => setCameraSheetOpen(false)} type="button">
-                    Cancel
                   </button>
                 </div>
               </div>
@@ -2347,12 +2688,142 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <span className={cn('mt-2 block text-xs font-semibold', theme.muted)}>Unique. 3-24 characters. Letters, numbers, underscore.</span>
                 </label>
                 <button
-                  className={cn('mt-5 h-14 w-full rounded-full text-base font-black transition active:scale-[0.98] disabled:opacity-50', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}
+                  className="mt-5 h-14 w-full rounded-full bg-white text-base font-black text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10 transition active:scale-[0.98] disabled:opacity-50"
                   disabled={profileSaving}
                   onClick={saveProfileDetails}
                   type="button"
                 >
                   {profileSaving ? 'Saving...' : copy.saveProfile}
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {goalsSheetOpen && (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-50 flex items-end bg-black/55 px-5 pb-[max(22px,env(safe-area-inset-bottom))]"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onClick={() => setGoalsSheetOpen(false)}
+            >
+              <motion.div
+                animate={{ y: 0 }}
+                className={cn('max-h-[86vh] w-full overflow-y-auto rounded-[32px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] ring-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', theme.card)}
+                exit={{ y: 24 }}
+                initial={{ y: 24 }}
+                onClick={(event) => event.stopPropagation()}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <p className="text-2xl font-black">Edit goals</p>
+                <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>Update the setup data DigestSnap uses for scans</p>
+
+                <div className="mt-5 grid gap-4">
+                  <label className="block">
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Main goal</span>
+                    <select
+                      className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                      onChange={(event) => setGoalDraft((current) => ({ ...current, goal: event.target.value as SensiGoal }))}
+                      value={goalDraft.goal}
+                    >
+                      <option>Find triggers</option>
+                      <option>Reduce bloating</option>
+                      <option>Build consistency</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Diet type</span>
+                    <input
+                      className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                      onChange={(event) => setGoalDraft((current) => ({ ...current, dietType: event.target.value }))}
+                      value={goalDraft.dietType}
+                    />
+                  </label>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <label className="block">
+                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Age</span>
+                      <input
+                        className={cn('mt-2 h-14 w-full rounded-[18px] border px-3 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                        inputMode="numeric"
+                        onChange={(event) => setGoalDraft((current) => ({ ...current, age: Number(event.target.value) }))}
+                        type="number"
+                        value={goalDraft.age}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Height</span>
+                      <input
+                        className={cn('mt-2 h-14 w-full rounded-[18px] border px-3 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                        inputMode="numeric"
+                        onChange={(event) => setGoalDraft((current) => ({ ...current, heightCm: Number(event.target.value) }))}
+                        type="number"
+                        value={goalDraft.heightCm}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Weight</span>
+                      <input
+                        className={cn('mt-2 h-14 w-full rounded-[18px] border px-3 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                        inputMode="decimal"
+                        onChange={(event) => setGoalDraft((current) => ({ ...current, weightKg: Number(event.target.value) }))}
+                        type="number"
+                        value={goalDraft.weightKg}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block">
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Symptoms</span>
+                    <input
+                      className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                      onChange={(event) => updateGoalDraftList('symptoms', event.target.value)}
+                      placeholder="Bloated, nausea"
+                      value={goalDraft.symptoms.join(', ')}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Suspected foods</span>
+                    <input
+                      className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                      onChange={(event) => updateGoalDraftList('triggers', event.target.value)}
+                      placeholder="Dairy, bread, fried food"
+                      value={goalDraft.triggers.join(', ')}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Allergies / avoids</span>
+                    <input
+                      className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                      onChange={(event) => updateGoalDraftList('allergies', event.target.value)}
+                      placeholder="Gluten, lactose"
+                      value={goalDraft.allergies.join(', ')}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Daily check-ins</span>
+                    <input
+                      className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
+                      inputMode="numeric"
+                      max={6}
+                      min={1}
+                      onChange={(event) => setGoalDraft((current) => ({ ...current, checkInsPerDay: Number(event.target.value) }))}
+                      type="number"
+                      value={goalDraft.checkInsPerDay}
+                    />
+                  </label>
+                </div>
+
+                <button
+                  className="mt-5 h-14 w-full rounded-full bg-white text-base font-black text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10 transition active:scale-[0.98]"
+                  onClick={saveGoalDetails}
+                  type="button"
+                >
+                  Save goals
                 </button>
               </motion.div>
             </motion.div>
@@ -2397,23 +2868,69 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   />
                 )}
 
-                <div className={cn('mt-5 grid grid-cols-[1fr_auto] items-center gap-4 rounded-[26px] p-5 ring-1', isDarkMode ? 'bg-[#101012] text-white ring-white/10' : 'bg-[#fbfaf7] text-zinc-950 ring-zinc-950/[0.04]')}>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{copy.verdict}</p>
-                    <p className="mt-2 text-4xl font-black">{ratingLabel(scanResult.result.overallRating)}</p>
-                    <p className={cn('mt-2 text-sm font-bold', theme.muted)}>{Math.max(1, Math.round(scanResult.result.score / 10))}/10 meal rating</p>
+                <div className={cn('mt-5 rounded-[28px] p-5 ring-1', resultTone.block)}>
+                  <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                    <div>
+                      <span className={cn('inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase', resultTone.badge)}>
+                        {isResultImageCheckError ? 'Needs retake' : ratingLabel(scanResult.result.overallRating)}
+                      </span>
+                      <p className="mt-3 text-4xl font-black leading-none">{isResultImageCheckError ? 'Image not checked' : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
+                      <p className={cn('mt-3 max-w-[31rem] text-sm font-bold leading-6', resultTone.muted)}>
+                        {resultVibe(scanResult.result)}
+                      </p>
+                    </div>
+                    <div className={cn('flex h-24 w-24 flex-col items-center justify-center rounded-full shadow-inner ring-4', resultTone.circle)}>
+                      <p className="text-3xl font-black">{isResultImageCheckError ? '--' : scanResult.result.score}</p>
+                      <p className="text-[10px] font-black uppercase opacity-75">{isResultImageCheckError ? 'not scored' : copy.score}</p>
+                    </div>
                   </div>
-                  <div className={cn('flex h-24 w-24 flex-col items-center justify-center rounded-full shadow-inner ring-1', isDarkMode ? 'bg-white/[0.08] ring-white/10' : 'bg-white ring-zinc-200')}>
-                    <p className="text-3xl font-black">{scanResult.result.score}</p>
-                    <p className="text-[10px] font-black uppercase text-zinc-400">{copy.score}</p>
+
+                  {!isResultImageCheckError && (
+                    <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-white/70">
+                      <div
+                        className={cn('h-full rounded-full transition-all duration-500', resultTone.bar)}
+                        style={{ width: `${Math.max(5, scanResult.result.score)}%` }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="mt-5 space-y-2">
+                    {resultReasons.map((item) => (
+                      <div className={cn('rounded-[20px] p-4 ring-1', resultTone.chip)} key={`${item.chemicalName}-${item.reason}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-base font-black">{item.chemicalName}</p>
+                          <span className={cn('shrink-0 rounded-full px-3 py-1 text-[10px] font-black uppercase', resultTone.badge)}>{ratingLabel(item.severity)}</span>
+                        </div>
+                        <p className={cn('mt-2 text-sm font-semibold leading-6', resultTone.muted)}>{item.reason}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
+                {betterAlternative && (
+                  <button
+                    className={cn('mt-5 w-full rounded-[26px] p-5 text-left ring-1 transition hover:-translate-y-0.5 active:scale-[0.99]', theme.soft)}
+                    type="button"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Better alternative</p>
+                        <p className="mt-2 text-2xl font-black leading-tight">{betterAlternative.title}</p>
+                        <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>{betterAlternative.reason}</p>
+                      </div>
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/10">
+                        <ChevronRight className="h-5 w-5" />
+                      </span>
+                    </div>
+                  </button>
+                )}
+
+                {!isResultImageCheckError && (
                 <div className={cn('mt-5 rounded-[26px] p-5 ring-1', theme.soft)}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Самочувствие' : 'Feeling check-in'}</p>
-                      <h3 className="mt-2 text-2xl font-black leading-tight">{isRussian ? 'Как вы себя чувствуете?' : 'How do you feel after this?'}</h3>
+                      <h3 className="mt-2 text-2xl font-black leading-tight">{isRussian ? 'Как вы себя чувствуете после еды?' : 'How do you feel after eating it?'}</h3>
                     </div>
                     {selectedFeeling && (
                       <span className={cn('rounded-full px-3 py-1 text-xs font-black', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]')}>
@@ -2421,20 +2938,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       </span>
                     )}
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {(['Fine', 'Bloated', 'Pain', 'Nausea'] as FeelingOption[]).map((feeling) => {
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {(['Fine', 'Nausea', 'Bloated'] as FeelingOption[]).map((feeling) => {
                       const active = selectedFeeling === feeling;
                       return (
                         <button
                           className={cn(
                             'h-12 rounded-[16px] text-sm font-black transition duration-200 active:scale-[0.97]',
-                            active
-                              ? isDarkMode
-                                ? 'bg-white text-zinc-950'
-                                : 'bg-zinc-950 text-white'
-                              : isDarkMode
-                                ? 'bg-white/[0.06] text-white/70 hover:text-white'
-                                : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
+	                            active
+	                              ? 'bg-white text-zinc-950 shadow-[0_14px_28px_rgba(15,15,15,0.12)] ring-1 ring-zinc-950/10'
+	                              : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
                           )}
                           key={feeling}
                           onClick={() => setSelectedFeeling(feeling)}
@@ -2451,38 +2964,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       : 'Pick one feeling so this scan can become a useful pattern later.'}
                   </p>
                 </div>
+                )}
 
-                <div className="mt-5 space-y-3">
-                  {(scanResult.result.flaggedChemicals.length ? scanResult.result.flaggedChemicals : [
-                    {
-                      chemicalName: copy.noMajorFlags,
-                      severity: scanResult.result.overallRating,
-                      reason: copy.noMajorFlagsReason,
-                    },
-                  ]).slice(0, 3).map((item) => (
-                    <div className={cn('rounded-[22px] p-4 ring-1', theme.soft)} key={`${item.chemicalName}-${item.reason}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-base font-black">{item.chemicalName}</p>
-                        <span className={cn('rounded-full px-3 py-1 text-[10px] font-black uppercase', isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white')}>{ratingLabel(item.severity)}</span>
-                      </div>
-                      <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>{item.reason}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-3">
+                {!isResultImageCheckError && (
+                <div className="mt-5 grid gap-3">
                   <button
-                    className={cn('h-14 rounded-full text-sm font-black transition active:scale-[0.98]', theme.soft)}
-                    onClick={openCamera}
-                    type="button"
-                  >
-                    {copy.scanAgain}
-                  </button>
-                  <button
-                    className={cn(
-                      'h-14 rounded-full text-sm font-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45',
-                      isDarkMode ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white',
-                    )}
+	                    className="h-14 rounded-full bg-white text-sm font-black text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
                     disabled={!selectedFeeling}
                     onClick={async () => {
                       if (!selectedFeeling) return;
@@ -2497,6 +2984,114 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     {selectedFeeling ? copy.saveToTimeline : (isRussian ? 'Выберите самочувствие' : 'Pick feeling first')}
                   </button>
                 </div>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+
+          {waterSheetOpen && (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-50 flex items-end bg-black/35 px-4 pb-[max(18px,env(safe-area-inset-bottom))]"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onClick={() => setWaterSheetOpen(false)}
+            >
+              <motion.div
+                animate={{ y: 0 }}
+                className="w-full rounded-[34px] bg-white px-5 pb-5 pt-7 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06]"
+                exit={{ y: 26 }}
+                initial={{ y: 26 }}
+                onClick={(event) => event.stopPropagation()}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="mx-auto h-1.5 w-12 rounded-full bg-zinc-200" />
+                <h2 className="mt-6 text-center text-[22px] font-black">Log Water</h2>
+
+                <div className="mt-10 flex items-center justify-center">
+                  <span className="pr-3 text-[72px] font-black leading-none text-zinc-300">{waterValueLabel}</span>
+                  <span className="h-16 w-px bg-zinc-950" />
+                  <div className="ml-3 flex items-center gap-2">
+                    <span className="text-[24px] font-black">{waterUnit === 'ml' ? 'mL' : waterUnit === 'oz' ? 'oz' : 'cup(s)'}</span>
+                    <div className="grid gap-0.5">
+                      <button
+                        aria-label="Set water unit to cups"
+                        className={cn('rounded px-1 text-[11px] font-black', waterUnit === 'cups' ? 'bg-zinc-950 text-white' : 'text-zinc-500')}
+                        onClick={() => setWaterUnit('cups')}
+                        type="button"
+                      >
+                        cups
+                      </button>
+                      <button
+                        aria-label="Set water unit to ounces"
+                        className={cn('rounded px-1 text-[11px] font-black', waterUnit === 'oz' ? 'bg-zinc-950 text-white' : 'text-zinc-500')}
+                        onClick={() => setWaterUnit('oz')}
+                        type="button"
+                      >
+                        oz
+                      </button>
+                      <button
+                        aria-label="Set water unit to milliliters"
+                        className={cn('rounded px-1 text-[11px] font-black', waterUnit === 'ml' ? 'bg-zinc-950 text-white' : 'text-zinc-500')}
+                        onClick={() => setWaterUnit('ml')}
+                        type="button"
+                      >
+                        mL
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-7 rounded-[24px] bg-zinc-50 p-4 ring-1 ring-zinc-950/[0.06]">
+                  <label className="text-sm font-black text-zinc-500" htmlFor="manual-water-amount">
+                    Manual amount
+                  </label>
+                  <div className="mt-3 flex items-center gap-3">
+                    <input
+                      className="h-14 min-w-0 flex-1 rounded-[18px] bg-white px-4 text-[24px] font-black outline-none ring-1 ring-zinc-950/[0.08] transition focus:ring-2 focus:ring-zinc-950/20"
+                      id="manual-water-amount"
+                      inputMode="decimal"
+                      min="0"
+                      onChange={(event) => setManualWaterAmount(event.target.value)}
+                      placeholder="0"
+                      type="number"
+                      value={manualWaterAmount}
+                    />
+                    <span className="w-16 text-center text-lg font-black">{waterUnit === 'ml' ? 'mL' : waterUnit}</span>
+                  </div>
+                </div>
+
+                <div className="mt-8 grid grid-cols-3 gap-3">
+                  {waterQuickAdds[waterUnit].map((option) => (
+                    <button
+                      className="min-h-[112px] rounded-[22px] bg-zinc-50 px-3 py-4 text-left shadow-sm ring-1 ring-zinc-950/[0.06] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.98]"
+                      key={`${waterUnit}-${option.label}`}
+                      onClick={() => setWaterMl((amount) => amount + option.ml)}
+                      type="button"
+                    >
+                      <span className="block text-[16px] font-black leading-tight">{option.label}</span>
+                      <span className="mt-1 block text-[15px] font-black text-zinc-500">{option.amount}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  className={cn(
+                    'mt-9 h-16 w-full rounded-full text-[18px] font-black transition active:scale-[0.98]',
+                    waterMl > 0 || manualWaterMl > 0 ? 'bg-zinc-950 text-white shadow-[0_14px_32px_rgba(15,15,15,0.20)]' : 'bg-zinc-300 text-white',
+                  )}
+                  disabled={waterMl <= 0 && manualWaterMl <= 0}
+                  onClick={() => {
+                    if (manualWaterMl > 0) {
+                      setWaterMl((amount) => amount + manualWaterMl);
+                      setManualWaterAmount('');
+                    }
+                    setWaterSheetOpen(false);
+                  }}
+                  type="button"
+                >
+                  Log
+                </button>
               </motion.div>
             </motion.div>
           )}
@@ -2545,17 +3140,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           )}
         </AnimatePresence>
 
-        <input
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(event) => {
-            runImageScan(event.target.files?.[0]);
-            event.currentTarget.value = '';
-          }}
-          ref={fileInputRef}
-          type="file"
-        />
       </div>
     </AppFrame>
   );
@@ -2563,7 +3147,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
 function AppFrame({ children, darkMode = false, fullScreen = false }: { children: ReactNode; darkMode?: boolean; fullScreen?: boolean }) {
   return (
-    <main className={cn('min-h-dvh transition-colors duration-700', darkMode ? 'bg-[#050505] text-white' : 'bg-[#f6f6f4] text-zinc-950')}>
+    <main className={cn('min-h-dvh transition-colors duration-700', darkMode ? 'bg-[#050505] text-white' : 'bg-white text-zinc-950')}>
       <section
         className={cn(
           'relative h-dvh w-full overflow-hidden shadow-none transition-colors duration-700',
@@ -2719,30 +3303,6 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
   const bmiDisplay = bmi > 0 ? bmi.toFixed(1) : '--';
   const bmiPointer = Math.min(100, Math.max(0, ((Math.min(40, Math.max(15, bmi || 15)) - 15) / 25) * 100));
   const bmiLabel = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Balanced' : bmi < 30 ? 'Elevated' : 'High';
-  const stepEncouragement: Record<string, string> = {
-    goal: 'Good. This tells SensiBite what to optimize first.',
-    symptoms: 'Useful signal. Symptoms are what make the scan personal.',
-    'symptom-time': 'Timing matters. This helps connect the right meal later.',
-    'tracking-style': 'That is exactly what this flow is designed to reduce.',
-    'suspected-foods': 'These become your first personal watchlist.',
-    allergies: 'Hard avoids stay separate from softer pattern hints.',
-    'diet-type': 'This keeps ratings from sounding generic.',
-    'meal-rhythm': 'Meal rhythm helps separate habit from ingredient.',
-    'restaurant-frequency': 'Restaurant context changes how hidden ingredients are judged.',
-    'late-food': 'Late meals can change what the same food feels like.',
-    stress: 'This helps avoid blaming food for every bad day.',
-    sleep: 'Sleep context makes the pattern map more honest.',
-    water: 'Small baseline details prevent noisy conclusions.',
-    caffeine: 'Caffeine context is important for drinks and stomach sensitivity.',
-    soda: 'Carbonation and sugar get treated as real signals.',
-    spice: 'Spice tolerance changes how aggressive the scan should be.',
-    dairy: 'Dairy context is high-signal for a lot of users.',
-    bread: 'Bread and flour patterns are worth tracking separately.',
-    fried: 'Fried-food sensitivity will make scan ratings stricter.',
-    consistency: 'The product should fit your weak point, not fight it.',
-    motivation: 'The dashboard will feel better when it matches this.',
-    'data-priority': 'Good. SensiBite will keep the main screen focused.',
-  };
 
   const renderSingleChoice = (step: OnboardingStep) => (
     <div className="space-y-3">
@@ -2965,7 +3525,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
                 Give the AI a better starting point.
               </h2>
               <p className="mt-3 text-[13px] font-semibold leading-6 text-zinc-500 sm:text-[14px]">
-                Your answers help SensiBite judge scans with your symptoms, habits, and avoided foods in mind.
+                Your answers help DigestSnap judge scans with your symptoms, habits, and avoided foods in mind.
               </p>
             </div>
 
@@ -3015,9 +3575,9 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
               <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-700">Profile insight</p>
               <h1 className="mt-5 text-[34px] font-black leading-[1.02] text-zinc-950">{currentStep.title}</h1>
               <p className="mt-5 text-base font-semibold leading-7 text-zinc-500">{currentStep.insight}</p>
-              <div className="mt-7 rounded-[18px] bg-zinc-950 p-4 text-white">
+              <div className="mt-7 rounded-[22px] bg-[#f7f6f2] p-4 text-zinc-950 ring-1 ring-zinc-950/[0.05]">
                 <p className="text-sm font-black">Your starting profile</p>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-white/70">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-zinc-500">
                   <span>{profile.symptoms.length} symptoms</span>
                   <span>{profile.triggers.length} triggers</span>
                   <span>{profile.timelineWeeks} week target</span>
@@ -3034,10 +3594,6 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
       <>
         <div>
           <h1 className="text-[38px] font-black leading-[0.98] text-zinc-950">{currentStep.title}</h1>
-          {currentStep.subtitle && <p className="mt-4 text-base font-semibold leading-7 text-zinc-500">{currentStep.subtitle}</p>}
-          <p className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05]">
-            {stepEncouragement[currentStep.id] ?? 'Good. This answer makes your scans more personal.'}
-          </p>
         </div>
         <div className="mt-9">
           {currentStep.kind === 'single' && renderSingleChoice(currentStep)}
@@ -3078,7 +3634,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
               <h1 className="mt-7 text-[42px] font-black leading-[0.98]">
                 Welcome to
                 <br />
-                SensiBite
+                DigestSnap
               </h1>
               <p className="mx-auto mt-4 text-base font-semibold leading-7 text-zinc-500">
                 Sign in to keep your scans, check-ins, and personal food patterns in one private place.

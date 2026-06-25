@@ -17,7 +17,7 @@ alter table public.profiles
   add column if not exists updated_at timestamptz not null default now();
 
 update public.profiles
-  set full_name = 'SensiBite user'
+  set full_name = 'DigestSnap user'
   where full_name is null or length(trim(full_name)) = 0;
 
 update public.profiles

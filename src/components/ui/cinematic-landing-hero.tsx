@@ -11,7 +11,7 @@ if (typeof window !== 'undefined') {
 const INJECTED_STYLES = `
   .gsap-reveal { visibility: hidden; }
 
-  .sensibite-grid {
+  .digestisnap-grid {
     background-size: 64px 64px;
     background-image:
       linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
@@ -134,7 +134,7 @@ export function CinematicHero({
       });
 
       scrollTl
-        .to(['.hero-text-wrapper', '.sensibite-grid'], {
+        .to(['.hero-text-wrapper', '.digestisnap-grid'], {
           scale: 1.04,
           filter: 'blur(14px)',
           opacity: 0.1,
@@ -185,14 +185,14 @@ export function CinematicHero({
     <div
       ref={containerRef}
       className={cn(
-        'relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#fbfbf8] font-sans text-zinc-950 antialiased',
+        'relative flex h-screen w-screen items-center justify-center overflow-hidden bg-white font-sans text-zinc-950 antialiased',
         className,
       )}
       style={{ perspective: '1500px' }}
       {...props}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
-      <div className="sensibite-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
+      <div className="digestisnap-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
 
       <div className="hero-text-wrapper absolute z-10 flex w-screen flex-col items-center justify-center px-5 py-8 text-center">
         <h1 className="text-track gsap-reveal hero-type mb-1 overflow-visible text-5xl font-black tracking-tight md:text-7xl lg:text-[7rem]">
@@ -243,7 +243,7 @@ export function CinematicHero({
                 <div className="mb-7 flex items-center justify-between">
                   <div>
                     <p className="m-0 text-[12px] font-semibold tracking-tight text-white/48">11:25 PM</p>
-                    <h2 className="m-0 mt-1 text-[22px] font-black tracking-tight text-white">SensiBite</h2>
+                    <h2 className="m-0 mt-1 text-[22px] font-black tracking-tight text-white">DigestSnap</h2>
                   </div>
                   <div className="h-10 w-10 rounded-[13px] bg-[linear-gradient(135deg,#111827_0%,#52525b_100%)] shadow-[0_10px_26px_rgba(24,24,27,0.24)]" />
                 </div>
@@ -256,7 +256,7 @@ export function CinematicHero({
                   <div className="assistant-card rounded-[28px] border border-white/10 bg-white/[0.08] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
                     <div className="mb-3 h-1.5 w-12 rounded-full bg-white/70 shadow-[0_0_18px_rgba(255,255,255,0.28)]" />
                     <p className="m-0 text-[18px] font-semibold leading-snug tracking-tight text-white">
-                      Bloating was logged after similar late fried meals three times this week. SensiBite saved the pattern.
+                      Bloating was logged after similar late fried meals three times this week. DigestSnap saved the pattern.
                     </p>
                   </div>
                 </div>
