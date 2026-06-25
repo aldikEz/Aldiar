@@ -547,6 +547,7 @@ User possible triggers and profile context: ${triggerLine}
 Rules:
 - Return JSON only.
 - Use ${targetLang} for human-facing strings: productName, chemicalName, and reason.
+- If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
 - Do not invent ingredients that are not visible, but use strong product-category inference when ingredients are hidden.
 - If OCR is unreadable but the food/product category is visually recognizable, return the likely category and mark concerns as "visual estimate", "label not verified", or "category-based risk".
@@ -595,6 +596,7 @@ User possible triggers and profile context: ${triggerLine}
 Rules:
 - Return JSON only.
 - Use ${targetLang} for productName, chemicalName, and reason.
+- If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
 - Never return "Unreadable Label", "Image unclear", "Could not verify image", or "Visual estimate unavailable" if any food/drink/product category is visible.
 - If it looks like plain bottled water, mineral water, spring water, or a water label, return productName like "Likely bottled water" or "Likely mineral water", rating "Safe", score 82-95.
@@ -619,6 +621,7 @@ User triggers: ${triggerLine}
 
 Rules:
 - Use ${targetLang} for productName, chemicalName, and reason.
+- If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
 - Keep enum values exactly: "Safe", "Caution", "Avoid".
 - "Safe" means low likely trigger risk, "Caution" means medium, "Avoid" means high.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; score them 0-55 unless clearly unsweetened.
@@ -1014,7 +1017,7 @@ function fallbackScanPayload(targetLang: string): ScanPayload {
 }
 
 function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): ScanPayload {
-  const productName = payload.productKey || payload.text;
+  const productName = localizeProductDisplayName(payload.productKey || payload.text, targetLang);
   const normalizedInput = `${payload.text} ${payload.productKey}`.toLowerCase();
   const triggerSynonyms: Record<string, string[]> = {
     'fried food': ['fried', 'fries', 'burger', 'nugget', 'crispy', 'deep fried'],
@@ -1130,6 +1133,40 @@ function localizeTriggerName(value: string, targetLang: string) {
   };
 
   return translations[normalized] ?? value;
+}
+
+function localizeProductDisplayName(value: string, targetLang: string) {
+  if (targetLang !== 'Russian') {
+    return value;
+  }
+
+  const normalized = value.toLowerCase();
+  if (/\bfuse\s*tea\b/i.test(value) || /\biced?\s*tea\b/i.test(value) || /\bice\s*tea\b/i.test(value)) {
+    return /\bfuse\s*tea\b/i.test(value) ? 'Fuse Tea, сладкий холодный чай' : 'Сладкий холодный чай';
+  }
+  if (/\bcola\b|\bcoca[-\s]?cola\b|\bpepsi\b|\bfanta\b|\bsprite\b|\bsoda\b|\bsoft\s*drink\b/i.test(value)) {
+    return 'Сладкая газировка';
+  }
+  if (/\benergy\s*drink\b|\bred\s*bull\b|\bmonster\b|\btaurine\b/i.test(value)) {
+    return 'Энергетический напиток';
+  }
+  if (/\bfried\s*chicken\b|\bnuggets?\b|\bfries\b|\bfrench\s*fries\b|\bdeep[-\s]?fried\b/i.test(value)) {
+    return 'Жареная еда';
+  }
+  if (/\bburger\b|\bcheeseburger\b|\bfast\s*food\b/i.test(value)) {
+    return 'Фастфуд';
+  }
+  if (/\bchips?\b|\bcrisps?\b|\bdoritos\b|\bcheetos\b|\bpringles\b/i.test(value)) {
+    return 'Жареный снек';
+  }
+  if (/\bwater\b|\bmineral\b|\bspring\s*water\b/i.test(value)) {
+    return 'Бутилированная вода';
+  }
+  if (normalized.trim()) {
+    return value;
+  }
+
+  return 'Продукт по фото';
 }
 
 function getRestUrl(path: string) {

@@ -29,6 +29,7 @@ import { cn } from '../../lib/utils';
 import IPhoneMockup from './iphone-mockup';
 
 type Navigate = (path: string, options?: { replace?: boolean }) => void;
+type AppLanguage = 'English' | 'Russian';
 type DashboardTab = 'home' | 'progress' | 'profile';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
 type LandingPhoneVariant = 'scan' | 'feeling';
@@ -334,6 +335,7 @@ const SENSIBITE_PROFILE_STORAGE_KEY = 'digestisnap-profile-v1';
 const SENSIBITE_PENDING_PROFILE_KEY = 'digestisnap-profile-pending';
 const SENSIBITE_STREAK_STORAGE_KEY = 'digestisnap-streak-v1';
 const SENSIBITE_RECENT_SCANS_STORAGE_KEY = 'digestisnap-recent-scans-v2';
+const DIGESTSNAP_LANGUAGE_STORAGE_KEY = 'digestisnap-language-v1';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 type StoredSensiProfile = Pick<
@@ -383,6 +385,27 @@ function streakStorageKey(userId?: string) {
 
 function recentScansStorageKey(userId?: string) {
   return userId ? `${SENSIBITE_RECENT_SCANS_STORAGE_KEY}:${userId}` : SENSIBITE_RECENT_SCANS_STORAGE_KEY;
+}
+
+function languageStorageKey(userId?: string) {
+  return userId ? `${DIGESTSNAP_LANGUAGE_STORAGE_KEY}:${userId}` : DIGESTSNAP_LANGUAGE_STORAGE_KEY;
+}
+
+function readStoredLanguage(userId?: string): AppLanguage {
+  try {
+    const raw = window.localStorage.getItem(languageStorageKey(userId));
+    return raw === 'Russian' ? 'Russian' : 'English';
+  } catch {
+    return 'English';
+  }
+}
+
+function saveStoredLanguage(language: AppLanguage, userId?: string) {
+  try {
+    window.localStorage.setItem(languageStorageKey(userId), language);
+  } catch {
+    // Language should not block the app if local storage is unavailable.
+  }
 }
 
 function readRecentScans(userId?: string): RecentScan[] {
@@ -1462,7 +1485,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   }, [isDarkMode]);
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
-  const [language] = useState<'English' | 'Russian'>('English');
+  const [language, setLanguage] = useState<AppLanguage>(() => readStoredLanguage(session.user.id));
   const [selectedFeeling, setSelectedFeeling] = useState<FeelingOption | null>(null);
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -1476,7 +1499,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [selectedHomeDate, setSelectedHomeDate] = useState(() => new Date().toDateString());
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
-  const syncErrorMessage = 'Unable to sync entries. Please check your connection.';
+  const syncErrorMessage = language === 'Russian' ? 'Не удалось синхронизировать записи. Проверьте подключение.' : 'Unable to sync entries. Please check your connection.';
+
+  useEffect(() => {
+    saveStoredLanguage(language, session.user.id);
+  }, [language, session.user.id]);
 
   useEffect(() => {
     let active = true;
@@ -1670,7 +1697,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setActiveTab('home');
     setScanState('scanning');
     setScanProgress(4);
-    setScanProgressText('Analyzing image...');
+    setScanProgressText(copy.analyzingImage);
     setDashboardError('');
     setSelectedFeeling(null);
     setResultSheetOpen(false);
@@ -1691,9 +1718,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       window.clearInterval(progressTimer);
       setScanResult(errorScan);
       setScanProgress(100);
-      setScanProgressText('Saved with visual estimate unavailable');
+      setScanProgressText(copy.visualUnavailable);
       setScanState('done');
-      await saveEntry(`Visual estimate unavailable: ${file.name.replace(/\.[^.]+$/, '') || 'uploaded image'}`);
+      await saveEntry(`${copy.visualUnavailable}: ${file.name.replace(/\.[^.]+$/, '') || copy.uploadedImage}`);
       const recentScan: RecentScan = {
         id: crypto.randomUUID(),
         imageDataUrl,
@@ -1711,7 +1738,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const progressTimer = window.setInterval(() => {
       setScanProgress((current) => {
         const next = Math.min(92, current + 7);
-        if (next > 58) setScanProgressText('Checking portions and context...');
+        if (next > 58) setScanProgressText(copy.checkingContext);
         return next;
       });
     }, 260);
@@ -1734,7 +1761,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       window.clearInterval(progressTimer);
       setScanResult(result.scan);
       setScanProgress(100);
-      setScanProgressText('Saved to Recently uploaded');
+      setScanProgressText(copy.savedRecent);
       setScanState('done');
       await saveEntry(`${result.scan.result.overallRating}: ${result.scan.result.productName} scored ${result.scan.result.score}/100`);
       const recentScan: RecentScan = {
@@ -1764,7 +1791,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const captureCameraFrame = async () => {
     const video = videoRef.current;
     if (!video || video.readyState < 2) {
-      setCameraError('Camera is still loading. Try again in a second.');
+      setCameraError(copy.cameraLoading);
       return;
     }
 
@@ -1773,14 +1800,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     canvas.height = video.videoHeight || 1080;
     const context = canvas.getContext('2d');
     if (!context) {
-      setCameraError('Unable to capture this frame. Try again with the label inside the square.');
+      setCameraError(copy.cameraCaptureError);
       return;
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
     if (!blob) {
-      setCameraError('Unable to capture this frame. Try again with the label inside the square.');
+      setCameraError(copy.cameraCaptureError);
       return;
     }
 
@@ -1960,6 +1987,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     name: isRussian ? 'Имя' : 'Name',
     username: isRussian ? 'Username' : 'Username',
     saveProfile: isRussian ? 'Сохранить профиль' : 'Save profile',
+    language: isRussian ? 'Язык' : 'Language',
+    english: isRussian ? 'Английский' : 'English',
+    russian: isRussian ? 'Русский' : 'Russian',
+    account: isRussian ? 'Аккаунт' : 'Account',
+    accountProfile: isRussian ? 'Профиль аккаунта' : 'Account profile',
+    personalDetails: isRussian ? 'Личные данные' : 'Personal Details',
+    editGoals: isRussian ? 'Изменить цели' : 'Edit Goals',
+    manageSubscription: isRussian ? 'Управление подпиской' : 'Manage Subscription',
+    supportLegal: isRussian ? 'Поддержка и документы' : 'Support & Legal',
+    contactSupport: isRussian ? 'Связаться с поддержкой' : 'Contact Support',
+    privacyPolicy: isRussian ? 'Политика конфиденциальности' : 'Privacy Policy',
+    terms: isRussian ? 'Условия использования' : 'Terms and Conditions',
+    accountActions: isRussian ? 'Действия аккаунта' : 'Account Actions',
+    logout: isRussian ? 'Выйти' : 'Logout',
+    dayStreak: isRussian ? 'Дней подряд' : 'Day streak',
+    streakHelp: isRussian ? 'Сохраняйте хотя бы одну запись за 24 часа' : 'Log once every 24 hours to keep it alive',
     logFood: isRussian ? 'Добавить еду' : 'Log food',
     logFoodHelp: isRussian ? 'Сделайте фото, и AI сохранит еду, время и оценку.' : 'Take a photo, and AI saves the food, time, and score.',
     takePhoto: isRussian ? 'Сделать фото' : 'Take photo',
@@ -1976,6 +2019,31 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     cancel: isRussian ? 'Отмена' : 'Cancel',
     deleteConfirm: isRussian ? 'Удалить навсегда' : 'Delete permanently',
     deleteError: isRussian ? 'Не удалось удалить аккаунт. Попробуйте позже.' : 'Unable to delete account. Please try again.',
+    saving: isRussian ? 'Сохранение...' : 'Saving...',
+    deleting: isRussian ? 'Удаление...' : 'Deleting...',
+    notScored: isRussian ? 'без оценки' : 'not scored',
+    needsRetake: isRussian ? 'Нужно переснять' : 'Needs retake',
+    imageNotChecked: isRussian ? 'Фото не проверено' : 'Image not checked',
+    betterAlternative: isRussian ? 'Лучше заменить на' : 'Better alternative',
+    selected: isRussian ? 'Выбрано' : 'Selected',
+    feelingConnectEmpty: isRussian ? 'Выберите самочувствие, чтобы скан стал полезным паттерном позже' : 'Pick one feeling so this scan can become a useful pattern later.',
+    analyzingImage: isRussian ? 'Анализируем фото...' : 'Analyzing image...',
+    checkingContext: isRussian ? 'Проверяем состав и контекст...' : 'Checking portions and context...',
+    savedRecent: isRussian ? 'Сохранено в последние сканы' : 'Saved to Recently uploaded',
+    visualUnavailable: isRussian ? 'Визуальная оценка недоступна' : 'Saved with visual estimate unavailable',
+    uploadedImage: isRussian ? 'загруженное фото' : 'uploaded image',
+    cameraLoading: isRussian ? 'Камера еще загружается. Попробуйте через секунду.' : 'Camera is still loading. Try again in a second.',
+    cameraCaptureError: isRussian ? 'Не удалось сделать снимок. Держите продукт внутри рамки.' : 'Unable to capture this frame. Try again with the label inside the square.',
+    cameraTitle: isRussian ? 'Камера DigestSnap' : 'DigestSnap camera',
+    cameraSubtitle: isRussian ? 'Заполните рамку продуктом или этикеткой' : 'Fill the square with the label',
+    cameraHint: isRussian ? 'Держите состав четко и ровно' : 'Keep ingredients sharp and flat',
+    cameraUnavailable: isRussian ? 'Камера недоступна' : 'Camera unavailable',
+  };
+  const feelingLabel = (feeling: FeelingOption) => {
+    if (feeling === 'Fine') return copy.fine;
+    if (feeling === 'Bloated') return copy.bloated;
+    if (feeling === 'Pain') return copy.pain;
+    return copy.nausea;
   };
   const ratingLabel = (rating: ImageScanPayload['result']['overallRating']) => {
     if (!isRussian) return rating;
@@ -2017,18 +2085,26 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
   const resultVibe = (result: ImageScanPayload['result']) => {
     if (isImageCheckErrorResult(result)) {
-      return 'DigestSnap saved the image, but the scan was not clear enough to trust. Retake it sharper if you want the real read';
+      return isRussian
+        ? 'DigestSnap сохранил фото, но скан был недостаточно четким. Сделайте фото резче для точной оценки'
+        : 'DigestSnap saved the image, but the scan was not clear enough to trust. Retake it sharper if you want the real read';
     }
 
     if (result.overallRating === 'Avoid') {
-      return 'This is a skip for now. The scan has enough red flags that it is more likely to be a bad bet for your stomach';
+      return isRussian
+        ? 'Лучше пропустить сейчас. В скане достаточно красных сигналов, которые могут плохо зайти желудку'
+        : 'This is a skip for now. The scan has enough red flags that it is more likely to be a bad bet for your stomach';
     }
 
     if (result.overallRating === 'Caution') {
-      return 'Not an instant no, but do not treat it like a clean win. Log how you feel later and see if it keeps showing up';
+      return isRussian
+        ? 'Не полный запрет, но и не чистая победа. Отметьте самочувствие позже и посмотрите, повторится ли сигнал'
+        : 'Not an instant no, but do not treat it like a clean win. Log how you feel later and see if it keeps showing up';
     }
 
-    return 'Looks solid enough to keep in rotation. Still check in later so DigestSnap learns your actual reaction';
+    return isRussian
+      ? 'Выглядит нормально для повторения. Все равно отметьте самочувствие позже, чтобы DigestSnap учился по вашей реакции'
+      : 'Looks solid enough to keep in rotation. Still check in later so DigestSnap learns your actual reaction';
   };
   const getBetterAlternative = (result: ImageScanPayload['result']) => {
     if (isImageCheckErrorResult(result)) return null;
@@ -2038,40 +2114,40 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
     if (name.includes('soda') || name.includes('cola') || name.includes('fuse') || flagged.includes('sugar') || flagged.includes('sweetener')) {
       return {
-        title: 'Sparkling water with lemon',
-        reason: 'Lower sugar and easier to log as a repeat drink pattern',
+        title: isRussian ? 'Вода с лимоном' : 'Sparkling water with lemon',
+        reason: isRussian ? 'Меньше сахара и проще отследить повторный напиток' : 'Lower sugar and easier to log as a repeat drink pattern',
       };
     }
 
     if (name.includes('fried') || name.includes('burger') || name.includes('fries') || flagged.includes('oil')) {
       return {
-        title: 'Grilled bowl with rice and sauce on the side',
-        reason: 'Keeps the meal filling while reducing fried oil and heavy sauce signals',
+        title: isRussian ? 'Гриль боул с рисом и соусом отдельно' : 'Grilled bowl with rice and sauce on the side',
+        reason: isRussian ? 'Оставляет еду сытной, но снижает сигнал жарки и тяжелого соуса' : 'Keeps the meal filling while reducing fried oil and heavy sauce signals',
       };
     }
 
     if (name.includes('bread') || name.includes('pastry') || name.includes('cookie') || flagged.includes('flour')) {
       return {
-        title: 'Protein yogurt with berries',
-        reason: 'Still quick, but gives DigestSnap a cleaner baseline than refined flour',
+        title: isRussian ? 'Йогурт с белком и ягодами' : 'Protein yogurt with berries',
+        reason: isRussian ? 'Так же быстро, но дает более чистую базу, чем рафинированная мука' : 'Still quick, but gives DigestSnap a cleaner baseline than refined flour',
       };
     }
 
     if (name.includes('milk') || name.includes('cream') || name.includes('dairy') || flagged.includes('dairy')) {
       return {
-        title: 'Lactose-free yogurt or oat-based option',
-        reason: 'A gentler swap if dairy keeps showing up before discomfort',
+        title: isRussian ? 'Безлактозный йогурт или овсяный вариант' : 'Lactose-free yogurt or oat-based option',
+        reason: isRussian ? 'Мягкая замена, если молочное часто появляется перед дискомфортом' : 'A gentler swap if dairy keeps showing up before discomfort',
       };
     }
 
     return result.score >= 75
       ? {
-          title: 'Keep this as a baseline meal',
-          reason: 'This looks like a useful comparison meal for future check-ins',
+          title: isRussian ? 'Оставьте это как базовый прием пищи' : 'Keep this as a baseline meal',
+          reason: isRussian ? 'Полезная точка сравнения для будущих отметок самочувствия' : 'This looks like a useful comparison meal for future check-ins',
         }
       : {
-          title: 'Simple whole-food bowl',
-          reason: 'Choose a clearer ingredient list so patterns are easier to trust',
+          title: isRussian ? 'Простой боул из понятных продуктов' : 'Simple whole-food bowl',
+          reason: isRussian ? 'Чем понятнее состав, тем легче доверять паттернам' : 'Choose a clearer ingredient list so patterns are easier to trust',
         };
   };
   const betterAlternative = scanResult ? getBetterAlternative(scanResult.result) : null;
@@ -2286,14 +2362,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   );
 
   const profileRows = [
-    { label: 'Personal Details', icon: ClipboardList, action: openProfileEditor },
-    { label: 'Edit Goals', icon: Target, action: openGoalsEditor },
-    { label: 'Manage Subscription', icon: ShieldCheck, action: () => navigate('/manage-subscription') },
+    { label: copy.personalDetails, icon: ClipboardList, action: openProfileEditor },
+    { label: copy.editGoals, icon: Target, action: openGoalsEditor },
+    { label: copy.manageSubscription, icon: ShieldCheck, action: () => navigate('/manage-subscription') },
   ];
   const supportRows = [
-    { label: 'Contact Support', icon: Mail, action: () => navigate('/support') },
-    { label: 'Privacy Policy', icon: ShieldCheck, action: () => navigate('/privacy') },
-    { label: 'Terms and Conditions', icon: ClipboardList, action: () => navigate('/terms') },
+    { label: copy.contactSupport, icon: Mail, action: () => navigate('/support') },
+    { label: copy.privacyPolicy, icon: ShieldCheck, action: () => navigate('/privacy') },
+    { label: copy.terms, icon: ClipboardList, action: () => navigate('/terms') },
   ];
   const renderRow = ({ label, icon: Icon, action }: { label: string; icon: typeof Home; action: () => void }) => (
     <button className={cn('flex min-h-[60px] w-full items-center gap-3 border-b px-4 text-left last:border-b-0 transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5', theme.line)} key={label} onClick={action} type="button">
@@ -2308,7 +2384,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         <button className="flex h-10 w-10 items-center justify-center rounded-full text-black transition active:scale-95 sm:h-11 sm:w-11" onClick={() => setActiveTab('home')} type="button" aria-label="Back to home">
           <ArrowLeft className="h-6 w-6" />
         </button>
-        <h1 className="text-[28px] font-black leading-none sm:text-[33px]">Profile</h1>
+        <h1 className="text-[28px] font-black leading-none sm:text-[33px]">{copy.profileDetails}</h1>
         <div className="h-10 w-10 sm:h-11 sm:w-11" />
       </div>
       <button className={cn(cardClass, 'flex w-full items-center gap-4 text-left transition active:scale-[0.99] sm:gap-5')} onClick={openProfileEditor} type="button">
@@ -2316,7 +2392,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           <User className="h-7 w-7 sm:h-9 sm:w-9" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={cn('text-sm font-black', theme.muted)}>Account profile</p>
+          <p className={cn('text-sm font-black', theme.muted)}>{copy.accountProfile}</p>
           <p className="truncate text-xl font-black sm:text-2xl">{profileName}</p>
           <p className={cn('truncate text-base font-bold sm:text-lg', theme.muted)}>@{profileUsername}</p>
         </div>
@@ -2330,34 +2406,56 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           </div>
           <div>
             <p className="text-xl font-black sm:text-2xl">{activeStreak}</p>
-            <p className={cn('text-sm font-black', theme.muted)}>Day streak</p>
+            <p className={cn('text-sm font-black', theme.muted)}>{copy.dayStreak}</p>
           </div>
         </div>
         <p className={cn('max-w-[150px] text-right text-[11px] font-semibold leading-4 sm:max-w-[180px] sm:text-xs sm:leading-5', theme.muted)}>
-          Log once every 24 hours to keep it alive
+          {copy.streakHelp}
         </p>
       </div>
 
+      <div className={cn(cardClass, 'space-y-3')}>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-lg font-black sm:text-xl">{copy.language}</p>
+          <p className={cn('text-sm font-black', theme.muted)}>{language === 'Russian' ? copy.russian : copy.english}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 rounded-[20px] bg-zinc-100 p-1.5">
+          {(['English', 'Russian'] as AppLanguage[]).map((option) => {
+            const active = language === option;
+            return (
+              <button
+                className={cn('h-12 rounded-[16px] text-sm font-black transition active:scale-[0.98]', active ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500')}
+                key={option}
+                onClick={() => setLanguage(option)}
+                type="button"
+              >
+                {option === 'Russian' ? copy.russian : copy.english}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div>
-        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>Account</p>
+        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>{copy.account}</p>
         <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
           {profileRows.map(renderRow)}
         </div>
       </div>
 
       <div>
-        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>Support & Legal</p>
+        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>{copy.supportLegal}</p>
         <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
           {supportRows.map(renderRow)}
         </div>
       </div>
 
       <div>
-        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>Account Actions</p>
+        <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>{copy.accountActions}</p>
         <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
           <button className={cn('flex min-h-[60px] w-full items-center gap-3 border-b px-4 text-left transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5', theme.line)} onClick={signOut} type="button">
             <LogOut className="h-6 w-6" />
-            <span className="flex-1 text-lg font-black sm:text-xl">Logout</span>
+            <span className="flex-1 text-lg font-black sm:text-xl">{copy.logout}</span>
             <ChevronRight className={cn('h-6 w-6', theme.muted)} />
           </button>
           <button className="flex min-h-[60px] w-full items-center gap-3 px-4 text-left text-red-400 transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5" onClick={() => setDeleteSheetOpen(true)} type="button">
@@ -2621,21 +2719,21 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <div className="text-center">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">DigestSnap camera</p>
-                    <p className="mt-1 text-sm font-black">Fill the square with the label</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">{copy.cameraTitle}</p>
+                    <p className="mt-1 text-sm font-black">{copy.cameraSubtitle}</p>
                   </div>
                   <div aria-hidden className="h-12 w-12" />
                 </div>
 
                 <div className="pointer-events-none absolute inset-x-6 top-1/2 aspect-square -translate-y-1/2 rounded-[30px] border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,0.22)] sm:inset-x-10 sm:rounded-[34px]">
                   <div className="absolute inset-x-4 top-4 rounded-full bg-black/38 px-3 py-2 text-center text-[11px] font-black backdrop-blur-md sm:inset-x-5 sm:top-5 sm:px-4 sm:text-xs">
-                    Keep ingredients sharp and flat
+                    {copy.cameraHint}
                   </div>
                 </div>
 
                 {cameraError && (
                   <div className="absolute inset-x-5 top-28 rounded-[22px] bg-white p-4 text-zinc-950 shadow-2xl">
-                    <p className="text-sm font-black">Camera unavailable</p>
+                    <p className="text-sm font-black">{copy.cameraUnavailable}</p>
                     <p className="mt-1 text-xs font-semibold leading-5 text-zinc-500">{cameraError}</p>
                   </div>
                 )}
@@ -2698,7 +2796,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   onClick={saveProfileDetails}
                   type="button"
                 >
-                  {profileSaving ? 'Saving...' : copy.saveProfile}
+                  {profileSaving ? copy.saving : copy.saveProfile}
                 </button>
               </motion.div>
             </motion.div>
@@ -2877,16 +2975,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className="grid grid-cols-[1fr_auto] items-start gap-4">
                     <div>
                       <span className={cn('inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase', resultTone.badge)}>
-                        {isResultImageCheckError ? 'Needs retake' : ratingLabel(scanResult.result.overallRating)}
+                        {isResultImageCheckError ? copy.needsRetake : ratingLabel(scanResult.result.overallRating)}
                       </span>
-                      <p className="mt-3 text-3xl font-black leading-none sm:text-4xl">{isResultImageCheckError ? 'Image not checked' : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
+                      <p className="mt-3 text-3xl font-black leading-none sm:text-4xl">{isResultImageCheckError ? copy.imageNotChecked : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
                       <p className={cn('mt-3 max-w-[31rem] text-sm font-bold leading-6', resultTone.muted)}>
                         {resultVibe(scanResult.result)}
                       </p>
                     </div>
                     <div className={cn('flex h-20 w-20 flex-col items-center justify-center rounded-full shadow-inner ring-4 sm:h-24 sm:w-24', resultTone.circle)}>
                       <p className="text-2xl font-black sm:text-3xl">{isResultImageCheckError ? '--' : scanResult.result.score}</p>
-                      <p className="text-[10px] font-black uppercase opacity-75">{isResultImageCheckError ? 'not scored' : copy.score}</p>
+                      <p className="text-[10px] font-black uppercase opacity-75">{isResultImageCheckError ? copy.notScored : copy.score}</p>
                     </div>
                   </div>
 
@@ -2919,7 +3017,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Better alternative</p>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{copy.betterAlternative}</p>
                         <p className="mt-2 text-xl font-black leading-tight sm:text-2xl">{betterAlternative.title}</p>
                         <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>{betterAlternative.reason}</p>
                       </div>
@@ -2939,7 +3037,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     </div>
                     {selectedFeeling && (
                       <span className={cn('rounded-full px-3 py-1 text-xs font-black', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]')}>
-                        {isRussian ? 'Выбрано' : 'Selected'}
+                        {copy.selected}
                       </span>
                     )}
                   </div>
@@ -2958,15 +3056,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           onClick={() => setSelectedFeeling(feeling)}
                           type="button"
                         >
-                          {feeling}
+                          {feelingLabel(feeling)}
                         </button>
                       );
                     })}
                   </div>
                   <p className={cn('mt-3 text-xs font-semibold leading-5', theme.muted)}>
-                    {selectedFeeling
-                      ? `${selectedFeeling} will be connected to ${scanResult.result.productName}.`
-                      : 'Pick one feeling so this scan can become a useful pattern later.'}
+                   {selectedFeeling
+                      ? isRussian
+                        ? `${feelingLabel(selectedFeeling)} будет связано с ${scanResult.result.productName}.`
+                        : `${selectedFeeling} will be connected to ${scanResult.result.productName}.`
+                      : copy.feelingConnectEmpty}
                   </p>
                 </div>
                 )}
@@ -2980,7 +3080,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       if (!selectedFeeling) return;
                       const saved = await saveEntry(`${selectedFeeling} check-in saved: ${scanResult.result.productName}`);
                       if (saved) {
-                        setDashboardError(`${selectedFeeling} connected to this scan.`);
+                        setDashboardError(isRussian ? `${feelingLabel(selectedFeeling)} связано с этим сканом.` : `${selectedFeeling} connected to this scan.`);
                         setResultSheetOpen(false);
                       }
                     }}
@@ -3137,7 +3237,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     onClick={deleteAccount}
                     type="button"
                   >
-                    {deleteLoading ? 'Deleting...' : copy.deleteConfirm}
+                    {deleteLoading ? copy.deleting : copy.deleteConfirm}
                   </button>
                 </div>
               </motion.div>
