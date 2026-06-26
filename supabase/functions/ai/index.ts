@@ -30,6 +30,7 @@ const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000
 const SCAN_CACHE_VERSION = 'label-v14-confidence-20260627';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
+const OPEN_FOOD_FACTS_TIMEOUT_MS = 1_600;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const BLOCKED_PATTERNS = [
   /\b(kill|suicide|self[-\s]?harm|cut myself|end my life)\b/i,
@@ -114,6 +115,14 @@ type VisualIdentityPayload = {
   confidenceScore: number;
   isFood: boolean;
   visibleText: string;
+};
+
+type ProductDatabaseMatch = {
+  productName: string;
+  brand: string;
+  category: string;
+  confidenceScore: number;
+  nutrition?: NutritionFacts;
 };
 
 type ImagePayload = {
@@ -987,7 +996,10 @@ async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
   const parsed = parseModelJson(geminiResult.text);
   const foodFallback = fallbackFoodTextPayload(foodText.payload, targetLang);
   const scan = normalizeScanPayload(parsed, targetLang, foodFallback);
-  const finalScan = withScanConfidence(isUnreadableProductName(scan.result.productName) ? foodFallback : scan, targetLang, 'manual_text');
+  const finalScan = await enrichWithProductDatabase(
+    withScanConfidence(isUnreadableProductName(scan.result.productName) ? foodFallback : scan, targetLang, 'manual_text'),
+    targetLang,
+  );
 
   runAfterResponse(cacheScan(cacheHash, targetLang, finalScan));
 
@@ -1016,8 +1028,9 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   const identityScan = await identifyAndRateVisibleFood(image.payload, targetLang);
 
   if (identityScan && !isUnusableVisualScan(identityScan)) {
-    runAfterResponse(cacheScan(cacheKey, targetLang, identityScan));
-    return jsonResponse(req, identityScan);
+    const enrichedIdentityScan = await enrichWithProductDatabase(identityScan, targetLang);
+    runAfterResponse(cacheScan(cacheKey, targetLang, enrichedIdentityScan));
+    return jsonResponse(req, enrichedIdentityScan);
   }
 
   const geminiResult = await callGemini({
@@ -1083,9 +1096,11 @@ async function handleImageRequest(req: Request, body: RequestBody) {
     }
   }
 
-  runAfterResponse(cacheScan(cacheKey, targetLang, scan));
+  const enrichedScan = await enrichWithProductDatabase(scan, targetLang);
 
-  return jsonResponse(req, scan);
+  runAfterResponse(cacheScan(cacheKey, targetLang, enrichedScan));
+
+  return jsonResponse(req, enrichedScan);
 }
 
 function parseModelJson(text: string): unknown {
@@ -1828,6 +1843,145 @@ function visualEstimateFallback(targetLang: string): ScanPayload {
       ],
     },
   };
+}
+
+function asOptionalNutritionNumber(...values: unknown[]) {
+  for (const value of values) {
+    const numberValue = typeof value === 'number' ? value : Number(value);
+    if (Number.isFinite(numberValue) && numberValue >= 0) {
+      return Math.round(numberValue);
+    }
+  }
+
+  return 0;
+}
+
+function nutritionFromOpenFoodFacts(value: unknown): NutritionFacts | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const servingQuantity = Number(value.serving_quantity);
+  const per100Multiplier = Number.isFinite(servingQuantity) && servingQuantity > 0 && servingQuantity <= 1000 ? servingQuantity / 100 : 1;
+  const nutriments = isRecord(value.nutriments) ? value.nutriments : {};
+  const perServing = (key: string) => nutriments[`${key}_serving`];
+  const per100 = (key: string) => {
+    const numberValue = Number(nutriments[`${key}_100g`]);
+    return Number.isFinite(numberValue) ? numberValue * per100Multiplier : undefined;
+  };
+  const sodiumG = Number(perServing('sodium') ?? per100('sodium'));
+  const sodiumMg = Number.isFinite(sodiumG) ? Math.round(Math.max(0, sodiumG * 1000)) : asOptionalNutritionNumber(perServing('sodium_mg'), per100('sodium_mg'));
+  const nutrition: NutritionFacts = {
+    calories: asOptionalNutritionNumber(perServing('energy-kcal'), per100('energy-kcal')),
+    proteinG: asOptionalNutritionNumber(perServing('proteins'), per100('proteins')),
+    carbsG: asOptionalNutritionNumber(perServing('carbohydrates'), per100('carbohydrates')),
+    fatG: asOptionalNutritionNumber(perServing('fat'), per100('fat')),
+    fiberG: asOptionalNutritionNumber(perServing('fiber'), per100('fiber')),
+    sugarG: asOptionalNutritionNumber(perServing('sugars'), per100('sugars')),
+    sodiumMg,
+  };
+
+  if (nutrition.calories <= 0 && nutrition.proteinG <= 0 && nutrition.carbsG <= 0 && nutrition.fatG <= 0) {
+    return undefined;
+  }
+
+  return nutrition;
+}
+
+function cleanDatabaseQuery(scan: ScanPayload) {
+  const query = scan.result.productName
+    .replace(/\b(visual|estimate|product|food|scan|unreadable|image|check|error)\b/gi, ' ')
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (query.length < 3 || isUnreadableProductName(query)) {
+    return '';
+  }
+
+  return query.slice(0, 120);
+}
+
+function normalizeLookupText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function lookupOpenFoodFacts(query: string): Promise<ProductDatabaseMatch | null> {
+  if (!query) return null;
+
+  const params = new URLSearchParams({
+    search_terms: query,
+    search_simple: '1',
+    action: 'process',
+    json: '1',
+    page_size: '1',
+    fields: 'product_name,brands,categories,serving_quantity,nutriments,nutriscore_grade',
+  });
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`;
+
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'DigestSnap/1.0 demo nutrition lookup',
+        },
+      },
+      OPEN_FOOD_FACTS_TIMEOUT_MS,
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload: unknown = await response.json();
+    if (!isRecord(payload) || !Array.isArray(payload.products) || !isRecord(payload.products[0])) {
+      return null;
+    }
+
+    const product = payload.products[0];
+    const productName = asBoundedString(product.product_name, '', 120);
+    if (!productName) {
+      return null;
+    }
+
+    return {
+      productName,
+      brand: asBoundedString(product.brands, '', 90).split(',')[0]?.trim() ?? '',
+      category: asBoundedString(product.categories, '', 120).split(',')[0]?.trim() ?? '',
+      confidenceScore: normalizeLookupText(query).includes(normalizeLookupText(productName).slice(0, 12)) || normalizeLookupText(productName).includes(normalizeLookupText(query).slice(0, 12)) ? 92 : 78,
+      nutrition: nutritionFromOpenFoodFacts(product),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function enrichWithProductDatabase(scan: ScanPayload, targetLang: string): Promise<ScanPayload> {
+  if (isUnusableVisualScan(scan)) return scan;
+
+  const match = await lookupOpenFoodFacts(cleanDatabaseQuery(scan));
+  if (!match) return scan;
+
+  const productName = [match.brand, match.productName]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const databaseScan: ScanPayload = {
+    result: {
+      ...scan.result,
+      productName: productName || scan.result.productName,
+      nutrition: match.nutrition ?? scan.result.nutrition,
+    },
+  };
+
+  return withScanConfidence(enforceFoodRiskRules(databaseScan, targetLang), targetLang, 'database_match', match.confidenceScore);
 }
 
 async function identifyAndRateVisibleFood(image: ImagePayload, targetLang: string): Promise<ScanPayload | null> {
