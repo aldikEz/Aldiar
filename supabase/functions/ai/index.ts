@@ -1308,7 +1308,7 @@ function normalizeConfidence(value: unknown, targetLang: string, fallback: ScanC
 
 function withScanConfidence(scan: ScanPayload, targetLang: string, source?: ScanConfidenceSource, scoreOverride?: number): ScanPayload {
   const fallbackSource = source ?? scan.result.confidence?.source ?? (isUnusableVisualScan(scan) ? 'fallback' : 'label_read');
-  const fallback = makeScanConfidence(fallbackSource, targetLang, scoreOverride ?? scan.result.confidence?.score);
+  const fallback = makeScanConfidence(fallbackSource, targetLang, scoreOverride ?? (source ? undefined : scan.result.confidence?.score));
 
   return {
     result: {
