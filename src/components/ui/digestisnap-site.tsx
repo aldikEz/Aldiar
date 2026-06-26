@@ -34,7 +34,7 @@ type DashboardTab = 'home' | 'progress' | 'profile';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
 type LandingPhoneVariant = 'score' | 'macros' | 'water';
 type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
-type WaterUnit = 'cups' | 'oz' | 'ml';
+type WaterUnit = 'oz' | 'ml';
 type LegalPageKind = 'privacy' | 'terms' | 'subscription' | 'contact' | 'support';
 type DashboardEntry = {
   id: string;
@@ -947,7 +947,7 @@ function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'score' }:
               <div className={cn('rounded-[26px] p-5 ring-1', card)}>
                 <p className="text-xl font-black text-zinc-500">Water intake</p>
                 <p className="mt-2 text-[34px] font-black leading-none">16 fl oz</p>
-                <p className="mt-1 text-sm font-black text-zinc-400">2 cups logged</p>
+                <p className="mt-1 text-sm font-black text-zinc-400">Manual water log</p>
                 <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
                   <div className="h-full w-[38%] rounded-full bg-zinc-950" />
                 </div>
@@ -2146,16 +2146,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     gutScoreOutOfTen === null
       ? 'Track a couple foods to generate your health score'
       : 'Your health score reflects recent scan ratings and logged reactions';
-  const waterCups = waterMl / 250;
   const waterOz = waterMl / 29.5735;
-  const waterValue =
-    waterUnit === 'cups'
-      ? waterCups
-      : waterUnit === 'oz'
-        ? waterOz
-        : waterMl;
-  const waterValueLabel = waterValue % 1 === 0 ? String(waterValue) : waterValue.toFixed(1);
-  const waterCardLabel = `${Math.round(waterOz)} fl oz (${Math.round(waterCups)} cups)`;
+  const waterCardLabel = waterUnit === 'ml' ? `${Math.round(waterMl)} mL` : `${Math.round(waterOz)} fl oz`;
   const calorieMode = getCalorieGoalMode(storedProfile);
   const maintenanceCalories = estimateDailyCalories(storedProfile);
   const calorieTarget =
@@ -2179,29 +2171,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const manualWaterNumber = Number(manualWaterAmount);
   const manualWaterMl =
     Number.isFinite(manualWaterNumber) && manualWaterNumber > 0
-      ? waterUnit === 'cups'
-        ? manualWaterNumber * 250
-        : waterUnit === 'oz'
-          ? manualWaterNumber * 29.5735
-          : manualWaterNumber
+      ? waterUnit === 'oz'
+        ? manualWaterNumber * 29.5735
+        : manualWaterNumber
       : 0;
-  const waterQuickAdds: Record<WaterUnit, Array<{ label: string; amount: string; ml: number }>> = {
-    cups: [
-      { label: '+1 Glass', amount: '1 cup', ml: 250 },
-      { label: '+1 Bottle', amount: '2 cups', ml: 500 },
-      { label: '+1 Large Bottle', amount: '3 cups', ml: 750 },
-    ],
-    oz: [
-      { label: '+1 Glass', amount: '8 oz', ml: 250 },
-      { label: '+1 Bottle', amount: '16 oz', ml: 500 },
-      { label: '+1 Large Bottle', amount: '24 oz', ml: 750 },
-    ],
-    ml: [
-      { label: '+1 Glass', amount: '250 mL', ml: 250 },
-      { label: '+1 Bottle', amount: '500 mL', ml: 500 },
-      { label: '+1 Large Bottle', amount: '750 mL', ml: 750 },
-    ],
-  };
   const theme = {
     app: 'bg-white text-zinc-950',
     card: 'bg-white text-zinc-950 ring-black/[0.03]',
@@ -2833,7 +2806,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                                   <p className="text-[15px] font-black text-zinc-500 sm:text-[18px]">Water intake</p>
                                   <p className="mt-1 text-[24px] font-black leading-none sm:text-[30px]">{waterCardLabel}</p>
                                 </div>
-                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg font-black">+</span>
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-lg font-black text-white">+</span>
                               </div>
                             </button>
 
@@ -3476,44 +3449,37 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className="mx-auto h-1.5 w-12 rounded-full bg-zinc-200" />
                 <h2 className="mt-6 text-center text-[22px] font-black">Log Water</h2>
 
-                <div className="mt-8 flex items-center justify-center sm:mt-10">
-                  <span className="pr-3 text-[58px] font-black leading-none text-zinc-300 sm:text-[72px]">{waterValueLabel}</span>
-                  <span className="h-14 w-px bg-zinc-950 sm:h-16" />
-                  <div className="ml-3 flex items-center gap-2">
-                    <span className="text-[21px] font-black sm:text-[24px]">{waterUnit === 'ml' ? 'mL' : waterUnit === 'oz' ? 'oz' : 'cup(s)'}</span>
-                    <div className="grid gap-0.5">
-                      <button
-                        aria-label="Set water unit to cups"
-                        className={cn('rounded px-1 text-[11px] font-black', waterUnit === 'cups' ? 'bg-zinc-950 text-white' : 'text-zinc-500')}
-                        onClick={() => setWaterUnit('cups')}
-                        type="button"
-                      >
-                        cups
-                      </button>
-                      <button
-                        aria-label="Set water unit to ounces"
-                        className={cn('rounded px-1 text-[11px] font-black', waterUnit === 'oz' ? 'bg-zinc-950 text-white' : 'text-zinc-500')}
-                        onClick={() => setWaterUnit('oz')}
-                        type="button"
-                      >
-                        oz
-                      </button>
-                      <button
-                        aria-label="Set water unit to milliliters"
-                        className={cn('rounded px-1 text-[11px] font-black', waterUnit === 'ml' ? 'bg-zinc-950 text-white' : 'text-zinc-500')}
-                        onClick={() => setWaterUnit('ml')}
-                        type="button"
-                      >
-                        mL
-                      </button>
-                    </div>
-                  </div>
+                <div className="mt-6 rounded-[24px] bg-zinc-50 p-4 text-center ring-1 ring-zinc-950/[0.06]">
+                  <p className="text-sm font-black text-zinc-500">Water logged</p>
+                  <p className="mt-2 text-[38px] font-black leading-none">{waterCardLabel}</p>
                 </div>
 
-                <div className="mt-6 rounded-[22px] bg-zinc-50 p-3.5 ring-1 ring-zinc-950/[0.06] sm:mt-7 sm:rounded-[24px] sm:p-4">
-                  <label className="text-sm font-black text-zinc-500" htmlFor="manual-water-amount">
-                    Manual amount
-                  </label>
+                <div className="mt-4 rounded-[22px] bg-zinc-50 p-3.5 ring-1 ring-zinc-950/[0.06] sm:rounded-[24px] sm:p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-black text-zinc-500" htmlFor="manual-water-amount">
+                      Amount
+                    </label>
+                    <div className="grid grid-cols-2 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-950/[0.06]">
+                      {([
+                        ['ml', 'mL'],
+                        ['oz', 'fl oz'],
+                      ] as Array<[WaterUnit, string]>).map(([unit, label]) => (
+                        <button
+                          aria-label={`Set water unit to ${label}`}
+                          className={cn(
+                            'h-9 rounded-full px-4 text-xs font-black transition active:scale-[0.98]',
+                            waterUnit === unit ? 'bg-zinc-950 text-white' : 'text-zinc-500',
+                          )}
+                          key={unit}
+                          onClick={() => setWaterUnit(unit)}
+                          type="button"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="mt-3 flex items-center gap-3">
                     <input
                       className="h-14 min-w-0 flex-1 rounded-[18px] bg-white px-4 text-[24px] font-black outline-none ring-1 ring-zinc-950/[0.08] transition focus:ring-2 focus:ring-zinc-950/20"
@@ -3525,30 +3491,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       type="number"
                       value={manualWaterAmount}
                     />
-                    <span className="w-16 text-center text-lg font-black">{waterUnit === 'ml' ? 'mL' : waterUnit}</span>
+                    <span className="w-16 text-center text-lg font-black">{waterUnit === 'ml' ? 'mL' : 'fl oz'}</span>
                   </div>
-                </div>
-
-                <div className="mt-6 grid grid-cols-3 gap-2 sm:mt-8 sm:gap-3">
-                  {waterQuickAdds[waterUnit].map((option) => (
-                    <button
-                      className="min-h-[96px] rounded-[20px] bg-zinc-50 px-2.5 py-3 text-left shadow-sm ring-1 ring-zinc-950/[0.06] transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.98] sm:min-h-[112px] sm:rounded-[22px] sm:px-3 sm:py-4"
-                      key={`${waterUnit}-${option.label}`}
-                      onClick={() => setWaterMl((amount) => amount + option.ml)}
-                      type="button"
-                    >
-                      <span className="block text-[13px] font-black leading-tight sm:text-[16px]">{option.label}</span>
-                      <span className="mt-1 block text-[13px] font-black text-zinc-500 sm:text-[15px]">{option.amount}</span>
-                    </button>
-                  ))}
                 </div>
 
                 <button
                   className={cn(
-                    'mt-7 h-14 w-full rounded-full text-[17px] font-black transition active:scale-[0.98] sm:mt-9 sm:h-16 sm:text-[18px]',
-                    waterMl > 0 || manualWaterMl > 0 ? 'bg-zinc-950 text-white shadow-[0_14px_32px_rgba(15,15,15,0.20)]' : 'bg-zinc-300 text-white',
+                    'mt-5 h-14 w-full rounded-full text-[17px] font-black transition active:scale-[0.98] sm:h-16 sm:text-[18px]',
+                    manualWaterMl > 0 ? 'bg-zinc-950 text-white shadow-[0_14px_32px_rgba(15,15,15,0.20)]' : 'bg-zinc-300 text-white',
                   )}
-                  disabled={waterMl <= 0 && manualWaterMl <= 0}
+                  disabled={manualWaterMl <= 0}
                   onClick={() => {
                     if (manualWaterMl > 0) {
                       setWaterMl((amount) => amount + manualWaterMl);
