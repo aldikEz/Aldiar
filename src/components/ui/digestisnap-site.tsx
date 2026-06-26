@@ -35,6 +35,7 @@ type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
 type LandingPhoneVariant = 'score' | 'macros' | 'water';
 type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
 type WaterUnit = 'oz' | 'ml';
+type PortionOption = 'small' | 'medium' | 'large' | 'package';
 type LegalPageKind = 'privacy' | 'terms' | 'subscription' | 'contact' | 'support';
 type DashboardEntry = {
   id: string;
@@ -479,6 +480,26 @@ function estimateNutritionFromScan(result: ImageScanPayload['result']): Nutritio
 
 function nutritionForResult(result: ImageScanPayload['result']): NutritionFacts {
   return normalizeNutritionFacts(result.nutrition) ?? estimateNutritionFromScan(result);
+}
+
+const PORTION_MULTIPLIERS: Record<PortionOption, number> = {
+  small: 0.65,
+  medium: 1,
+  large: 1.45,
+  package: 1,
+};
+
+function scaleNutritionFacts(nutrition: NutritionFacts, portion: PortionOption): NutritionFacts {
+  const multiplier = PORTION_MULTIPLIERS[portion];
+  return {
+    calories: nutritionNumber(nutrition.calories * multiplier),
+    proteinG: nutritionNumber(nutrition.proteinG * multiplier),
+    carbsG: nutritionNumber(nutrition.carbsG * multiplier),
+    fatG: nutritionNumber(nutrition.fatG * multiplier),
+    fiberG: nutritionNumber((nutrition.fiberG ?? 0) * multiplier),
+    sugarG: nutritionNumber((nutrition.sugarG ?? 0) * multiplier),
+    sodiumMg: nutritionNumber((nutrition.sodiumMg ?? 0) * multiplier),
+  };
 }
 
 function addNutritionValues(items: NutritionFacts[]): NutritionFacts {
@@ -1685,6 +1706,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [language, setLanguage] = useState<AppLanguage>(() => readStoredLanguage(session.user.id));
   const [selectedFeeling, setSelectedFeeling] = useState<FeelingOption | null>(null);
   const [selectedMealStatus, setSelectedMealStatus] = useState<'eaten' | 'not_eaten' | null>(null);
+  const [selectedPortion, setSelectedPortion] = useState<PortionOption>('medium');
+  const [fixResultSheetOpen, setFixResultSheetOpen] = useState(false);
+  const [fixDraft, setFixDraft] = useState({
+    productName: '',
+    score: '',
+    calories: '',
+    proteinG: '',
+    carbsG: '',
+    fatG: '',
+  });
   const [activeRecentScanId, setActiveRecentScanId] = useState<string | null>(null);
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -1892,7 +1923,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return true;
   };
 
-  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition'>>) => {
+  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'result'>>) => {
     if (!id) return;
     setRecentScans((items) => {
       const next = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
@@ -1910,6 +1941,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setDashboardError('');
     setSelectedFeeling(null);
     setSelectedMealStatus(null);
+    setSelectedPortion('medium');
+    setFixResultSheetOpen(false);
     setActiveRecentScanId(null);
     setResultSheetOpen(false);
     setScanPreviewUrl((current) => {
@@ -2322,6 +2355,34 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       ? 'Выглядит нормально для повторения. Все равно отметьте самочувствие позже, чтобы DigestSnap учился по вашей реакции'
       : 'Looks solid enough to keep in rotation. Still check in later so DigestSnap learns your actual reaction';
   };
+  const getScanConfidence = (result: ImageScanPayload['result']) => {
+    const scanText = [
+      result.productName,
+      ...result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+    ].join(' ').toLowerCase();
+
+    if (isImageCheckErrorResult(result) || isAiCoolingDownResult(result)) {
+      return {
+        label: isRussian ? 'Нужна проверка' : 'Needs confirmation',
+        detail: isRussian ? 'Фото сохранено, но результату нельзя доверять полностью' : 'Saved, but this result should not be trusted yet',
+        className: 'bg-amber-50 text-amber-950 ring-amber-200',
+      };
+    }
+
+    if (/likely|visual|estimate|label not verified|category|вероят|визуальн|оценк|состав не подтвержден/i.test(scanText)) {
+      return {
+        label: isRussian ? 'Визуальная оценка' : 'Visual estimate',
+        detail: isRussian ? 'AI распознал еду по фото, порция и состав примерные' : 'AI recognized the food visually; portion and label are estimated',
+        className: 'bg-zinc-100 text-zinc-700 ring-zinc-200',
+      };
+    }
+
+    return {
+      label: isRussian ? 'AI оценка' : 'AI estimate',
+      detail: isRussian ? 'Проверьте порцию ниже перед учетом в калориях' : 'Confirm the portion below before counting calories',
+      className: 'bg-white text-zinc-700 ring-zinc-200',
+    };
+  };
   const getBetterAlternative = (result: ImageScanPayload['result']) => {
     if (isImageCheckErrorResult(result)) return null;
     if (result.overallRating === 'Safe' && result.score >= 75) return null;
@@ -2396,7 +2457,58 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const isResultImageCheckError = scanResult ? isImageCheckErrorResult(scanResult.result) : false;
   const isResultAiCoolingDown = scanResult ? isAiCoolingDownResult(scanResult.result) : false;
   const resultTone = scanResult ? ratingTone(scanResult.result.overallRating) : ratingTone('Caution');
-  const scanNutrition = scanResult ? nutritionForResult(scanResult.result) : null;
+  const baseScanNutrition = scanResult ? nutritionForResult(scanResult.result) : null;
+  const scanNutrition = baseScanNutrition ? scaleNutritionFacts(baseScanNutrition, selectedPortion) : null;
+  const scanConfidence = scanResult ? getScanConfidence(scanResult.result) : null;
+  const openFixResultSheet = () => {
+    if (!scanResult) return;
+    const nutrition = scanNutrition ?? nutritionForResult(scanResult.result);
+    setFixDraft({
+      productName: scanResult.result.productName,
+      score: String(scanResult.result.score),
+      calories: String(nutrition.calories),
+      proteinG: String(nutrition.proteinG),
+      carbsG: String(nutrition.carbsG),
+      fatG: String(nutrition.fatG),
+    });
+    setFixResultSheetOpen(true);
+  };
+  const saveFixedScanResult = () => {
+    if (!scanResult) return;
+    const fixedNutrition: NutritionFacts = {
+      calories: nutritionNumber(fixDraft.calories),
+      proteinG: nutritionNumber(fixDraft.proteinG),
+      carbsG: nutritionNumber(fixDraft.carbsG),
+      fatG: nutritionNumber(fixDraft.fatG),
+      fiberG: scanNutrition?.fiberG ?? 0,
+      sugarG: scanNutrition?.sugarG ?? 0,
+      sodiumMg: scanNutrition?.sodiumMg ?? 0,
+    };
+    const fixedScore = Math.max(0, Math.min(100, nutritionNumber(fixDraft.score, scanResult.result.score)));
+    const fixedResult: ImageScanPayload['result'] = {
+      ...scanResult.result,
+      productName: fixDraft.productName.trim() || scanResult.result.productName,
+      score: fixedScore,
+      overallRating: fixedScore >= 75 ? 'Safe' : fixedScore <= 45 ? 'Avoid' : 'Caution',
+      nutrition: fixedNutrition,
+      flaggedChemicals: [
+        {
+          chemicalName: isRussian ? 'Исправлено пользователем' : 'User corrected',
+          severity: fixedScore >= 75 ? 'Safe' : fixedScore <= 45 ? 'Avoid' : 'Caution',
+          reason: isRussian ? 'Эти значения отредактированы вручную' : 'These values were edited manually',
+        },
+        ...scanResult.result.flaggedChemicals.filter((item) => !/user corrected|исправлено/i.test(item.chemicalName)).slice(0, 2),
+      ],
+    };
+
+    setSelectedPortion('medium');
+    setScanResult({ result: fixedResult });
+    updateRecentScan(activeRecentScanId, {
+      result: fixedResult,
+      nutrition: fixedNutrition,
+    });
+    setFixResultSheetOpen(false);
+  };
   const resultReasons = scanResult
     ? (scanResult.result.flaggedChemicals.length ? scanResult.result.flaggedChemicals : [
         {
@@ -3265,6 +3377,27 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   />
                 )}
 
+                {scanConfidence && (
+                  <div className={cn('mt-4 rounded-[20px] p-3.5 ring-1 sm:mt-5', scanConfidence.className)}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">{isRussian ? 'Доверие к скану' : 'Scan confidence'}</p>
+                        <p className="mt-1 text-base font-black">{scanConfidence.label}</p>
+                      </div>
+                      {!isResultImageCheckError && (
+                        <button
+                          className="h-9 shrink-0 rounded-full bg-white px-3 text-xs font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08] transition active:scale-[0.97]"
+                          onClick={openFixResultSheet}
+                          type="button"
+                        >
+                          {isRussian ? 'Исправить' : 'Fix result'}
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs font-semibold leading-5 opacity-75">{scanConfidence.detail}</p>
+                  </div>
+                )}
+
                 <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[28px] sm:p-5', resultTone.block)}>
                   <div className="grid grid-cols-[1fr_auto] items-start gap-4">
                     <div>
@@ -3308,13 +3441,45 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Питание' : 'Nutrition estimate'}</p>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Оценка питания' : 'Estimated nutrition'}</p>
                         <h3 className="mt-1.5 text-xl font-black leading-tight">{scanNutrition.calories} cal</h3>
                       </div>
                       <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.06]">
                         {selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено' : 'Counted') : isRussian ? 'Не учтено' : 'Not counted'}
                       </span>
                     </div>
+                    <div className="mt-4 grid grid-cols-4 gap-1.5 rounded-[18px] bg-white p-1.5 shadow-sm ring-1 ring-zinc-950/[0.05]">
+                      {([
+                        ['small', isRussian ? 'Мало' : 'Small'],
+                        ['medium', isRussian ? 'Сред' : 'Med'],
+                        ['large', isRussian ? 'Много' : 'Large'],
+                        ['package', isRussian ? 'Упак' : 'Pack'],
+                      ] as Array<[PortionOption, string]>).map(([portion, label]) => {
+                        const active = selectedPortion === portion;
+                        return (
+                          <button
+                            className={cn(
+                              'h-10 rounded-[14px] text-[11px] font-black transition active:scale-[0.97] sm:text-xs',
+                              active ? 'bg-zinc-950 text-white shadow-sm' : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-950',
+                            )}
+                            key={portion}
+                            onClick={() => {
+                              const nextNutrition = baseScanNutrition ? scaleNutritionFacts(baseScanNutrition, portion) : scanNutrition;
+                              setSelectedPortion(portion);
+                              if (selectedMealStatus === 'eaten') {
+                                updateRecentScan(activeRecentScanId, { nutrition: nextNutrition });
+                              }
+                            }}
+                            type="button"
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs font-semibold leading-5 text-zinc-500">
+                      {isRussian ? 'Подтвердите порцию перед учетом калорий' : 'Confirm portion before counting calories'}
+                    </p>
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       {[
                         ['Protein', `${scanNutrition.proteinG}g`],
@@ -3452,6 +3617,106 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </button>
                 </div>
                 )}
+              </motion.div>
+            </motion.div>
+          )}
+
+          {fixResultSheetOpen && scanResult && (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-[60] flex items-end justify-center bg-black/45 px-[clamp(12px,4vw,20px)] pb-[max(18px,env(safe-area-inset-bottom))]"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onClick={() => setFixResultSheetOpen(false)}
+            >
+              <motion.div
+                animate={{ y: 0 }}
+                className="w-full max-w-[430px] rounded-[28px] bg-white p-4 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.30)] ring-1 ring-black/[0.06] sm:rounded-[32px] sm:p-5"
+                exit={{ y: 24 }}
+                initial={{ y: 24 }}
+                onClick={(event) => event.stopPropagation()}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="mx-auto h-1.5 w-12 rounded-full bg-zinc-200" />
+                <div className="mt-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Исправить скан' : 'Fix result'}</p>
+                    <h2 className="mt-2 text-2xl font-black leading-tight">{isRussian ? 'Сделайте результат точнее' : 'Make the result accurate'}</h2>
+                  </div>
+                  <button
+                    aria-label="Close fix result"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 transition active:scale-95"
+                    onClick={() => setFixResultSheetOpen(false)}
+                    type="button"
+                  >
+                    <ChevronRight className="h-5 w-5 rotate-90" />
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-3">
+                  <label className="block">
+                    <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Название' : 'Food name'}</span>
+                    <input
+                      className="mt-2 h-12 w-full rounded-[18px] bg-zinc-50 px-4 text-base font-black outline-none ring-1 ring-zinc-950/[0.06] transition focus:ring-2 focus:ring-zinc-950/20"
+                      onChange={(event) => setFixDraft((current) => ({ ...current, productName: event.target.value }))}
+                      value={fixDraft.productName}
+                    />
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Оценка' : 'Score'}</span>
+                      <input
+                        className="mt-2 h-12 w-full rounded-[18px] bg-zinc-50 px-4 text-base font-black outline-none ring-1 ring-zinc-950/[0.06] transition focus:ring-2 focus:ring-zinc-950/20"
+                        inputMode="numeric"
+                        max={100}
+                        min={0}
+                        onChange={(event) => setFixDraft((current) => ({ ...current, score: event.target.value }))}
+                        type="number"
+                        value={fixDraft.score}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Калории' : 'Calories'}</span>
+                      <input
+                        className="mt-2 h-12 w-full rounded-[18px] bg-zinc-50 px-4 text-base font-black outline-none ring-1 ring-zinc-950/[0.06] transition focus:ring-2 focus:ring-zinc-950/20"
+                        inputMode="numeric"
+                        min={0}
+                        onChange={(event) => setFixDraft((current) => ({ ...current, calories: event.target.value }))}
+                        type="number"
+                        value={fixDraft.calories}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      ['proteinG', 'Protein'],
+                      ['carbsG', 'Carbs'],
+                      ['fatG', 'Fat'],
+                    ] as const).map(([key, label]) => (
+                      <label className="block" key={key}>
+                        <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{label}</span>
+                        <input
+                          className="mt-2 h-12 w-full rounded-[18px] bg-zinc-50 px-3 text-base font-black outline-none ring-1 ring-zinc-950/[0.06] transition focus:ring-2 focus:ring-zinc-950/20"
+                          inputMode="numeric"
+                          min={0}
+                          onChange={(event) => setFixDraft((current) => ({ ...current, [key]: event.target.value }))}
+                          type="number"
+                          value={fixDraft[key]}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  className="mt-5 h-14 w-full rounded-full bg-zinc-950 text-base font-black text-white shadow-[0_16px_34px_rgba(15,15,15,0.20)] transition active:scale-[0.98]"
+                  onClick={saveFixedScanResult}
+                  type="button"
+                >
+                  {isRussian ? 'Сохранить исправление' : 'Save correction'}
+                </button>
               </motion.div>
             </motion.div>
           )}
