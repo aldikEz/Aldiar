@@ -3,6 +3,8 @@ import { compressImageForUpload, type CompressedImage } from './imageCompression
 import { supabase } from './supabase';
 
 export type Rating = 'Safe' | 'Caution' | 'Avoid';
+export type ScanConfidenceLevel = 'high' | 'medium' | 'low';
+export type ScanConfidenceSource = 'label_read' | 'visual_estimate' | 'database_match' | 'manual_text' | 'fallback' | 'user_corrected';
 
 export type NutritionFacts = {
   calories: number;
@@ -14,12 +16,21 @@ export type NutritionFacts = {
   sodiumMg?: number;
 };
 
+export type ScanConfidence = {
+  level: ScanConfidenceLevel;
+  source: ScanConfidenceSource;
+  score: number;
+  label: string;
+  detail: string;
+};
+
 export type ImageScanPayload = {
   result: {
     productName: string;
     overallRating: Rating;
     score: number;
     nutrition?: NutritionFacts;
+    confidence?: ScanConfidence;
     flaggedChemicals: Array<{
       chemicalName: string;
       severity: Rating;
@@ -176,6 +187,13 @@ function makeInstantScan(fileName: string): ImageScanPayload {
       productName: fileName.replace(/\.[^.]+$/, '') || 'Quick scan',
       overallRating: 'Caution',
       score: 50,
+      confidence: {
+        level: 'low',
+        source: 'fallback',
+        score: 34,
+        label: 'Needs confirmation',
+        detail: 'AI is still checking the image in the background',
+      },
       flaggedChemicals: [
         {
           chemicalName: 'Quick estimate',
@@ -198,6 +216,13 @@ function makeFoodTextFallback(name: string): ImageScanPayload {
       productName: name,
       overallRating: 'Caution',
       score: 55,
+      confidence: {
+        level: 'medium',
+        source: 'manual_text',
+        score: 68,
+        label: 'Text check',
+        detail: 'Result is based on typed food or label text',
+      },
       flaggedChemicals: [
         {
           chemicalName: 'Quick estimate',

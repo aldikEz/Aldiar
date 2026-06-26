@@ -27,7 +27,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v13-whole-fruit-20260626';
+const SCAN_CACHE_VERSION = 'label-v14-confidence-20260627';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -69,6 +69,8 @@ type RequestBody = {
 };
 
 type Rating = 'Safe' | 'Caution' | 'Avoid';
+type ScanConfidenceLevel = 'high' | 'medium' | 'low';
+type ScanConfidenceSource = 'label_read' | 'visual_estimate' | 'database_match' | 'manual_text' | 'fallback' | 'user_corrected';
 
 type NutritionFacts = {
   calories: number;
@@ -86,12 +88,21 @@ type ChemicalReport = {
   reason: string;
 };
 
+type ScanConfidence = {
+  level: ScanConfidenceLevel;
+  source: ScanConfidenceSource;
+  score: number;
+  label: string;
+  detail: string;
+};
+
 type ScanPayload = {
   result: {
     productName: string;
     overallRating: Rating;
     score: number;
     nutrition?: NutritionFacts;
+    confidence?: ScanConfidence;
     flaggedChemicals: ChemicalReport[];
   };
 };
@@ -970,13 +981,13 @@ async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
   });
 
   if ('error' in geminiResult) {
-    return jsonResponse(req, fallbackFoodTextPayload(foodText.payload, targetLang), 200);
+    return jsonResponse(req, withScanConfidence(fallbackFoodTextPayload(foodText.payload, targetLang), targetLang, 'manual_text'), 200);
   }
 
   const parsed = parseModelJson(geminiResult.text);
   const foodFallback = fallbackFoodTextPayload(foodText.payload, targetLang);
   const scan = normalizeScanPayload(parsed, targetLang, foodFallback);
-  const finalScan = isUnreadableProductName(scan.result.productName) ? foodFallback : scan;
+  const finalScan = withScanConfidence(isUnreadableProductName(scan.result.productName) ? foodFallback : scan, targetLang, 'manual_text');
 
   runAfterResponse(cacheScan(cacheHash, targetLang, finalScan));
 
@@ -1036,7 +1047,7 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   }
 
   const parsed = parseModelJson(geminiResult.text);
-  let scan = normalizeScanPayload(parsed, targetLang);
+  let scan = withScanConfidence(normalizeScanPayload(parsed, targetLang), targetLang, 'label_read');
 
   if (isUnusableVisualScan(scan)) {
     const rescueResult = await callGemini({
@@ -1064,7 +1075,9 @@ async function handleImageRequest(req: Request, body: RequestBody) {
     if (!('error' in rescueResult)) {
       const rescueParsed = parseModelJson(rescueResult.text);
       const rescueScan = normalizeScanPayload(rescueParsed, targetLang);
-      scan = isUnusableVisualScan(rescueScan) ? visualEstimateFallback(targetLang) : rescueScan;
+      scan = isUnusableVisualScan(rescueScan)
+        ? visualEstimateFallback(targetLang)
+        : withScanConfidence(rescueScan, targetLang, 'visual_estimate');
     } else {
       scan = visualEstimateFallback(targetLang);
     }
@@ -1178,24 +1191,137 @@ function normalizeChemical(value: unknown): ChemicalReport | null {
   };
 }
 
+function asConfidenceLevel(value: unknown, fallback: ScanConfidenceLevel): ScanConfidenceLevel {
+  return value === 'high' || value === 'medium' || value === 'low' ? value : fallback;
+}
+
+function asConfidenceSource(value: unknown, fallback: ScanConfidenceSource): ScanConfidenceSource {
+  return value === 'label_read' ||
+    value === 'visual_estimate' ||
+    value === 'database_match' ||
+    value === 'manual_text' ||
+    value === 'fallback' ||
+    value === 'user_corrected'
+    ? value
+    : fallback;
+}
+
+function confidenceLevelFromScore(score: number): ScanConfidenceLevel {
+  if (score >= 80) return 'high';
+  if (score >= 55) return 'medium';
+  return 'low';
+}
+
+function makeScanConfidence(source: ScanConfidenceSource, targetLang: string, scoreOverride?: number): ScanConfidence {
+  const scoreBySource: Record<ScanConfidenceSource, number> = {
+    label_read: 86,
+    database_match: 92,
+    visual_estimate: 64,
+    manual_text: 68,
+    fallback: 34,
+    user_corrected: 100,
+  };
+  const score = Math.max(0, Math.min(100, Math.round(scoreOverride ?? scoreBySource[source])));
+  const level = confidenceLevelFromScore(score);
+  const russian = targetLang === 'Russian';
+  const copy: Record<ScanConfidenceSource, { label: string; detail: string; ruLabel: string; ruDetail: string }> = {
+    label_read: {
+      label: 'Label read',
+      detail: 'Visible label or packaging text informed this result',
+      ruLabel: 'Состав прочитан',
+      ruDetail: 'Результат основан на видимом тексте или упаковке',
+    },
+    database_match: {
+      label: 'Database match',
+      detail: 'Nutrition was matched against a product database',
+      ruLabel: 'Найдено в базе',
+      ruDetail: 'Пищевая ценность сверена с продуктовой базой',
+    },
+    visual_estimate: {
+      label: 'Visual estimate',
+      detail: 'AI recognized the food visually; portion and label are estimated',
+      ruLabel: 'Визуальная оценка',
+      ruDetail: 'AI распознал еду по фото; порция и состав примерные',
+    },
+    manual_text: {
+      label: 'Text check',
+      detail: 'Result is based on typed food or label text',
+      ruLabel: 'Проверка текста',
+      ruDetail: 'Результат основан на введенном названии или составе',
+    },
+    fallback: {
+      label: 'Needs confirmation',
+      detail: 'Saved, but this result should not be trusted yet',
+      ruLabel: 'Нужна проверка',
+      ruDetail: 'Фото сохранено, но результату нельзя доверять полностью',
+    },
+    user_corrected: {
+      label: 'User corrected',
+      detail: 'You corrected this scan manually',
+      ruLabel: 'Исправлено вручную',
+      ruDetail: 'Вы вручную исправили этот результат',
+    },
+  };
+  const selected = copy[source];
+
+  return {
+    level,
+    source,
+    score,
+    label: russian ? selected.ruLabel : selected.label,
+    detail: russian ? selected.ruDetail : selected.detail,
+  };
+}
+
+function normalizeConfidence(value: unknown, targetLang: string, fallback: ScanConfidence): ScanConfidence {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const source = asConfidenceSource(value.source, fallback.source);
+  const score = Math.max(0, Math.min(100, Math.round(Number(value.score) || fallback.score)));
+  const base = makeScanConfidence(source, targetLang, score);
+
+  return {
+    level: asConfidenceLevel(value.level, base.level),
+    source,
+    score,
+    label: asBoundedString(value.label, base.label, 60),
+    detail: asBoundedString(value.detail, base.detail, 140),
+  };
+}
+
+function withScanConfidence(scan: ScanPayload, targetLang: string, source?: ScanConfidenceSource, scoreOverride?: number): ScanPayload {
+  const fallbackSource = source ?? scan.result.confidence?.source ?? (isUnusableVisualScan(scan) ? 'fallback' : 'label_read');
+  const fallback = makeScanConfidence(fallbackSource, targetLang, scoreOverride ?? scan.result.confidence?.score);
+
+  return {
+    result: {
+      ...scan.result,
+      confidence: normalizeConfidence(source ? null : scan.result.confidence, targetLang, fallback),
+    },
+  };
+}
+
 function normalizeScanPayload(value: unknown, targetLang: string, fallback: ScanPayload = fallbackScanPayload(targetLang)): ScanPayload {
   if (!isRecord(value) || !isRecord(value.result)) {
-    return fallback;
+    return withScanConfidence(fallback, targetLang);
   }
 
   const flaggedChemicals = Array.isArray(value.result.flaggedChemicals)
     ? value.result.flaggedChemicals.map(normalizeChemical).filter((item): item is ChemicalReport => item !== null).slice(0, 12)
     : [];
 
-  return enforceFoodRiskRules({
+  return withScanConfidence(enforceFoodRiskRules({
     result: {
       productName: asBoundedString(value.result.productName, targetLang === 'Russian' ? 'Визуальная оценка продукта' : 'Visual product estimate', 120),
       overallRating: asRating(value.result.overallRating, flaggedChemicals.length > 0 ? 'Caution' : 'Safe'),
       score: asScore(value.result.score),
       nutrition: normalizeNutrition(value.result.nutrition),
+      confidence: normalizeConfidence(value.result.confidence, targetLang, makeScanConfidence('label_read', targetLang)),
       flaggedChemicals,
     },
-  }, targetLang);
+  }, targetLang), targetLang);
 }
 
 function getScanText(scan: ScanPayload) {
@@ -1382,6 +1508,7 @@ function fallbackScanPayload(targetLang: string): ScanPayload {
         productName: 'Визуальная оценка продукта',
         overallRating: 'Caution',
         score: 50,
+        confidence: makeScanConfidence('fallback', targetLang),
         flaggedChemicals: [
           {
             chemicalName: 'Оценка по фото',
@@ -1398,6 +1525,7 @@ function fallbackScanPayload(targetLang: string): ScanPayload {
       productName: 'Visual product estimate',
       overallRating: 'Caution',
       score: 50,
+      confidence: makeScanConfidence('fallback', targetLang),
       flaggedChemicals: [
         {
           chemicalName: 'Image-based estimate',
@@ -1464,7 +1592,7 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
         : 'Quick estimate, not a safety guarantee.';
 
   if (targetLang === 'Russian') {
-    return enforceFoodRiskRules({
+    return withScanConfidence(enforceFoodRiskRules({
       result: {
         productName,
         overallRating: rating,
@@ -1482,10 +1610,10 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
           },
         ],
       },
-    }, targetLang);
+    }, targetLang), targetLang, 'manual_text');
   }
 
-  return enforceFoodRiskRules({
+  return withScanConfidence(enforceFoodRiskRules({
     result: {
       productName,
       overallRating: rating,
@@ -1503,7 +1631,7 @@ function fallbackFoodTextPayload(payload: FoodTextPayload, targetLang: string): 
         },
       ],
     },
-  }, targetLang);
+  }, targetLang), targetLang, 'manual_text');
 }
 
 function localizeTriggerName(value: string, targetLang: string) {
@@ -1663,6 +1791,7 @@ function visualEstimateFallback(targetLang: string): ScanPayload {
         productName: 'Визуальная оценка продукта',
         overallRating: 'Caution',
         score: 50,
+        confidence: makeScanConfidence('fallback', targetLang),
         flaggedChemicals: [
           {
             chemicalName: 'Оценка по фото',
@@ -1684,6 +1813,7 @@ function visualEstimateFallback(targetLang: string): ScanPayload {
       productName: 'Visual product estimate',
       overallRating: 'Caution',
       score: 50,
+      confidence: makeScanConfidence('fallback', targetLang),
       flaggedChemicals: [
         {
           chemicalName: 'Visual estimate',
@@ -1795,7 +1925,7 @@ function fallbackVisualIdentityPayload(identity: VisualIdentityPayload, targetLa
           ? 'Often linked with discomfort.'
           : 'Worth checking against reactions.';
 
-  return normalizeScanPayload(
+  return withScanConfidence(normalizeScanPayload(
     {
       result: {
         productName: productName || identity.category,
@@ -1816,7 +1946,7 @@ function fallbackVisualIdentityPayload(identity: VisualIdentityPayload, targetLa
       },
     },
     targetLang,
-  );
+  ), targetLang, 'visual_estimate', identity.confidenceScore);
 }
 
 async function cacheScan(imageHash: string, targetLang: string, scan: ScanPayload) {

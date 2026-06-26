@@ -2356,6 +2356,21 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : 'Looks solid enough to keep in rotation. Still check in later so DigestSnap learns your actual reaction';
   };
   const getScanConfidence = (result: ImageScanPayload['result']) => {
+    if (result.confidence) {
+      const className =
+        result.confidence.level === 'high'
+          ? 'bg-emerald-50 text-emerald-950 ring-emerald-200'
+          : result.confidence.level === 'medium'
+            ? 'bg-zinc-100 text-zinc-800 ring-zinc-200'
+            : 'bg-amber-50 text-amber-950 ring-amber-200';
+
+      return {
+        label: result.confidence.label,
+        detail: result.confidence.detail,
+        className,
+      };
+    }
+
     const scanText = [
       result.productName,
       ...result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
@@ -2491,6 +2506,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       score: fixedScore,
       overallRating: fixedScore >= 75 ? 'Safe' : fixedScore <= 45 ? 'Avoid' : 'Caution',
       nutrition: fixedNutrition,
+      confidence: {
+        level: 'high',
+        source: 'user_corrected',
+        score: 100,
+        label: isRussian ? 'Исправлено вручную' : 'User corrected',
+        detail: isRussian ? 'Вы вручную исправили этот результат' : 'You corrected this scan manually',
+      },
       flaggedChemicals: [
         {
           chemicalName: isRussian ? 'Исправлено пользователем' : 'User corrected',
