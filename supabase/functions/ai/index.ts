@@ -27,7 +27,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v12-nutrition-20260626';
+const SCAN_CACHE_VERSION = 'label-v13-whole-fruit-20260626';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -388,9 +388,9 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     patterns: [/\bbanana\b/i, /\bapple\b/i, /\borange\b/i, /\bberries?\b/i, /\bstrawberries?\b/i, /\bgrapes?\b/i, /\bkiwi\b/i, /банан/i, /яблок/i, /апельсин/i, /ягод/i, /клубник/i, /виноград/i, /киви/i],
     excludePatterns: [/\bjuice\b/i, /\bsmoothie\b/i, /\bsyrup\b/i, /\bcandy\b/i, /сок/i, /смузи/i, /сироп/i],
     rating: 'Safe',
-    score: 82,
+    score: 90,
     concern: { en: 'Whole fruit', ru: 'Цельный фрукт' },
-    reason: { en: 'Natural sugar with fiber.', ru: 'Натуральный сахар с клетчаткой.' },
+    reason: { en: 'Simple whole food with fiber.', ru: 'Простой цельный продукт с клетчаткой.' },
   },
   {
     id: 'vegetables',
@@ -789,7 +789,8 @@ Rules:
 - If the exact brand is not clear, say "Likely [category]" rather than "Unreadable Label".
 - If the image shows everyday unpackaged food, identify the food directly. Examples: avocado, eggs, beef, chicken, fish, rice, macaroni/pasta, bread, potatoes, beans, milk, yogurt, banana, apple, cucumber, tomato, salad, nuts, coffee.
 - For whole foods, use concerns/signals rather than fake chemicals. Good signal names: "Whole food", "Simple protein", "Wheat base", "Dairy", "High fiber", "Caffeine", "Fried preparation", "Sauce not visible".
-- Whole fruits, vegetables, plain eggs, plain meat/fish/chicken, rice, oats, buckwheat, and plain potatoes are usually "Safe" with score 75-92 unless fried, sauced, sweetened, or matching a user trigger.
+- Plain whole fruits like apple, banana, orange, berries, grapes, or kiwi are "Safe" with score 88-94 unless juiced, candied, syruped, sauced, or matching a user trigger.
+- Vegetables, plain eggs, plain meat/fish/chicken, rice, oats, buckwheat, and plain potatoes are usually "Safe" with score 75-92 unless fried, sauced, sweetened, or matching a user trigger.
 - Pasta/macaroni, bread/wraps, dairy, beans/lentils, nuts, coffee, and juice are usually "Caution" with score 50-70 because they are common repeat triggers for some users.
 - If OCR is unreadable but the food/product category is visually recognizable, return the likely category and mark concerns as "visual estimate", "label not verified", or "category-based risk".
 - If both label text and visual category are impossible to identify, return productName as "Visual estimate unavailable" and overallRating as "Caution".
@@ -856,7 +857,8 @@ Language:
 
 Scoring:
 - Plain water/mineral water: Safe 82-95.
-- Whole fruits/vegetables/eggs/plain meat/fish/rice/oats/potato: Safe 75-92 unless fried/sauced/sweetened.
+- Plain whole fruits like apple, banana, orange, berries, grapes, or kiwi: Safe 88-94 unless juiced/candied/syruped/sauced.
+- Vegetables/eggs/plain meat/fish/rice/oats/potato: Safe 75-92 unless fried/sauced/sweetened.
 - Pasta/bread/dairy/nuts/coffee/juice: Caution 50-70.
 - Soda/sweet tea/energy drinks/chips/candy/fried fast food: Avoid 0-45.
 - If uncertain but a category is visible, use Caution 45-60.
@@ -896,7 +898,8 @@ Rules:
 - Use ${targetLang} for productName, chemicalName, and reason. Keep real brand names as written.
 - Keep rating enums exactly "Safe", "Caution", or "Avoid".
 - Plain water/mineral water: Safe 82-95.
-- Whole fruits/vegetables/eggs/plain meat/fish/rice/oats/potatoes: Safe 75-92 unless fried/sauced/sweetened.
+- Plain whole fruits like apple, banana, orange, berries, grapes, or kiwi: Safe 88-94 unless juiced/candied/syruped/sauced.
+- Vegetables/eggs/plain meat/fish/rice/oats/potatoes: Safe 75-92 unless fried/sauced/sweetened.
 - Pasta/bread/dairy/nuts/coffee/juice: Caution 50-70.
 - Candy/chocolate bars/sweet dairy snacks/sugary drinks/chips/fried fast food: Avoid 0-45.
 - If a user trigger overlaps with the identity, lower the score.
@@ -1743,7 +1746,10 @@ function fallbackVisualIdentityPayload(identity: VisualIdentityPayload, targetLa
   if (hasAny(identityText, [/\bwater\b/i, /минерал/i, /вода/i, /borjomi/i, /spring\s+water/i])) {
     rating = 'Safe';
     score = 88;
-  } else if (hasAny(identityText, [/\bavocado\b/i, /\begg\b/i, /\beggs\b/i, /\bbanana\b/i, /\bapple\b/i, /\bcucumber\b/i, /\btomato\b/i, /\brice\b/i, /\boats?\b/i, /авокад/i, /яйц/i, /банан/i, /яблок/i, /огур/i, /томат/i, /рис/i, /овсян/i])) {
+  } else if (hasAny(identityText, [/\bbanana\b/i, /\bapple\b/i, /\borange\b/i, /\bberries?\b/i, /\bstrawberries?\b/i, /\bgrapes?\b/i, /\bkiwi\b/i, /банан/i, /яблок/i, /апельсин/i, /ягод/i, /клубник/i, /виноград/i, /киви/i])) {
+    rating = hasTriggerOverlap ? 'Caution' : 'Safe';
+    score = hasTriggerOverlap ? 62 : 90;
+  } else if (hasAny(identityText, [/\bavocado\b/i, /\begg\b/i, /\beggs\b/i, /\bcucumber\b/i, /\btomato\b/i, /\brice\b/i, /\boats?\b/i, /авокад/i, /яйц/i, /огур/i, /томат/i, /рис/i, /овсян/i])) {
     rating = hasTriggerOverlap ? 'Caution' : 'Safe';
     score = hasTriggerOverlap ? 62 : 82;
   } else if (hasAny(identityText, [/\bchocolate\b/i, /\bcandy\b/i, /\bsweet\b/i, /\bsnack\s*bar\b/i, /\bkinder\b/i, /\bcookie\b/i, /\bcake\b/i, /шоколад/i, /конфет/i, /слад/i, /батончик/i, /ломтик/i, /печень/i])) {
