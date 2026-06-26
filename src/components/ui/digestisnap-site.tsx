@@ -2324,47 +2324,73 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
   const getBetterAlternative = (result: ImageScanPayload['result']) => {
     if (isImageCheckErrorResult(result)) return null;
+    if (result.overallRating === 'Safe' && result.score >= 75) return null;
 
     const name = result.productName.toLowerCase();
     const flagged = result.flaggedChemicals.map((item) => `${item.chemicalName} ${item.reason}`.toLowerCase()).join(' ');
+    const text = `${name} ${flagged}`;
+    const matches = (patterns: RegExp[]) => patterns.some((pattern) => pattern.test(text));
 
-    if (name.includes('soda') || name.includes('cola') || name.includes('fuse') || flagged.includes('sugar') || flagged.includes('sweetener')) {
+    if (matches([/\bcola\b/i, /\bsoda\b/i, /\bfanta\b/i, /\bsprite\b/i, /\bfuse\b/i, /\biced?\s*tea\b/i, /\benergy\b/i, /газиров/i, /кола/i, /айс\s*ти/i, /холодн\w*\s+чай/i, /энергет/i])) {
       return {
-        title: isRussian ? 'Вода с лимоном' : 'Sparkling water with lemon',
-        reason: isRussian ? 'Меньше сахара и проще отследить повторный напиток' : 'Lower sugar and easier to log as a repeat drink pattern',
+        title: isRussian ? 'Напиток без сахара из той же категории' : 'Same-category zero-sugar drink',
+        reason: isRussian ? 'Оставляет формат напитка, но убирает главный сахарный удар' : 'Keeps the drink format while cutting the main sugar hit',
       };
     }
 
-    if (name.includes('fried') || name.includes('burger') || name.includes('fries') || flagged.includes('oil')) {
+    if (matches([/\bchips?\b/i, /\bcrisps?\b/i, /\bnachos?\b/i, /\bcrackers?\b/i, /чипс/i, /сухар/i, /снэк/i, /snack/i])) {
       return {
-        title: isRussian ? 'Гриль боул с рисом и соусом отдельно' : 'Grilled bowl with rice and sauce on the side',
-        reason: isRussian ? 'Оставляет еду сытной, но снижает сигнал жарки и тяжелого соуса' : 'Keeps the meal filling while reducing fried oil and heavy sauce signals',
+        title: isRussian ? 'Запеченные чипсы или простой попкорн' : 'Baked chips or plain popcorn',
+        reason: isRussian ? 'Та же хрустящая закуска, меньше масла и тяжелых добавок' : 'Same crunchy snack lane, less oil and fewer heavy additives',
       };
     }
 
-    if (name.includes('bread') || name.includes('pastry') || name.includes('cookie') || flagged.includes('flour')) {
+    if (matches([/\bburger\b/i, /\bfries\b/i, /\bfried\b/i, /\bnuggets?\b/i, /\bchicken\s*wings?\b/i, /бургер/i, /картошк\w*\s*фри/i, /жарен/i, /наггет/i])) {
       return {
-        title: isRussian ? 'Йогурт с белком и ягодами' : 'Protein yogurt with berries',
-        reason: isRussian ? 'Так же быстро, но дает более чистую базу, чем рафинированная мука' : 'Still quick, but gives DigestSnap a cleaner baseline than refined flour',
+        title: isRussian ? 'Гриль-версия того же блюда' : 'Grilled version of the same meal',
+        reason: isRussian ? 'Остается тот же тип еды, но меньше жарки и тяжелого масла' : 'Same meal type, with less frying oil and heaviness',
       };
     }
 
-    if (name.includes('milk') || name.includes('cream') || name.includes('dairy') || flagged.includes('dairy')) {
+    if (matches([/\bchocolate\b/i, /\bcandy\b/i, /\bbar\b/i, /\bkinder\b/i, /\bcookie\b/i, /\bcake\b/i, /\bwafer\b/i, /шоколад/i, /конфет/i, /батончик/i, /киндер/i, /печень/i, /вафл/i, /пирож/i, /ломтик/i])) {
       return {
-        title: isRussian ? 'Безлактозный йогурт или овсяный вариант' : 'Lactose-free yogurt or oat-based option',
-        reason: isRussian ? 'Мягкая замена, если молочное часто появляется перед дискомфортом' : 'A gentler swap if dairy keeps showing up before discomfort',
+        title: isRussian ? 'Сладкий батончик с меньшим сахаром' : 'Lower-sugar sweet bar',
+        reason: isRussian ? 'Та же сладкая категория, но легче по сахару и составу' : 'Same sweet-snack category, lighter on sugar and ingredients',
       };
     }
 
-    return result.score >= 75
-      ? {
-          title: isRussian ? 'Оставьте это как базовый прием пищи' : 'Keep this as a baseline meal',
-          reason: isRussian ? 'Полезная точка сравнения для будущих отметок самочувствия' : 'This looks like a useful comparison meal for future check-ins',
-        }
-      : {
-          title: isRussian ? 'Простой боул из понятных продуктов' : 'Simple whole-food bowl',
-          reason: isRussian ? 'Чем понятнее состав, тем легче доверять паттернам' : 'Choose a clearer ingredient list so patterns are easier to trust',
-        };
+    if (matches([/\bbread\b/i, /\btoast\b/i, /\bpastry\b/i, /\bcroissant\b/i, /\bbun\b/i, /\bwrap\b/i, /хлеб/i, /булоч/i, /круас/i, /лаваш/i, /выпеч/i])) {
+      return {
+        title: isRussian ? 'Хлеб из той же категории, но проще по составу' : 'Same bread category, cleaner label',
+        reason: isRussian ? 'Оставляет формат хлеба, но снижает лишний сахар и добавки' : 'Keeps the bread format while reducing sugar and additives',
+      };
+    }
+
+    if (matches([/\bmilk\b/i, /\byogurt\b/i, /\bcream\b/i, /\bcheese\b/i, /\bdairy\b/i, /\blactose\b/i, /молоч/i, /молок/i, /йогурт/i, /сыр/i, /сливк/i, /лактоз/i])) {
+      return {
+        title: isRussian ? 'Безлактозная версия того же продукта' : 'Lactose-free version of the same product',
+        reason: isRussian ? 'Та же молочная категория, но мягче для чувствительного желудка' : 'Same dairy category, gentler for sensitive digestion',
+      };
+    }
+
+    if (matches([/\bpasta\b/i, /\bmacaroni\b/i, /\bnoodles?\b/i, /\bramen\b/i, /\binstant\b/i, /макарон/i, /лапш/i, /рамен/i, /доширак/i])) {
+      return {
+        title: isRussian ? 'Паста с более простым составом' : 'Cleaner pasta in the same lane',
+        reason: isRussian ? 'Остается пастой, но меньше соусов, соли и добавок' : 'Still pasta, with less sauce, sodium, and additives',
+      };
+    }
+
+    if (matches([/\bjuice\b/i, /\bnectar\b/i, /\bsmoothie\b/i, /сок/i, /нектар/i, /смузи/i])) {
+      return {
+        title: isRussian ? 'Сок без сахара или меньшая порция' : 'No-added-sugar juice or smaller serving',
+        reason: isRussian ? 'Та же категория напитка, но меньше сахарной нагрузки' : 'Same drink category with a lower sugar load',
+      };
+    }
+
+    return {
+      title: isRussian ? 'Более простой вариант из той же категории' : 'Cleaner option from the same category',
+      reason: isRussian ? 'Меняйте внутри того же типа еды, чтобы сравнение было честным' : 'Swap inside the same food type so the comparison stays fair',
+    };
   };
   const betterAlternative = scanResult ? getBetterAlternative(scanResult.result) : null;
   const isResultImageCheckError = scanResult ? isImageCheckErrorResult(scanResult.result) : false;
