@@ -4,11 +4,22 @@ import { supabase } from './supabase';
 
 export type Rating = 'Safe' | 'Caution' | 'Avoid';
 
+export type NutritionFacts = {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG?: number;
+  sugarG?: number;
+  sodiumMg?: number;
+};
+
 export type ImageScanPayload = {
   result: {
     productName: string;
     overallRating: Rating;
     score: number;
+    nutrition?: NutritionFacts;
     flaggedChemicals: Array<{
       chemicalName: string;
       severity: Rating;

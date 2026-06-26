@@ -23,7 +23,7 @@ import {
   Target,
   User,
 } from 'lucide-react';
-import { scanImageWithClientTimeout, type ImageScanPayload } from '../../lib/imageScanClient';
+import { scanImageWithClientTimeout, type ImageScanPayload, type NutritionFacts } from '../../lib/imageScanClient';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import IPhoneMockup from './iphone-mockup';
@@ -354,6 +354,10 @@ type RecentScan = {
   id: string;
   imageDataUrl: string;
   result: ImageScanPayload['result'];
+  nutrition: NutritionFacts;
+  eaten?: boolean;
+  feeling?: FeelingOption;
+  consumedAt?: string;
   createdAt: string;
 };
 
@@ -392,6 +396,106 @@ function languageStorageKey(userId?: string) {
   return userId ? `${DIGESTSNAP_LANGUAGE_STORAGE_KEY}:${userId}` : DIGESTSNAP_LANGUAGE_STORAGE_KEY;
 }
 
+function nutritionNumber(value: unknown, fallback = 0) {
+  const numberValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.max(0, Math.round(numberValue));
+}
+
+function normalizeNutritionFacts(value: unknown): NutritionFacts | null {
+  if (!isRecord(value)) return null;
+
+  return {
+    calories: nutritionNumber(value.calories),
+    proteinG: nutritionNumber(value.proteinG),
+    carbsG: nutritionNumber(value.carbsG),
+    fatG: nutritionNumber(value.fatG),
+    fiberG: nutritionNumber(value.fiberG),
+    sugarG: nutritionNumber(value.sugarG),
+    sodiumMg: nutritionNumber(value.sodiumMg),
+  };
+}
+
+function estimateNutritionFromScan(result: ImageScanPayload['result']): NutritionFacts {
+  const text = [
+    result.productName,
+    result.overallRating,
+    ...result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+  ].join(' ').toLowerCase();
+
+  const has = (pattern: RegExp) => pattern.test(text);
+
+  if (has(/\bwater\b|mineral|spring\s*water|borjomi|вода|боржоми/i)) {
+    return { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sugarG: 0, sodiumMg: 25 };
+  }
+  if (has(/\bsoda|cola|fanta|sprite|pepsi|fuse|iced?\s*tea|sweetened\s*tea|juice|газиров|кола|сок|чай/i)) {
+    return { calories: 140, proteinG: 0, carbsG: 35, fatG: 0, fiberG: 0, sugarG: 32, sodiumMg: 45 };
+  }
+  if (has(/\bburger|cheeseburger|fast\s*food|shawarma|kebab|бургер|фастфуд/i)) {
+    return { calories: 620, proteinG: 28, carbsG: 55, fatG: 32, fiberG: 4, sugarG: 9, sodiumMg: 980 };
+  }
+  if (has(/\bfried|fries|chips|crisps|cheetos|doritos|pringles|nuggets|жарен|чипс|фри|наггет/i)) {
+    return { calories: 430, proteinG: 14, carbsG: 34, fatG: 26, fiberG: 3, sugarG: 2, sodiumMg: 720 };
+  }
+  if (has(/\bcandy|chocolate|snickers|kinder|cookie|wafer|cake|pastry|конфет|шоколад|печень|вафл/i)) {
+    return { calories: 240, proteinG: 4, carbsG: 28, fatG: 12, fiberG: 1, sugarG: 20, sodiumMg: 95 };
+  }
+  if (has(/\bpasta|macaroni|spaghetti|noodles|макарон|паста|спагетти/i)) {
+    return { calories: 360, proteinG: 12, carbsG: 70, fatG: 4, fiberG: 4, sugarG: 3, sodiumMg: 180 };
+  }
+  if (has(/\bbread|toast|wrap|bun|pita|хлеб|тост|лаваш|булоч/i)) {
+    return { calories: 190, proteinG: 7, carbsG: 36, fatG: 3, fiberG: 3, sugarG: 4, sodiumMg: 320 };
+  }
+  if (has(/\bmilk|yogurt|yoghurt|cheese|kefir|молок|йогурт|сыр|кефир|творог/i)) {
+    return { calories: 150, proteinG: 9, carbsG: 12, fatG: 6, fiberG: 0, sugarG: 10, sodiumMg: 130 };
+  }
+  if (has(/\bavocado|авокадо/i)) {
+    return { calories: 240, proteinG: 3, carbsG: 13, fatG: 22, fiberG: 10, sugarG: 1, sodiumMg: 12 };
+  }
+  if (has(/\begg|omelette|яйц|омлет/i)) {
+    return { calories: 155, proteinG: 13, carbsG: 1, fatG: 11, fiberG: 0, sugarG: 1, sodiumMg: 125 };
+  }
+  if (has(/\bchicken|turkey|beef|steak|meat|fish|salmon|tuna|куриц|индейк|говядин|мясо|рыб|лосос|тунец/i)) {
+    return { calories: 280, proteinG: 36, carbsG: 0, fatG: 13, fiberG: 0, sugarG: 0, sodiumMg: 160 };
+  }
+  if (has(/\brice|buckwheat|oats|oatmeal|гречк|рис|овсян/i)) {
+    return { calories: 250, proteinG: 7, carbsG: 50, fatG: 4, fiberG: 5, sugarG: 1, sodiumMg: 15 };
+  }
+  if (has(/\bbanana|apple|orange|berries|grapes|kiwi|банан|яблок|апельсин|ягод|виноград|киви/i)) {
+    return { calories: 100, proteinG: 1, carbsG: 25, fatG: 0, fiberG: 4, sugarG: 17, sodiumMg: 2 };
+  }
+  if (has(/\bvegetable|salad|cucumber|tomato|carrot|broccoli|spinach|овощ|салат|огур|помидор|морков|брокколи/i)) {
+    return { calories: 70, proteinG: 3, carbsG: 12, fatG: 1, fiberG: 5, sugarG: 5, sodiumMg: 40 };
+  }
+
+  if (result.overallRating === 'Avoid') {
+    return { calories: 360, proteinG: 8, carbsG: 42, fatG: 17, fiberG: 2, sugarG: 18, sodiumMg: 520 };
+  }
+  if (result.overallRating === 'Caution') {
+    return { calories: 240, proteinG: 8, carbsG: 30, fatG: 9, fiberG: 3, sugarG: 8, sodiumMg: 260 };
+  }
+  return { calories: 160, proteinG: 8, carbsG: 18, fatG: 5, fiberG: 3, sugarG: 4, sodiumMg: 120 };
+}
+
+function nutritionForResult(result: ImageScanPayload['result']): NutritionFacts {
+  return normalizeNutritionFacts(result.nutrition) ?? estimateNutritionFromScan(result);
+}
+
+function addNutritionValues(items: NutritionFacts[]): NutritionFacts {
+  return items.reduce<NutritionFacts>(
+    (total, item) => ({
+      calories: total.calories + item.calories,
+      proteinG: total.proteinG + item.proteinG,
+      carbsG: total.carbsG + item.carbsG,
+      fatG: total.fatG + item.fatG,
+      fiberG: (total.fiberG ?? 0) + (item.fiberG ?? 0),
+      sugarG: (total.sugarG ?? 0) + (item.sugarG ?? 0),
+      sodiumMg: (total.sodiumMg ?? 0) + (item.sodiumMg ?? 0),
+    }),
+    { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sugarG: 0, sodiumMg: 0 },
+  );
+}
+
 function readStoredLanguage(userId?: string): AppLanguage {
   try {
     const raw = window.localStorage.getItem(languageStorageKey(userId));
@@ -416,16 +520,25 @@ function readRecentScans(userId?: string): RecentScan[] {
     const parsed = JSON.parse(raw) as Partial<RecentScan>[];
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .map((item) => ({
-        ...item,
-        imageDataUrl: normalizeImageDataUrl(item.imageDataUrl),
-      }))
-      .filter((item): item is RecentScan => (
+      .filter((item): item is Partial<RecentScan> & { id: string; imageDataUrl: string; createdAt: string; result: ImageScanPayload['result'] } => (
         typeof item.id === 'string' &&
         typeof item.imageDataUrl === 'string' &&
         typeof item.createdAt === 'string' &&
         Boolean(item.result?.productName)
       ))
+      .map((item) => ({
+        id: item.id,
+        imageDataUrl: normalizeImageDataUrl(item.imageDataUrl),
+        result: {
+          ...item.result,
+          nutrition: normalizeNutritionFacts(item.result.nutrition) ?? normalizeNutritionFacts(item.nutrition) ?? estimateNutritionFromScan(item.result),
+        },
+        nutrition: normalizeNutritionFacts(item.nutrition) ?? normalizeNutritionFacts(item.result.nutrition) ?? estimateNutritionFromScan(item.result),
+        eaten: typeof item.eaten === 'boolean' ? item.eaten : undefined,
+        feeling: item.feeling === 'Fine' || item.feeling === 'Bloated' || item.feeling === 'Pain' || item.feeling === 'Nausea' ? item.feeling : undefined,
+        consumedAt: typeof item.consumedAt === 'string' ? item.consumedAt : undefined,
+        createdAt: item.createdAt,
+      }))
       .slice(0, 10);
   } catch {
     return [];
@@ -1571,6 +1684,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
   const [language, setLanguage] = useState<AppLanguage>(() => readStoredLanguage(session.user.id));
   const [selectedFeeling, setSelectedFeeling] = useState<FeelingOption | null>(null);
+  const [selectedMealStatus, setSelectedMealStatus] = useState<'eaten' | 'not_eaten' | null>(null);
+  const [activeRecentScanId, setActiveRecentScanId] = useState<string | null>(null);
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
@@ -1777,6 +1892,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return true;
   };
 
+  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition'>>) => {
+    if (!id) return;
+    setRecentScans((items) => {
+      const next = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
+      saveRecentScans(next, session.user.id);
+      return next;
+    });
+  };
+
   const runImageScan = async (file: File | undefined) => {
     if (!file) return;
     setActiveTab('home');
@@ -1785,6 +1909,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setScanProgressText(copy.analyzingImage);
     setDashboardError('');
     setSelectedFeeling(null);
+    setSelectedMealStatus(null);
+    setActiveRecentScanId(null);
     setResultSheetOpen(false);
     setScanPreviewUrl((current) => {
       if (current) revokeObjectUrl(current);
@@ -1831,19 +1957,29 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       }
 
       const scanImageDataUrl = normalizeImageDataUrl(result.compressedImage.imageBase64 || stableImageDataUrl, result.compressedImage.mimeType);
+      const nutrition = nutritionForResult(result.scan.result);
+      const normalizedScan: ImageScanPayload = {
+        result: {
+          ...result.scan.result,
+          nutrition,
+        },
+      };
+      const recentId = crypto.randomUUID();
       window.clearInterval(progressTimer);
-      setScanResult(result.scan);
+      setScanResult(normalizedScan);
       setScanPreviewUrl(scanImageDataUrl);
       setScanProgress(100);
       setScanProgressText(copy.savedRecent);
       setScanState('done');
-      await saveEntry(`${result.scan.result.overallRating}: ${result.scan.result.productName} scored ${result.scan.result.score}/100`);
+      await saveEntry(`${normalizedScan.result.overallRating}: ${normalizedScan.result.productName} scored ${normalizedScan.result.score}/100`);
       const recentScan: RecentScan = {
-        id: crypto.randomUUID(),
+        id: recentId,
         imageDataUrl: scanImageDataUrl,
-        result: result.scan.result,
+        result: normalizedScan.result,
+        nutrition,
         createdAt: new Date().toISOString(),
       };
+      setActiveRecentScanId(recentId);
       setRecentScans((items) => {
         const next = [recentScan, ...items].slice(0, 10);
         saveRecentScans(next, session.user.id);
@@ -2028,16 +2164,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : calorieMode === 'lose'
         ? Math.max(1200, maintenanceCalories - 350)
         : maintenanceCalories;
-  const caloriesEaten = 0;
+  const eatenNutrition = addNutritionValues(recentScans.filter((item) => item.eaten).map((item) => item.nutrition));
+  const caloriesEaten = eatenNutrition.calories;
   const weightKg = storedProfile?.weightKg && storedProfile.weightKg > 0 ? storedProfile.weightKg : 70;
   const proteinTarget = Math.round(weightKg * (calorieMode === 'gain' ? 2 : calorieMode === 'lose' ? 1.8 : 1.6));
   const fatTarget = Math.round((calorieTarget * 0.27) / 9);
   const carbsTarget = Math.max(90, Math.round((calorieTarget - proteinTarget * 4 - fatTarget * 9) / 4));
   const macroCards = [
     { label: 'Calories', value: caloriesEaten, target: calorieTarget, unit: '', icon: 'Cal', color: 'text-zinc-950' },
-    { label: 'Protein', value: 0, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
-    { label: 'Carbs', value: 0, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
-    { label: 'Fat', value: 0, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
+    { label: 'Protein', value: eatenNutrition.proteinG, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
+    { label: 'Carbs', value: eatenNutrition.carbsG, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
+    { label: 'Fat', value: eatenNutrition.fatG, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
   ];
   const manualWaterNumber = Number(manualWaterAmount);
   const manualWaterMl =
@@ -2260,6 +2397,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const isResultImageCheckError = scanResult ? isImageCheckErrorResult(scanResult.result) : false;
   const isResultAiCoolingDown = scanResult ? isAiCoolingDownResult(scanResult.result) : false;
   const resultTone = scanResult ? ratingTone(scanResult.result.overallRating) : ratingTone('Caution');
+  const scanNutrition = scanResult ? nutritionForResult(scanResult.result) : null;
   const resultReasons = scanResult
     ? (scanResult.result.flaggedChemicals.length ? scanResult.result.flaggedChemicals : [
         {
@@ -2786,8 +2924,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             className="flex w-full items-center gap-3 rounded-[24px] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:gap-4 sm:rounded-[28px] sm:p-4"
                             key={item.id}
                             onClick={() => {
-                              setScanResult({ result: item.result });
+                              setScanResult({ result: { ...item.result, nutrition: item.nutrition } });
                               setScanPreviewUrl(item.imageDataUrl);
+                              setActiveRecentScanId(item.id);
+                              setSelectedMealStatus(typeof item.eaten === 'boolean' ? (item.eaten ? 'eaten' : 'not_eaten') : null);
+                              setSelectedFeeling(item.feeling ?? null);
                               setResultSheetOpen(true);
                             }}
                             type="button"
@@ -2803,7 +2944,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                                 {isImageCheckErrorResult(item.result) ? 'Needs retake · not scored' : `${item.result.overallRating} · ${item.result.score}/100`}
                               </p>
                               <p className="mt-1 line-clamp-1 text-xs font-semibold text-zinc-400">
-                                {item.result.flaggedChemicals[0]?.reason ?? 'Saved with scan context'}
+                                {item.eaten ? `${item.nutrition.calories} cal counted` : item.eaten === false ? 'Saved, not counted' : item.result.flaggedChemicals[0]?.reason ?? 'Saved with scan context'}
                               </p>
                             </div>
                             <ChevronRight className="h-6 w-6 shrink-0 text-zinc-400" />
@@ -3168,6 +3309,32 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </div>
                 </div>
 
+                {!isResultImageCheckError && scanNutrition && (
+                  <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Питание' : 'Nutrition estimate'}</p>
+                        <h3 className="mt-1.5 text-xl font-black leading-tight">{scanNutrition.calories} cal</h3>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.06]">
+                        {selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено' : 'Counted') : isRussian ? 'Не учтено' : 'Not counted'}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {[
+                        ['Protein', `${scanNutrition.proteinG}g`],
+                        ['Carbs', `${scanNutrition.carbsG}g`],
+                        ['Fat', `${scanNutrition.fatG}g`],
+                      ].map(([label, value]) => (
+                        <div className="rounded-[18px] bg-white px-3 py-3 text-center shadow-sm ring-1 ring-zinc-950/[0.05]" key={label}>
+                          <p className="text-lg font-black leading-none">{value}</p>
+                          <p className="mt-1 text-[10px] font-black uppercase text-zinc-400">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {betterAlternative && (
                   <button
                     className={cn('mt-4 w-full rounded-[24px] p-4 text-left ring-1 transition hover:-translate-y-0.5 active:scale-[0.99] sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}
@@ -3190,16 +3357,48 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Самочувствие' : 'Feeling check-in'}</p>
-                      <h3 className="mt-2 text-xl font-black leading-tight sm:text-2xl">{isRussian ? 'Как вы себя чувствуете после еды?' : 'How do you feel after eating it?'}</h3>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Статус еды' : 'Meal status'}</p>
+                      <h3 className="mt-2 text-xl font-black leading-tight sm:text-2xl">{isRussian ? 'Вы это съели?' : 'Did you eat this?'}</h3>
                     </div>
-                    {selectedFeeling && (
+                    {selectedMealStatus && (
                       <span className={cn('rounded-full px-3 py-1 text-xs font-black', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]')}>
                         {copy.selected}
                       </span>
                     )}
                   </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {([
+                      ['eaten', isRussian ? 'Съел' : 'Eaten'],
+                      ['not_eaten', isRussian ? 'Не ел' : 'Not eaten'],
+                    ] as Array<['eaten' | 'not_eaten', string]>).map(([status, label]) => {
+                      const active = selectedMealStatus === status;
+                      return (
+                        <button
+                          className={cn(
+                            'h-12 rounded-[16px] text-sm font-black transition duration-200 active:scale-[0.97]',
+                            active
+                              ? 'bg-zinc-950 text-white shadow-[0_14px_28px_rgba(15,15,15,0.16)]'
+                              : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
+                          )}
+                          key={status}
+                          onClick={() => {
+                            setSelectedMealStatus(status);
+                            updateRecentScan(activeRecentScanId, {
+                              eaten: status === 'eaten',
+                              consumedAt: status === 'eaten' ? new Date().toISOString() : undefined,
+                              nutrition: scanNutrition ?? undefined,
+                            });
+                          }}
+                          type="button"
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <h4 className="mt-5 text-sm font-black text-zinc-500">{isRussian ? 'Как самочувствие?' : 'How do you feel?'}</h4>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
                     {(['Fine', 'Nausea', 'Bloated'] as FeelingOption[]).map((feeling) => {
                       const active = selectedFeeling === feeling;
                       return (
@@ -3211,7 +3410,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 	                              : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
                           )}
                           key={feeling}
-                          onClick={() => setSelectedFeeling(feeling)}
+                          onClick={() => {
+                            setSelectedFeeling(feeling);
+                            updateRecentScan(activeRecentScanId, { feeling });
+                          }}
                           type="button"
                         >
                           {feelingLabel(feeling)}
@@ -3220,7 +3422,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     })}
                   </div>
                   <p className={cn('mt-3 text-xs font-semibold leading-5', theme.muted)}>
-                   {selectedFeeling
+                   {selectedMealStatus === 'eaten'
+                      ? isRussian
+                        ? 'Питание уже добавлено в дневные калории и макросы.'
+                        : 'Nutrition is now counted toward today.'
+                      : selectedMealStatus === 'not_eaten'
+                        ? isRussian
+                          ? 'Скан сохранен, но не считается в калориях.'
+                          : 'Scan saved, but not counted toward calories.'
+                        : selectedFeeling
                       ? isRussian
                         ? `${feelingLabel(selectedFeeling)} будет связано с ${scanResult.result.productName}.`
                         : `${selectedFeeling} will be connected to ${scanResult.result.productName}.`
@@ -3233,18 +3443,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className="mt-5 grid gap-3">
                   <button
 	                    className="h-14 rounded-full bg-white text-sm font-black text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={!selectedFeeling}
+                    disabled={!selectedMealStatus}
                     onClick={async () => {
-                      if (!selectedFeeling) return;
-                      const saved = await saveEntry(`${selectedFeeling} check-in saved: ${scanResult.result.productName}`);
-                      if (saved) {
-                        setDashboardError(isRussian ? `${feelingLabel(selectedFeeling)} связано с этим сканом.` : `${selectedFeeling} connected to this scan.`);
-                        setResultSheetOpen(false);
+                      if (!selectedMealStatus) return;
+                      if (selectedFeeling) {
+                        await saveEntry(`${selectedFeeling} check-in saved: ${scanResult.result.productName}`);
                       }
+                      setResultSheetOpen(false);
                     }}
                     type="button"
                   >
-                    {selectedFeeling ? copy.saveToTimeline : (isRussian ? 'Выберите самочувствие' : 'Pick feeling first')}
+                    {selectedMealStatus ? (isRussian ? 'Готово' : 'Done') : (isRussian ? 'Выберите статус' : 'Choose eaten or not')}
                   </button>
                 </div>
                 )}

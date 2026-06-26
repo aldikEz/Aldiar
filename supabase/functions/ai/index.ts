@@ -27,7 +27,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v11-identity-first-20260625';
+const SCAN_CACHE_VERSION = 'label-v12-nutrition-20260626';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -70,6 +70,16 @@ type RequestBody = {
 
 type Rating = 'Safe' | 'Caution' | 'Avoid';
 
+type NutritionFacts = {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG?: number;
+  sugarG?: number;
+  sodiumMg?: number;
+};
+
 type ChemicalReport = {
   chemicalName: string;
   severity: Rating;
@@ -81,6 +91,7 @@ type ScanPayload = {
     productName: string;
     overallRating: Rating;
     score: number;
+    nutrition?: NutritionFacts;
     flaggedChemicals: ChemicalReport[];
   };
 };
@@ -785,6 +796,8 @@ Rules:
 - Never leave productName generic if any food/drink/package category is visible.
 - If you can identify only category, productName must be "Likely [specific category]" in ${targetLang}, e.g. "Likely chocolate dairy snack", "Likely avocado", "Likely bottled water", "Likely chips".
 - For flaggedChemicals, return 2 to 4 ingredients/additives/category concerns.
+- Estimate nutrition for one normal serving or one visible package when possible. Use nutrition facts if visible; otherwise make a conservative category estimate.
+- nutrition numbers must be realistic non-negative numbers. calories are kcal, proteinG/carbsG/fatG/fiberG/sugarG are grams, sodiumMg is milligrams.
 - If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; they are at least "Caution".
 - If visible sugar is high, or the product is a sweetened beverage, score must be 0-45.
@@ -805,6 +818,15 @@ Return this exact shape:
     "productName": "Name or classification",
     "overallRating": "Caution",
     "score": 45,
+    "nutrition": {
+      "calories": 220,
+      "proteinG": 6,
+      "carbsG": 28,
+      "fatG": 9,
+      "fiberG": 2,
+      "sugarG": 12,
+      "sodiumMg": 240
+    },
     "flaggedChemicals": [
       {
         "chemicalName": "Visible or inferred concern",
@@ -838,9 +860,10 @@ Scoring:
 - Pasta/bread/dairy/nuts/coffee/juice: Caution 50-70.
 - Soda/sweet tea/energy drinks/chips/candy/fried fast food: Avoid 0-45.
 - If uncertain but a category is visible, use Caution 45-60.
+- Estimate nutrition for one normal serving or one visible package. Return calories, proteinG, carbsG, fatG, and optionally fiberG, sugarG, sodiumMg.
 
 Return JSON only:
-{"result":{"productName":"Specific visual estimate","overallRating":"Caution","score":55,"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified"},{"chemicalName":"Category risk","severity":"Caution","reason":"Based on visible product type"}]}}`;
+{"result":{"productName":"Specific visual estimate","overallRating":"Caution","score":55,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified"},{"chemicalName":"Category risk","severity":"Caution","reason":"Based on visible product type"}]}}`;
 }
 
 function makeVisualIdentityPrompt(targetLang: string) {
@@ -877,10 +900,11 @@ Rules:
 - Pasta/bread/dairy/nuts/coffee/juice: Caution 50-70.
 - Candy/chocolate bars/sweet dairy snacks/sugary drinks/chips/fried fast food: Avoid 0-45.
 - If a user trigger overlaps with the identity, lower the score.
+- Estimate nutrition for one normal serving or one visible package. Return calories, proteinG, carbsG, fatG, and optionally fiberG, sugarG, sodiumMg.
 - Reasons under 12 words.
 
 Return exactly:
-{"result":{"productName":"Specific name","overallRating":"Caution","score":55,"flaggedChemicals":[{"chemicalName":"Concern","severity":"Caution","reason":"Short reason"}]}}`;
+{"result":{"productName":"Specific name","overallRating":"Caution","score":55,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"flaggedChemicals":[{"chemicalName":"Concern","severity":"Caution","reason":"Short reason"}]}}`;
 }
 
 function makeFoodTextPrompt(payload: FoodTextPayload, targetLang: string) {
@@ -905,11 +929,12 @@ Rules:
 - For soda/energy drink/sweetened tea, flag sugar/caffeine/acidity/sweeteners/preservatives when relevant.
 - Do not diagnose, guarantee safety, or give medical advice.
 - Return 2 to 4 flaggedChemicals.
+- Estimate nutrition for one normal serving or one package from the input/category. Return calories, proteinG, carbsG, fatG, and optionally fiberG, sugarG, sodiumMg.
 - Each reason must be under 12 words.
 - Prefer common trigger groups: dairy, wheat/flour, fried food, soda, caffeine, onion, garlic, spicy food.
 
 Required JSON shape:
-{"result":{"productName":"Food name","overallRating":"Caution","score":45,"flaggedChemicals":[{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."},{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."}]}}`;
+{"result":{"productName":"Food name","overallRating":"Caution","score":45,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"flaggedChemicals":[{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."},{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."}]}}`;
 }
 
 async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
@@ -1113,6 +1138,31 @@ function asScore(value: unknown) {
   return Math.max(0, Math.min(100, Math.round(numberValue)));
 }
 
+function asNutritionNumber(value: unknown, fallback = 0) {
+  const numberValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.round(numberValue));
+}
+
+function normalizeNutrition(value: unknown): NutritionFacts | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    calories: asNutritionNumber(value.calories),
+    proteinG: asNutritionNumber(value.proteinG),
+    carbsG: asNutritionNumber(value.carbsG),
+    fatG: asNutritionNumber(value.fatG),
+    fiberG: asNutritionNumber(value.fiberG),
+    sugarG: asNutritionNumber(value.sugarG),
+    sodiumMg: asNutritionNumber(value.sodiumMg),
+  };
+}
+
 function normalizeChemical(value: unknown): ChemicalReport | null {
   if (!isRecord(value)) {
     return null;
@@ -1139,6 +1189,7 @@ function normalizeScanPayload(value: unknown, targetLang: string, fallback: Scan
       productName: asBoundedString(value.result.productName, targetLang === 'Russian' ? 'Визуальная оценка продукта' : 'Visual product estimate', 120),
       overallRating: asRating(value.result.overallRating, flaggedChemicals.length > 0 ? 'Caution' : 'Safe'),
       score: asScore(value.result.score),
+      nutrition: normalizeNutrition(value.result.nutrition),
       flaggedChemicals,
     },
   }, targetLang);
