@@ -2797,72 +2797,65 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       {nutritionPanel === 1 && (
                         <motion.div
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="grid grid-cols-4 gap-2 sm:gap-3"
+                          className="space-y-2.5 sm:space-y-3"
                           exit={{ opacity: 0, scale: 0.985, y: -10 }}
                           initial={{ opacity: 0, scale: 0.985, y: 14 }}
                           key="macro-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          {macroCards.map((card) => (
-                            <div
-                              className="flex h-[118px] min-w-0 flex-col justify-between rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:h-[142px] sm:rounded-[22px] sm:p-3.5 md:h-[156px] md:p-4"
-                              key={card.label}
+                          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                            {macroCards.map((card) => (
+                              <div
+                                className="flex h-[118px] min-w-0 flex-col justify-between rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:h-[142px] sm:rounded-[22px] sm:p-3.5 md:h-[156px] md:p-4"
+                                key={card.label}
+                              >
+                                <div className="min-w-0">
+                                  <p className="whitespace-nowrap text-[18px] font-black leading-none sm:text-[24px] md:text-[28px]">
+                                    {card.value}<span className="text-[11px] text-zinc-400 sm:text-[15px] md:text-[17px]">/{card.target}{card.unit}</span>
+                                  </p>
+                                  <p className="mt-1.5 truncate text-[10px] font-black leading-3 text-zinc-500 sm:text-[12px] md:text-[13px]">{card.label}</p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:h-16 sm:w-16 sm:border-[9px] md:h-[72px] md:w-[72px]">
+                                  <span className={cn('text-[10px] font-black sm:text-[13px] md:text-[14px]', card.color)}>{card.icon}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="grid gap-2.5 min-[390px]:grid-cols-2 sm:gap-3">
+                            <button
+                              className="rounded-[22px] bg-white p-4 text-left shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[24px] sm:p-5"
+                              onClick={() => setWaterSheetOpen(true)}
+                              type="button"
                             >
-                              <div className="min-w-0">
-                                <p className="whitespace-nowrap text-[18px] font-black leading-none sm:text-[24px] md:text-[28px]">
-                                  {card.value}<span className="text-[11px] text-zinc-400 sm:text-[15px] md:text-[17px]">/{card.target}{card.unit}</span>
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-[15px] font-black text-zinc-500 sm:text-[18px]">Water intake</p>
+                                  <p className="mt-1 text-[24px] font-black leading-none sm:text-[30px]">{waterCardLabel}</p>
+                                </div>
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg font-black">+</span>
+                              </div>
+                            </button>
+
+                            <div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-[15px] font-black sm:text-[18px]">Health score</p>
+                                <p className="text-[22px] font-black leading-none sm:text-[28px]">
+                                  {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
                                 </p>
-                                <p className="mt-1.5 truncate text-[10px] font-black leading-3 text-zinc-500 sm:text-[12px] md:text-[13px]">{card.label}</p>
                               </div>
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:h-16 sm:w-16 sm:border-[9px] md:h-[72px] md:w-[72px]">
-                                <span className={cn('text-[10px] font-black sm:text-[13px] md:text-[14px]', card.color)}>{card.icon}</span>
+                              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
+                                <div className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)} style={{ width: healthScoreBarWidth }} />
                               </div>
+                              <p className="mt-2 text-[12px] font-semibold leading-5 text-zinc-500">{healthScoreExplanation}</p>
                             </div>
-                          ))}
-                        </motion.div>
-                      )}
-
-                      {nutritionPanel === 2 && (
-                        <motion.div
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          className="grid gap-2.5 min-[390px]:grid-cols-2 sm:gap-3"
-                          exit={{ opacity: 0, scale: 0.985, y: -10 }}
-                          initial={{ opacity: 0, scale: 0.985, y: 14 }}
-                          key="water-panel"
-                          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                        >
-                          <button
-                            className="rounded-[24px] bg-white p-4 text-left shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[28px] sm:p-5 md:p-6"
-                            onClick={() => setWaterSheetOpen(true)}
-                            type="button"
-                          >
-                            <p className="text-[18px] font-black text-zinc-500 sm:text-[22px]">Water intake</p>
-                            <p className="mt-1.5 text-[28px] font-black leading-none sm:text-[36px]">{waterCardLabel}</p>
-                            <span className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-black shadow-sm ring-1 ring-zinc-950/10 transition sm:h-12 sm:px-6 sm:text-base">
-                              Log Water
-                            </span>
-                          </button>
-
-                          <div className="rounded-[24px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] sm:rounded-[28px] sm:p-5 md:p-6">
-                            <div className="flex items-start justify-between gap-4">
-                              <p className="text-[18px] font-black sm:text-[22px]">Health score</p>
-                              <p className="text-[24px] font-black leading-none sm:text-[30px]">
-                                {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
-                              </p>
-                            </div>
-                            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
-                              <div className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)} style={{ width: healthScoreBarWidth }} />
-                            </div>
-                            <p className="mt-3 text-[12px] font-semibold leading-5 text-zinc-500 sm:text-[13px]">
-                              {healthScoreExplanation}
-                            </p>
                           </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
 
                     <div className="mt-2.5 flex justify-center gap-1.5 sm:mt-3">
-                      {[0, 1, 2].map((index) => (
+                      {[0, 1].map((index) => (
                         <button
                           aria-label={`Show dashboard panel ${index + 1}`}
                           className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/70 active:scale-90"
@@ -2955,11 +2948,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       <div className="mt-3 rounded-[24px] bg-[#f7f6fb] p-4 text-center shadow-[0_10px_28px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:mt-5 sm:rounded-[28px] sm:p-5">
                         <div className="mx-auto max-w-[560px] rounded-[22px] bg-white p-3.5 shadow-[0_12px_28px_rgba(15,15,15,0.06)] sm:rounded-[24px] sm:p-4">
                           <div className="flex items-center gap-4">
-                            <img
-                              alt="Example bowl"
-                              className="h-16 w-16 shrink-0 rounded-full object-cover"
-                              src="https://images.unsplash.com/photo-1546793665-c74683f339c1?q=80&w=500&auto=format&fit=crop"
-                            />
+                            <span
+                              aria-label="Meal"
+                              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-zinc-50 text-[38px] shadow-inner ring-1 ring-zinc-950/[0.04]"
+                              role="img"
+                              style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
+                            >
+                              🍲
+                            </span>
                             <div className="min-w-0 flex-1 space-y-2">
                               <div className="h-3 w-full rounded-full bg-zinc-200" />
                               <div className="h-3 w-2/3 rounded-full bg-zinc-200" />
