@@ -1932,6 +1932,36 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     });
   };
 
+  const persistScanCorrection = async (
+    localScanId: string | null,
+    originalResult: ImageScanPayload['result'],
+    correctedResult: ImageScanPayload['result'],
+    correctedNutrition: NutritionFacts,
+  ) => {
+    if (!localScanId) return false;
+
+    const { error } = await supabase
+      .from('scan_corrections')
+      .upsert(
+        {
+          user_id: session.user.id,
+          local_scan_id: localScanId,
+          original_result: originalResult,
+          corrected_result: correctedResult,
+          corrected_nutrition: correctedNutrition,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,local_scan_id' },
+      );
+
+    if (error) {
+      console.warn('DigestSnap correction persistence failed.', error.message);
+      return false;
+    }
+
+    return true;
+  };
+
   const runImageScan = async (file: File | undefined) => {
     if (!file) return;
     setActiveTab('home');
@@ -2488,8 +2518,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     });
     setFixResultSheetOpen(true);
   };
-  const saveFixedScanResult = () => {
+  const saveFixedScanResult = async () => {
     if (!scanResult) return;
+    const originalResult = scanResult.result;
     const fixedNutrition: NutritionFacts = {
       calories: nutritionNumber(fixDraft.calories),
       proteinG: nutritionNumber(fixDraft.proteinG),
@@ -2529,6 +2560,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       result: fixedResult,
       nutrition: fixedNutrition,
     });
+    void persistScanCorrection(activeRecentScanId, originalResult, fixedResult, fixedNutrition);
     setFixResultSheetOpen(false);
   };
   const resultReasons = scanResult
