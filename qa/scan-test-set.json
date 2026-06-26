@@ -1,0 +1,128 @@
+{
+  "version": "p0-trust-sprint-2026-06-27",
+  "purpose": "Repeatable DigestSnap scan trust checks for food identity, score, confidence source, nutrition, and correction behavior.",
+  "rules": {
+    "passDefinition": "A scan passes when product identity is understandable, rating is in the expected band, confidence source matches the image type, and nutrition is plausible for one serving or one package.",
+    "confidenceSources": ["label_read", "database_match", "visual_estimate", "manual_text", "fallback", "user_corrected"],
+    "doNotPass": [
+      "Unreadable label returned as Safe",
+      "Sugary soda or iced tea scored above 55",
+      "Whole fruit scored below 75 without a user trigger",
+      "Correction only changes UI and is not saved to scan_corrections",
+      "Russian/Cyrillic product name returns an English-only error when the app language is Russian"
+    ]
+  },
+  "cases": [
+    {
+      "id": "whole-apple",
+      "input": "Photo of one clear apple, no label",
+      "expectedNameContains": ["apple", "ябл"],
+      "expectedRating": "Safe",
+      "scoreMin": 85,
+      "scoreMax": 100,
+      "expectedConfidenceSources": ["visual_estimate"],
+      "nutrition": { "caloriesMin": 50, "caloriesMax": 130 },
+      "notes": "No cleaner alternative should be shown for a high-score whole fruit."
+    },
+    {
+      "id": "avocado",
+      "input": "Photo of one avocado or sliced avocado",
+      "expectedNameContains": ["avocado", "авокад"],
+      "expectedRating": "Safe",
+      "scoreMin": 75,
+      "scoreMax": 95,
+      "expectedConfidenceSources": ["visual_estimate"],
+      "nutrition": { "caloriesMin": 160, "caloriesMax": 340 },
+      "notes": "Should not become unreadable just because there is no label."
+    },
+    {
+      "id": "plain-eggs",
+      "input": "Photo of boiled or plain cooked eggs",
+      "expectedNameContains": ["egg", "яйц"],
+      "expectedRating": "Safe",
+      "scoreMin": 75,
+      "scoreMax": 95,
+      "expectedConfidenceSources": ["visual_estimate"],
+      "nutrition": { "proteinMin": 8, "proteinMax": 25 }
+    },
+    {
+      "id": "borjomi",
+      "input": "Clear front label photo of Borjomi mineral water",
+      "expectedNameContains": ["borjomi", "боржоми", "mineral water"],
+      "expectedRating": "Safe",
+      "scoreMin": 80,
+      "scoreMax": 95,
+      "expectedConfidenceSources": ["label_read", "database_match", "visual_estimate"],
+      "nutrition": { "caloriesMin": 0, "caloriesMax": 5 }
+    },
+    {
+      "id": "coca-cola",
+      "input": "Clear Coca-Cola can or bottle label",
+      "expectedNameContains": ["coca", "cola"],
+      "expectedRating": "Avoid",
+      "scoreMin": 0,
+      "scoreMax": 45,
+      "expectedConfidenceSources": ["label_read", "database_match", "visual_estimate"],
+      "nutrition": { "sugarMin": 20 },
+      "notes": "Database nutrition must not override soda risk rules."
+    },
+    {
+      "id": "fuse-tea",
+      "input": "Clear Fuse Tea bottle label",
+      "expectedNameContains": ["fuse", "tea"],
+      "expectedRating": "Avoid",
+      "scoreMin": 0,
+      "scoreMax": 55,
+      "expectedConfidenceSources": ["label_read", "database_match", "visual_estimate"],
+      "requiredFlags": ["Sweetened drink", "Sugar"]
+    },
+    {
+      "id": "lays-chips",
+      "input": "Clear Lay's chips bag front",
+      "expectedNameContains": ["lays", "chips", "чипс"],
+      "expectedRating": "Avoid",
+      "scoreMin": 0,
+      "scoreMax": 50,
+      "expectedConfidenceSources": ["label_read", "database_match", "visual_estimate"],
+      "requiredFlags": ["fried", "snack"]
+    },
+    {
+      "id": "kinder-milk-slice-ru",
+      "input": "Clear Kinder Молочный ломтик wrapper with Cyrillic text",
+      "expectedNameContains": ["kinder", "молочный", "ломтик"],
+      "expectedRating": "Avoid",
+      "scoreMin": 0,
+      "scoreMax": 50,
+      "expectedConfidenceSources": ["label_read", "database_match", "visual_estimate"],
+      "requiredFlags": ["Sugar", "Сахар"],
+      "notes": "Must handle Cyrillic text and brand recognition."
+    },
+    {
+      "id": "plain-pasta",
+      "input": "Photo of cooked macaroni or pasta without a package",
+      "expectedNameContains": ["pasta", "macaroni", "макарон"],
+      "expectedRating": "Caution",
+      "scoreMin": 50,
+      "scoreMax": 70,
+      "expectedConfidenceSources": ["visual_estimate"],
+      "nutrition": { "caloriesMin": 220, "caloriesMax": 520 }
+    },
+    {
+      "id": "unreadable-packaged-food",
+      "input": "Blurry packaged food where brand and food type are not identifiable",
+      "expectedNameContains": ["visual", "оценка", "image"],
+      "expectedRating": "Caution",
+      "scoreMin": 45,
+      "scoreMax": 55,
+      "expectedConfidenceSources": ["fallback"],
+      "notes": "Saved image is allowed, but confidence must say needs confirmation and not Safe."
+    },
+    {
+      "id": "user-correction",
+      "input": "Open a scan result, tap Fix result, change score and nutrition, save",
+      "expectedConfidenceSources": ["user_corrected"],
+      "databaseExpectation": "scan_corrections row upserted with same user_id and local_scan_id",
+      "notes": "Correction should update current modal, recent upload card, local cache, and Supabase row."
+    }
+  ]
+}
