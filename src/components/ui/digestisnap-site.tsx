@@ -2876,6 +2876,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       ].join(' ').toLowerCase().includes(query);
     })
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const progressTimelineScans = recentScans
+    .slice()
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, 5);
   const normalizedStreak = normalizeStreak(streak);
   const activeStreak = normalizedStreak.count;
   const maxStreak = normalizedStreak.maxCount;
@@ -3035,19 +3039,30 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         </div>
 
         <div className="mt-5 space-y-3">
-          {visibleLogs.length > 0 ? visibleLogs.slice(0, 5).map((item) => (
-            <article
-              className={cn('flex min-h-[64px] w-full items-center gap-4 rounded-[20px] px-4 text-left', theme.soft)}
+          {progressTimelineScans.length > 0 ? progressTimelineScans.map((item) => (
+            <button
+              className={cn('flex min-h-[72px] w-full items-center gap-3 rounded-[20px] p-3 text-left transition hover:-translate-y-0.5 active:scale-[0.99]', theme.soft)}
               key={item.id}
+              onClick={() => openSavedScan(item)}
+              type="button"
             >
-              <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950')}>
-                <Camera className="h-4 w-4" />
-              </span>
+              <img
+                alt={item.result.productName}
+                className="h-12 w-12 shrink-0 rounded-[15px] object-cover"
+                src={item.imageDataUrl}
+              />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black">{item.title}</span>
-                <span className={cn('mt-1 block text-xs font-semibold', theme.muted)}>{new Date(item.created_at).toLocaleDateString()}</span>
+                <span className="block truncate text-sm font-black">{item.result.productName}</span>
+                <span className={cn('mt-1 block truncate text-xs font-semibold', theme.muted)}>
+                  {new Date(item.createdAt).toLocaleDateString(language === 'Russian' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })}
+                  {' · '}
+                  {item.feeling ? feelingLabel(item.feeling) : item.eaten ? (isRussian ? 'Съедено' : 'Eaten') : item.eaten === false ? (isRussian ? 'Не ел' : 'Not eaten') : (isRussian ? 'Открыто' : 'Open')}
+                </span>
               </span>
-            </article>
+              <span className={cn('shrink-0 rounded-full px-3 py-1 text-[11px] font-black uppercase', ratingTone(item.result.overallRating).badge)}>
+                {item.result.score}
+              </span>
+            </button>
           )) : (
             <div className={cn('rounded-[24px] p-5 text-center', theme.soft)}>
               <ScanLine className={cn('mx-auto h-8 w-8', theme.muted)} />
