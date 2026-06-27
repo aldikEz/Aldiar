@@ -3,15 +3,17 @@ import path from 'node:path';
 
 const frontendRoots = ['src'];
 const frontendFiles = ['index.html', 'package.json', 'vercel.json', '.env.example'];
+const repoRoots = ['src', 'supabase', 'qa', 'scripts'];
+const repoFiles = ['index.html', 'package.json', 'vercel.json', '.env.example', 'AGENTS.md', 'CODEX_SETUP.md', 'README.md'];
 const envLocal = existsSync('.env.local') ? readFileSync('.env.local', 'utf8') : '';
 
-function walk(dir) {
+function walk(dir, extensions = /\.(ts|tsx|js|jsx|css|html|json)$/) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).flatMap((entry) => {
     const fullPath = path.join(dir, entry);
     const stat = statSync(fullPath);
-    if (stat.isDirectory()) return walk(fullPath);
-    if (!/\.(ts|tsx|js|jsx|css|html|json)$/.test(entry)) return [];
+    if (stat.isDirectory()) return walk(fullPath, extensions);
+    if (!extensions.test(entry)) return [];
     return [fullPath];
   });
 }
@@ -25,9 +27,16 @@ function readText(file) {
 }
 
 const sourceFiles = [
-  ...frontendRoots.flatMap(walk),
+  ...frontendRoots.flatMap((root) => walk(root)),
   ...frontendFiles.filter((file) => existsSync(file)),
 ];
+
+const repoSourceFiles = [
+  ...repoRoots.flatMap((root) => walk(root, /\.(ts|tsx|js|jsx|css|html|json|mjs|md|toml)$/)),
+  ...repoFiles.filter((file) => existsSync(file)),
+]
+  .filter((file) => !file.includes('check-secret-exposure.mjs'))
+  .filter((file, index, files) => files.indexOf(file) === index);
 
 const frontendSource = sourceFiles.map((file) => readText(file)).join('\n');
 
@@ -51,14 +60,33 @@ const frontendTokenHits = suspiciousTokenPatterns
   .filter(({ pattern }) => pattern.test(frontendSource))
   .map(({ name }) => name);
 
+const repoTokenHits = repoSourceFiles.flatMap((file) => {
+  const text = readText(file);
+  return suspiciousTokenPatterns
+    .filter(({ pattern }) => pattern.test(text))
+    .map(({ name }) => ({ file, type: name }));
+});
+
+const frontendViteNames = Array.from(frontendSource.matchAll(/\bVITE_[A-Z0-9_]+\b/g), (match) => match[0]);
+const allowedFrontendViteNames = new Set(['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']);
+const unexpectedFrontendViteNames = [...new Set(frontendViteNames.filter((name) => !allowedFrontendViteNames.has(name)))];
+
 const checks = [
   {
     name: 'frontend source does not reference private VITE secret names',
     ok: exposedEnvNames.length === 0,
   },
   {
+    name: 'frontend source only references approved public VITE names',
+    ok: unexpectedFrontendViteNames.length === 0,
+  },
+  {
     name: 'frontend source does not contain token-shaped secrets',
     ok: frontendTokenHits.length === 0,
+  },
+  {
+    name: 'repository source does not contain committed token-shaped secrets',
+    ok: repoTokenHits.length === 0,
   },
   {
     name: 'local Gemini key is not VITE-prefixed',
@@ -76,11 +104,14 @@ const summary = {
   checks,
   findings: {
     exposedEnvNames,
+    unexpectedFrontendViteNames,
     frontendTokenHitTypes: frontendTokenHits,
+    repoTokenHits,
     scannedFrontendFileCount: sourceFiles.length,
+    scannedRepoFileCount: repoSourceFiles.length,
   },
   nextAction: failed.length
-    ? 'Remove private keys from frontend source and VITE-prefixed environment variables.'
+    ? 'Remove private keys from committed source and VITE-prefixed environment variables.'
     : 'No frontend secret exposure detected in source or local public env names.',
 };
 
