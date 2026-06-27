@@ -26,6 +26,7 @@
     "pitch:capture": "node scripts/capture-pitch-assets.mjs",
     "qa:empty-states": "node scripts/check-empty-states.mjs",
     "qa:feeling-flow": "node scripts/check-feeling-flow.mjs",
+    "qa:loading-states": "node scripts/check-loading-states.mjs",
     "qa:pattern-engine": "node scripts/check-pattern-engine.mjs",
     "qa:catalog": "node qa/validate-real-scan-catalog.mjs",
     "qa:scan": "node qa/run-scan-contract.mjs"
