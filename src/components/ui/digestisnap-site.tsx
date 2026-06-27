@@ -1086,6 +1086,9 @@ function clearUserLocalData(userId: string) {
       languageStorageKey(userId),
       DIGESTSNAP_PENDING_PROFILE_KEY,
       DIGESTSNAP_PROFILE_STORAGE_KEY,
+      DIGESTSNAP_STREAK_STORAGE_KEY,
+      DIGESTSNAP_RECENT_SCANS_STORAGE_KEY,
+      DIGESTSNAP_LANGUAGE_STORAGE_KEY,
     ].forEach((key) => window.localStorage.removeItem(key));
   } catch {
     // Account deletion should not fail because local cleanup is unavailable.
@@ -3050,6 +3053,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
 
   const signOut = async () => {
+    clearUserLocalData(session.user.id);
     await supabase.auth.signOut();
     navigate('/');
   };

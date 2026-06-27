@@ -53,12 +53,24 @@ checks.push(
       && /supabase\.auth\.signOut\(\)/.test(app),
   },
   {
-    name: 'local account cleanup removes generic pending profile state',
-    ok: /DIGESTSNAP_PENDING_PROFILE_KEY/.test(app) && /DIGESTSNAP_PROFILE_STORAGE_KEY/.test(app),
+    name: 'frontend logout clears user-scoped local cache before sign out',
+    ok: /const signOut = async \(\) => \{[\s\S]+clearUserLocalData\(session\.user\.id\);[\s\S]+supabase\.auth\.signOut\(\)/.test(app),
   },
   {
-    name: 'export includes account profile streak water entries and scans',
+    name: 'local account cleanup removes generic pending profile state',
+    ok: /DIGESTSNAP_PENDING_PROFILE_KEY/.test(app)
+      && /DIGESTSNAP_PROFILE_STORAGE_KEY/.test(app)
+      && /DIGESTSNAP_RECENT_SCANS_STORAGE_KEY/.test(app)
+      && /DIGESTSNAP_STREAK_STORAGE_KEY/.test(app)
+      && /DIGESTSNAP_LANGUAGE_STORAGE_KEY/.test(app),
+  },
+  {
+    name: 'export includes account profile streak water entries and owned scans',
     ok: /const exportData = \{[\s\S]+account:[\s\S]+profile:[\s\S]+streak:[\s\S]+water:[\s\S]+entries:[\s\S]+scans:/.test(app),
+  },
+  {
+    name: 'export uses account-owned recent scans only',
+    ok: /scans: ownedRecentScans\.map/.test(app) && !/scans: recentScans\.map/.test(app),
   },
   {
     name: 'export includes scan nutrition and feelings',
