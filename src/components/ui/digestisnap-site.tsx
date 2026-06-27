@@ -3469,6 +3469,49 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const nutritionMeta = scanResult ? getNutritionMeta(scanResult.result) : null;
   const scanConfidence = scanResult ? getScanConfidence(scanResult.result) : null;
   const portionConfidence = scanResult ? getPortionConfidence(scanResult.result) : null;
+  const resultScoreLabel = scanResult
+    ? isResultImageCheckError
+      ? '--'
+      : `${scanResult.result.score}/100`
+    : '--';
+  const resultConfidenceShort = scanResult
+    ? isResultImageCheckError || isResultAiCoolingDown
+      ? isRussian
+        ? 'Низк'
+        : 'Low'
+      : scanResult.result.confidence?.level === 'high'
+        ? isRussian
+          ? 'Выс'
+          : 'High'
+        : scanResult.result.confidence?.level === 'medium'
+          ? isRussian
+            ? 'Сред'
+            : 'Med'
+          : isRussian
+            ? 'Низк'
+            : 'Low'
+    : '--';
+  const resultNextAction = scanResult
+    ? isResultImageCheckError
+      ? isRussian
+        ? 'Фото сохранено как неуверенный скан. Сделайте снимок резче, если нужна оценка'
+        : 'Saved as an uncertain scan. Retake a sharper photo if you need a real score'
+      : selectedMealStatus === 'eaten'
+        ? selectedFeeling
+          ? isRussian
+            ? 'Готово: еда и самочувствие связаны в таймлайне'
+            : 'Done: meal and feeling are connected in your timeline'
+          : isRussian
+            ? 'Еда учтена. Теперь отметьте самочувствие сейчас или позже'
+            : 'Meal counted. Add how you feel now or later'
+        : selectedMealStatus === 'not_eaten'
+          ? isRussian
+            ? 'Скан сохранен только для проверки и не влияет на дневные итоги'
+            : 'Saved for checking only, not counted in your daily totals'
+          : isRussian
+            ? 'Дальше выберите: съели это или просто проверяли'
+            : 'Next, choose whether you ate it or were just checking'
+    : '';
   const aiIdentifiedText = scanResult
     ? isResultImageCheckError
       ? isRussian ? 'Фото сохранено, но AI не уверен в еде' : 'Image saved, but AI is not confident about the food'
@@ -4933,9 +4976,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       <span className={cn('inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase', resultTone.badge)}>
                         {isResultAiCoolingDown ? copy.aiCoolingDownTitle : isResultImageCheckError ? copy.needsRetake : ratingLabel(scanResult.result.overallRating)}
                       </span>
-                      <p className="mt-3 text-3xl font-black leading-none sm:text-4xl">{isResultAiCoolingDown ? copy.aiCoolingDownTitle : isResultImageCheckError ? copy.imageNotChecked : `${Math.max(1, Math.round(scanResult.result.score / 10))}/10`}</p>
+                      <p className="mt-3 text-3xl font-black leading-none sm:text-4xl">{isResultAiCoolingDown ? copy.aiCoolingDownTitle : isResultImageCheckError ? copy.imageNotChecked : resultScoreLabel}</p>
                       <p className={cn('mt-3 max-w-[31rem] text-sm font-bold leading-6', resultTone.muted)}>
                         {resultVibe(scanResult.result)}
+                      </p>
+                      <p className="mt-3 max-w-[31rem] rounded-[18px] bg-white px-3 py-2 text-xs font-black leading-5 text-zinc-800 shadow-sm ring-1 ring-zinc-950/[0.06]">
+                        {resultNextAction}
                       </p>
                       {personalScanExplanation && (
                         <p className="mt-2 max-w-[31rem] rounded-full bg-white px-3 py-2 text-xs font-black leading-5 text-zinc-700 shadow-sm ring-1 ring-zinc-950/[0.06]">
@@ -4960,8 +5006,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       )}
                     </div>
                     <div className={cn('flex h-20 w-20 flex-col items-center justify-center rounded-full shadow-inner ring-4 sm:h-24 sm:w-24', resultTone.circle)}>
-                      <p className="text-2xl font-black sm:text-3xl">{isResultImageCheckError ? '--' : scanResult.result.score}</p>
-                      <p className="text-[10px] font-black uppercase opacity-75">{isResultImageCheckError ? copy.notScored : copy.score}</p>
+                      <p className="text-xl font-black sm:text-2xl">{resultConfidenceShort}</p>
+                      <p className="text-[10px] font-black uppercase opacity-75">{isRussian ? 'доверие' : 'trust'}</p>
                     </div>
                   </div>
 
