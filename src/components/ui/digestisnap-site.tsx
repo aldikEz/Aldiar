@@ -1262,7 +1262,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             <button className="h-11 rounded-full px-5 text-sm font-black text-zinc-600 transition hover:text-zinc-950" onClick={() => navigate('/login')} type="button">
               Login
             </button>
-            <button className="h-11 rounded-full bg-zinc-950 px-5 text-sm font-black text-white transition active:scale-[0.98]" onClick={() => navigate('/auth')} type="button">
+            <button className="h-11 rounded-full bg-zinc-950 px-5 text-sm font-black text-white transition active:scale-[0.98]" onClick={() => navigate('/start')} type="button">
               Get Started
             </button>
           </div>
@@ -1283,7 +1283,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center md:mt-8 md:gap-4 xl:justify-start">
             <button
               className="flex h-11 items-center justify-center rounded-[12px] bg-zinc-950 px-5 text-sm font-black text-white shadow-[0_18px_48px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 active:scale-[0.98] md:h-16 md:rounded-[14px] md:px-8 md:text-lg"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/start')}
               type="button"
             >
               Get Started
@@ -1767,7 +1767,7 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
             <ArrowLeft className="h-4 w-4" />
             Home
           </button>
-          <button className="min-h-11 rounded-full px-4 text-sm font-black" onClick={() => navigate('/auth')} type="button">
+          <button className="min-h-11 rounded-full px-4 text-sm font-black" onClick={() => navigate('/start')} type="button">
             Get Started
           </button>
         </header>

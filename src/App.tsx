@@ -56,7 +56,7 @@ export default function App() {
   useEffect(() => {
     if (!authReady) return;
 
-    if (session && (path === '/auth' || path === '/login')) {
+    if (session && (path === '/auth' || path === '/login' || path === '/start')) {
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -77,7 +77,7 @@ export default function App() {
     );
   }
 
-  if (path === '/auth') {
+  if (path === '/auth' || path === '/start') {
     if (session) {
       return <DashboardPage navigate={navigate} session={session} />;
     }
