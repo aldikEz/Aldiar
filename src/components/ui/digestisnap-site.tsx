@@ -534,6 +534,64 @@ function isSameLocalDay(value: string | undefined, dayKey: string) {
   return date.toDateString() === dayKey;
 }
 
+function patternFoodKey(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/\b(likely|visual|estimate|scanned|food|meal|plate|package|product)\b/g, ' ')
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 48);
+}
+
+function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
+  const isRussian = language === 'Russian';
+  const discomfortScans = scans.filter((scan) => scan.feeling && scan.feeling !== 'Fine');
+  const grouped = new Map<string, { count: number; displayName: string; feelings: Partial<Record<FeelingOption, number>> }>();
+
+  discomfortScans.forEach((scan) => {
+    const key = patternFoodKey(scan.result.productName);
+    if (!key) return;
+    const current = grouped.get(key) ?? { count: 0, displayName: scan.result.productName, feelings: {} };
+    current.count += 1;
+    if (scan.feeling) current.feelings[scan.feeling] = (current.feelings[scan.feeling] ?? 0) + 1;
+    grouped.set(key, current);
+  });
+
+  const strongest = Array.from(grouped.values()).sort((a, b) => b.count - a.count)[0];
+  if (strongest && strongest.count >= 2) {
+    const topFeeling = Object.entries(strongest.feelings).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] ?? 'Bloated';
+    return {
+      state: 'active' as const,
+      title: isRussian ? 'Повтор уже виден' : 'Repeat signal found',
+      body: isRussian
+        ? `${strongest.displayName} уже ${strongest.count} раза связано с ${topFeeling}. Проверьте это в следующих приемах пищи`
+        : `${strongest.displayName} has shown up with ${topFeeling} ${strongest.count} times. Watch the next few meals`,
+      count: strongest.count,
+    };
+  }
+
+  if (scans.length > 0 && scans.some((scan) => !scan.feeling)) {
+    return {
+      state: 'waiting' as const,
+      title: isRussian ? 'Нужны отметки самочувствия' : 'Waiting for check-ins',
+      body: isRussian
+        ? 'Сканы сохранены. Отметьте самочувствие позже, чтобы появились реальные паттерны'
+        : 'Scans are saved. Add later feelings to turn them into real patterns',
+      count: discomfortScans.length,
+    };
+  }
+
+  return {
+    state: 'empty' as const,
+    title: isRussian ? 'Паттернов пока нет' : 'No pattern yet',
+    body: isRussian
+      ? 'Сделайте пару сканов и отметьте самочувствие позже'
+      : 'Scan a few meals and log how you feel later',
+    count: 0,
+  };
+}
+
 function readStoredLanguage(userId?: string): AppLanguage {
   try {
     const raw = window.localStorage.getItem(languageStorageKey(userId));
@@ -2704,6 +2762,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       ]).slice(0, 3)
     : [];
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
+  const patternInsight = buildPatternInsight(recentScans, language);
   const normalizedStreak = normalizeStreak(streak);
   const activeStreak = normalizedStreak.count;
   const maxStreak = normalizedStreak.maxCount;
@@ -2770,6 +2829,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             <p className="mt-1 text-xs font-semibold opacity-45">{helper as string}</p>
           </div>
         ))}
+      </div>
+
+      <div className={cn(cardClass, 'overflow-hidden')}>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
+              {isRussian ? 'Паттерн' : 'Pattern'}
+            </p>
+            <h2 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">{patternInsight.title}</h2>
+            <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>{patternInsight.body}</p>
+          </div>
+          <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1', patternInsight.state === 'active' ? 'bg-zinc-950 text-white ring-zinc-950' : isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 text-zinc-950 ring-black/[0.03]')}>
+            <span className="text-2xl font-black">{patternInsight.count}</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.12em] opacity-65">{isRussian ? 'сигн' : 'signals'}</span>
+          </div>
+        </div>
       </div>
 
       {hasActivity && (
