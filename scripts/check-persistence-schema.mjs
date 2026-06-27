@@ -74,6 +74,10 @@ const checks = [
     ok: /feeling:\s*scan\.feeling \?\? null/.test(app),
   },
   {
+    name: 'frontend timestamps direct feeling check-ins',
+    ok: /consumedAt:\s*activeSavedScan\?\.consumedAt \?\? new Date\(\)\.toISOString\(\)/.test(app),
+  },
+  {
     name: 'frontend restores remote rows into recent scans',
     ok: /function foodEventRowToRecentScan/.test(app) && /\.map\(foodEventRowToRecentScan\)/.test(app),
   },

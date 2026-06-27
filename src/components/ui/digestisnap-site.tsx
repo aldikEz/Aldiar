@@ -5069,7 +5069,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 	                              key={feeling}
 	                              onClick={() => {
 	                                setSelectedFeeling(feeling);
-	                                updateRecentScan(activeRecentScanId, { feeling });
+	                                updateRecentScan(activeRecentScanId, {
+	                                  feeling,
+	                                  consumedAt: activeSavedScan?.consumedAt ?? new Date().toISOString(),
+	                                });
 	                              }}
 	                              type="button"
 	                            >
