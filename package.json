@@ -27,6 +27,7 @@
     "qa:empty-states": "node scripts/check-empty-states.mjs",
     "qa:error-states": "node scripts/check-error-states.mjs",
     "qa:feeling-flow": "node scripts/check-feeling-flow.mjs",
+    "qa:history-isolation": "node scripts/check-history-isolation.mjs",
     "qa:loading-states": "node scripts/check-loading-states.mjs",
     "qa:copy": "node scripts/check-copy-consistency.mjs",
     "qa:responsive": "node scripts/check-responsive-layout.mjs",

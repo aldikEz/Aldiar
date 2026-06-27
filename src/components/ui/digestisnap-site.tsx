@@ -2420,7 +2420,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       setRecentScans((current) => {
         const byId = new Map<string, RecentScan>();
         const remoteIds = new Set(remoteScans.map((scan) => scan.id));
-        const freshLocalScans = current.filter((scan) => !remoteIds.has(scan.id) && Date.parse(scan.createdAt) >= loadStartedAt);
+        const freshLocalScans = current.filter((scan) =>
+          (!scan.ownerId || scan.ownerId === session.user.id) &&
+          !remoteIds.has(scan.id) &&
+          Date.parse(scan.createdAt) >= loadStartedAt,
+        );
         [...freshLocalScans, ...remoteScans].forEach((scan) => {
           if (!byId.has(scan.id)) byId.set(scan.id, scan);
         });
@@ -3066,7 +3070,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         unit: waterUnit,
       },
       entries: logs,
-      scans: recentScans.map((scan) => ({
+      scans: ownedRecentScans.map((scan) => ({
         id: scan.id,
         createdAt: scan.createdAt,
         consumedAt: scan.consumedAt ?? null,
@@ -3109,10 +3113,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
 
   const visibleLogs = logs.filter((item) => !/check-in saved|unreadable label|image check error|ai cooling|visual estimate unavailable|визуальная оценка недоступна/i.test(item.title));
-  const latestSavedScan = recentScans[0];
-  const hasActivity = recentScans.some((scan) => !isImageCheckErrorResult(scan.result));
+  const ownedRecentScans = recentScans.filter((scan) => !scan.ownerId || scan.ownerId === session.user.id);
+  const latestSavedScan = ownedRecentScans[0];
+  const hasActivity = ownedRecentScans.some((scan) => !isImageCheckErrorResult(scan.result));
   const isRussian = language === 'Russian';
-  const validScoredScans = recentScans.filter((scan) => !isImageCheckErrorResult(scan.result));
+  const validScoredScans = ownedRecentScans.filter((scan) => !isImageCheckErrorResult(scan.result));
   const scanCount = validScoredScans.length;
   const recentAverageScore = validScoredScans.length
     ? Math.round(validScoredScans.slice(0, 7).reduce((sum, scan) => sum + scan.result.score, 0) / validScoredScans.slice(0, 7).length)
@@ -3133,8 +3138,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       future: date > today,
     };
   });
-  const checkInCount = recentScans.filter((item) => item.eaten === true && item.feeling).length;
-  const laterCheckInCandidate = recentScans.find((item) => item.eaten === true && !item.feeling && !isImageCheckErrorResult(item.result));
+  const checkInCount = ownedRecentScans.filter((item) => item.eaten === true && item.feeling).length;
+  const laterCheckInCandidate = ownedRecentScans.find((item) => item.eaten === true && !item.feeling && !isImageCheckErrorResult(item.result));
   const laterCheckInAge = laterCheckInCandidate?.consumedAt
     ? Math.max(0, Math.floor((Date.now() - Date.parse(laterCheckInCandidate.consumedAt)) / (60 * 60 * 1000)))
     : null;
@@ -3169,7 +3174,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : calorieMode === 'lose'
         ? isRussian ? 'Профиль ставит умеренный дефицит от поддержки веса' : 'Your profile sets a moderate deficit from maintenance'
         : isRussian ? 'Профиль держит цель около поддержки веса' : 'Your profile keeps the target near maintenance';
-  const selectedDayScans = recentScans.filter((item) => isSameLocalDay(item.createdAt, selectedHomeDate));
+  const selectedDayScans = ownedRecentScans.filter((item) => isSameLocalDay(item.createdAt, selectedHomeDate));
   const selectedDayEatenScans = selectedDayScans.filter(isNutritionCountedScan);
   const selectedDayFeelingCount = selectedDayScans.filter((item) => item.eaten === true && item.feeling).length;
   const selectedDayAverageScore = selectedDayScans.length
@@ -3709,7 +3714,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           ? 'Порция и питание могут быть примерными'
           : 'Serving and nutrition may still be approximate'
     : '';
-  const activeSavedScan = activeRecentScanId ? recentScans.find((scan) => scan.id === activeRecentScanId) : undefined;
+  const activeSavedScan = activeRecentScanId ? ownedRecentScans.find((scan) => scan.id === activeRecentScanId) : undefined;
   const activeScanNote = activeSavedScan?.note ?? '';
   const nutritionDraftFromFacts = (nutrition: NutritionFacts) => ({
     calories: String(nutrition.calories),
@@ -3844,8 +3849,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           : 'DigestSnap checked this against your profile and found no direct match'
         : '';
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
-  const patternInsight = buildPatternInsight(recentScans, language);
-  const weeklyScans = recentScans.filter((scan) => Date.now() - Date.parse(scan.createdAt) <= 7 * ONE_DAY_MS);
+  const patternInsight = buildPatternInsight(ownedRecentScans, language);
+  const weeklyScans = ownedRecentScans.filter((scan) => Date.now() - Date.parse(scan.createdAt) <= 7 * ONE_DAY_MS);
   const weeklyRealScans = weeklyScans.filter((scan) => scan.eaten === true && !isImageCheckErrorResult(scan.result));
   const weeklySignalScans = weeklyRealScans.filter((scan) => scan.feeling && scan.feeling !== 'Fine');
   const weeklyCheckIns = weeklyRealScans.filter((scan) => scan.feeling).length;
@@ -3875,7 +3880,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const triggerWatchlist = watchlistTerms.map((term) => {
     const normalizedTerm = term.toLowerCase();
     const termTokens = normalizedTerm.split(/\s+/).filter((token) => token.length >= 3);
-    const matches = recentScans.filter((scan) => {
+    const matches = ownedRecentScans.filter((scan) => {
       const text = [
         scan.result.productName,
         ...scan.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
@@ -3898,7 +3903,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     { id: 'avoid', label: isRussian ? 'Избегать' : 'Avoid' },
     { id: 'with_feeling', label: isRussian ? 'С ощущением' : 'With feeling' },
   ];
-  const filteredHistoryScans = recentScans
+  const filteredHistoryScans = ownedRecentScans
     .filter((scan) => {
       const rating = scan.result.overallRating.toLowerCase();
       if (historyFilter === 'eaten' && scan.eaten !== true) return false;
@@ -3914,7 +3919,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       ].join(' ').toLowerCase().includes(query);
     })
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  const progressTimelineScans = recentScans
+  const progressTimelineScans = ownedRecentScans
     .slice()
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, 5);
@@ -4632,7 +4637,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <section className="pt-1 sm:pt-2">
                     <div className="flex items-center justify-between gap-4">
                       <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">{isRussian ? 'Последние сканы' : 'Recent scans'}</h2>
-                      {recentScans.length > 0 && (
+                      {ownedRecentScans.length > 0 && (
                         <button
                           className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 shadow-[0_8px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.06] transition active:scale-95 sm:text-sm"
                           onClick={() => setHistorySheetOpen(true)}
@@ -4671,9 +4676,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           </div>
                         </div>
                       </div>
-                    ) : recentScans.length > 0 ? (
+                    ) : ownedRecentScans.length > 0 ? (
                       <div className="mt-3 space-y-2.5 sm:mt-5 sm:space-y-3">
-                        {recentScans.slice(0, MAX_RECENT_UPLOADS).map((item) => (
+                        {ownedRecentScans.slice(0, MAX_RECENT_UPLOADS).map((item) => (
                           <button
                             className="flex w-full items-center gap-3 rounded-[24px] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:gap-4 sm:rounded-[28px] sm:p-4"
                             key={item.id}
@@ -5122,12 +5127,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   ) : (
                     <div className={cn('rounded-[24px] p-6 text-center ring-1', theme.soft)}>
                       <p className="text-lg font-black">
-                        {recentScans.length === 0
+                        {ownedRecentScans.length === 0
                           ? isRussian ? 'Сканов пока нет' : 'No scans yet'
                           : isRussian ? 'По этому фильтру пусто' : 'No matches for this filter'}
                       </p>
                       <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>
-                        {recentScans.length === 0
+                        {ownedRecentScans.length === 0
                           ? isRussian ? 'Сохраненные продукты появятся здесь' : 'Saved food results will appear here'
                           : isRussian ? 'Очистите поиск или выберите другой фильтр' : 'Clear search or choose another filter'}
                       </p>
