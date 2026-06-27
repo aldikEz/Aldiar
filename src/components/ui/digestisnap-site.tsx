@@ -1569,29 +1569,29 @@ const legalPageContent: Record<
   subscription: {
     eyebrow: 'Account',
     title: 'Manage Subscription',
-    lede: 'A clear subscription page reduces confusion, refund disputes, and angry users. This page should connect to your real payment provider before launch.',
+    lede: 'You are using the free DigestSnap preview. No payment method is connected and no subscription is active.',
     sections: [
       {
-        title: 'Before billing goes live',
-        body: 'DigestSnap should show the plan price, renewal period, trial length, billing date, cancellation method, and refund rules before a user starts a paid plan.',
+        title: 'Current status',
+        body: 'Your account is on the free preview. You can test scanning, check-ins, nutrition summaries, and timeline memory without starting a paid plan.',
         items: [
-          'Show the exact monthly or yearly price in the user-facing checkout.',
-          'Show whether the trial is free, when it ends, and when billing starts.',
-          'Make cancellation reachable from account settings and this page.',
-          'Send account-status or billing reminders where required by the payment provider or local law.',
+          'Plan: Free preview',
+          'Billing: Not active',
+          'Payment method: Not connected',
+          'Renewal: None',
         ],
       },
       {
-        title: 'How to cancel',
-        body: 'If you subscribed through an app store or payment provider, cancel through that same provider. If DigestSnap bills you directly, cancellation should be available from your account dashboard after payment integration is enabled.',
+        title: 'Before any paid plan',
+        body: 'If DigestSnap adds paid plans, checkout must clearly show the price, trial length, renewal date, cancellation method, and refund terms before confirmation.',
       },
       {
-        title: 'Refunds',
-        body: 'Refund handling depends on the payment provider and applicable law. App-store purchases are usually handled by the store. Direct purchases should follow the refund policy shown at checkout.',
+        title: 'Cancellation',
+        body: 'No cancellation is needed while you are on the free preview. After payments are connected, cancellation will be reachable from this page and the account area.',
       },
       {
-        title: 'Billing status',
-        body: 'No subscription is created unless a checkout screen clearly shows the plan, price, renewal date, and cancellation method before confirmation.',
+        title: 'Receipts and refunds',
+        body: 'There are no receipts or refunds for the free preview. Future paid purchases will follow the payment provider and policy shown at checkout.',
       },
     ],
   },
@@ -1648,6 +1648,98 @@ const legalPageContent: Record<
 export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: Navigate }) {
   const page = legalPageContent[kind];
   const [openSection, setOpenSection] = useState(page.sections[0]?.title ?? '');
+
+  if (kind === 'subscription') {
+    const statusCards = [
+      ['Plan', 'Free preview'],
+      ['Billing', 'Not active'],
+      ['Payment method', 'Not connected'],
+      ['Renewal', 'None'],
+    ];
+    const trialSteps = [
+      ['Day 0', 'Start trial', 'Price and billing date shown before confirmation'],
+      ['Day 2', 'Reminder', 'Account-status reminder before billing starts'],
+      ['Day 3', 'Billing', 'Subscription begins only after clear checkout consent'],
+    ];
+
+    return (
+      <main className="min-h-screen bg-white px-5 py-6 text-zinc-950 antialiased md:px-10 md:py-10">
+        <div className="mx-auto max-w-[1180px]">
+          <header className="flex items-center justify-between gap-4">
+            <button
+              className="flex h-11 items-center gap-2 rounded-full bg-white px-4 text-sm font-black shadow-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 active:scale-[0.98]"
+              onClick={() => navigate('/')}
+              type="button"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Home
+            </button>
+            <button className="text-lg font-black" onClick={() => navigate('/')} type="button">
+              DigestSnap
+            </button>
+          </header>
+
+          <section className="mt-12 grid gap-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
+            <div className="rounded-[36px] bg-[#f8f7f4] p-6 ring-1 ring-zinc-950/[0.05] md:p-8">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">{page.eyebrow}</p>
+              <h1 className="mt-4 max-w-[680px] text-5xl font-black leading-[0.94] md:text-7xl">{page.title}</h1>
+              <p className="mt-6 max-w-[620px] text-lg font-semibold leading-8 text-zinc-600">{page.lede}</p>
+
+              <div className="mt-8 grid grid-cols-2 gap-3">
+                {statusCards.map(([label, value]) => (
+                  <div className="rounded-[24px] bg-white p-5 shadow-[0_16px_34px_rgba(15,15,15,0.04)] ring-1 ring-zinc-950/[0.05]" key={label}>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{label}</p>
+                    <p className="mt-3 text-2xl font-black leading-none">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                className="mt-8 h-14 w-full cursor-not-allowed rounded-full bg-zinc-200 text-base font-black text-zinc-500"
+                disabled
+                type="button"
+              >
+                Checkout not active yet
+              </button>
+              <p className="mt-3 text-center text-xs font-bold leading-5 text-zinc-400">
+                No payment can be started from this preview page
+              </p>
+            </div>
+
+            <div className="grid gap-4">
+              <div className="rounded-[36px] bg-white p-6 shadow-[0_22px_70px_rgba(15,15,15,0.08)] ring-1 ring-zinc-950/[0.06] md:p-8">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Future trial flow</p>
+                <div className="mt-6 grid gap-4">
+                  {trialSteps.map(([day, title, body], index) => (
+                    <div className="grid grid-cols-[74px_1fr] gap-4" key={day}>
+                      <div className="flex flex-col items-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-950 text-sm font-black text-white">{index + 1}</div>
+                        {index < trialSteps.length - 1 && <div className="mt-2 h-12 w-px bg-zinc-200" />}
+                      </div>
+                      <div className="pb-5">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{day}</p>
+                        <h2 className="mt-1 text-2xl font-black">{title}</h2>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">{body}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {page.sections.slice(1).map((section) => (
+                  <article className="rounded-[26px] bg-[#f8f7f4] p-5 ring-1 ring-zinc-950/[0.05]" key={section.title}>
+                    <h2 className="text-xl font-black">{section.title}</h2>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">{section.body}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#fffef7] px-5 py-6 text-zinc-950 antialiased md:px-10 md:py-10">
