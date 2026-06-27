@@ -2482,6 +2482,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : calorieMode === 'lose'
         ? Math.max(1200, maintenanceCalories - 350)
         : maintenanceCalories;
+  const calorieTargetLabel =
+    calorieMode === 'gain'
+      ? isRussian ? 'Цель на набор' : 'Gain target'
+      : calorieMode === 'lose'
+        ? isRussian ? 'Цель на снижение' : 'Loss target'
+        : isRussian ? 'Цель на поддержку' : 'Maintain target';
+  const calorieTargetReason =
+    calorieMode === 'gain'
+      ? isRussian ? 'Профиль добавляет умеренный запас к поддержке веса' : 'Your profile adds a moderate surplus to maintenance'
+      : calorieMode === 'lose'
+        ? isRussian ? 'Профиль ставит умеренный дефицит от поддержки веса' : 'Your profile sets a moderate deficit from maintenance'
+        : isRussian ? 'Профиль держит цель около поддержки веса' : 'Your profile keeps the target near maintenance';
   const selectedDayEatenScans = recentScans.filter((item) => item.eaten && isSameLocalDay(item.consumedAt ?? item.createdAt, selectedHomeDate));
   const eatenNutrition = addNutritionValues(selectedDayEatenScans.map((item) => item.nutrition));
   const caloriesEaten = eatenNutrition.calories;
@@ -3416,7 +3428,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           <div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
                             <div className="flex items-end justify-between gap-4">
                               <div>
-                                <p className="text-[11px] font-black uppercase text-zinc-400 sm:text-xs">{isRussian ? 'Итог за день' : 'Daily summary'}</p>
+                                <p className="text-[11px] font-black uppercase text-zinc-400 sm:text-xs">{calorieTargetLabel}</p>
                                 <p className="mt-1 text-[27px] font-black leading-none sm:text-[34px]">
                                   {caloriesEaten}<span className="text-[15px] text-zinc-400 sm:text-lg">/{calorieTarget} cal</span>
                                 </p>
@@ -3426,7 +3438,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                                 <p className="mt-1 text-[20px] font-black leading-none sm:text-[24px]">{remainingCalories} cal</p>
                               </div>
                             </div>
-                            <p className="mt-3 text-[12px] font-bold leading-5 text-zinc-500 sm:text-sm">{dailyNutritionSummary}</p>
+                            <p className="mt-3 text-[12px] font-bold leading-5 text-zinc-500 sm:text-sm">
+                              {dailyNutritionSummary} · {calorieTargetReason}
+                            </p>
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
