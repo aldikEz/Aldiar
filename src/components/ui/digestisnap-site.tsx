@@ -6,7 +6,6 @@ import {
   AlertCircle,
   ArrowLeft,
   BarChart3,
-  Bell,
   Camera,
   Check,
   ChevronRight,
@@ -1241,25 +1240,25 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       icon: Camera,
       preview: 'scan',
       title: 'Scan the food',
-      body: 'One photo saves the item, score, image, and time before the details disappear.',
+      body: 'One photo saves what you ate, when it happened, and the first AI read while the moment is still fresh.',
     },
     {
       icon: Activity,
       preview: 'symptoms',
-      title: 'Rate the result',
-      body: 'DigestSnap turns the scan into a simple status, score, and short reason you can understand fast.',
+      title: 'Decide if it counted',
+      body: 'Mark whether you actually ate it, so saved scans do not pollute your day or your patterns.',
     },
     {
       icon: BarChart3,
       preview: 'timeline',
-      title: 'Track the pattern',
-      body: 'Scans, water, health score, and repeat signals stay in one dashboard instead of scattered notes.',
+      title: 'Check in later',
+      body: 'When the reaction happens, tap how you feel and connect it back to the exact food.',
     },
     {
-      icon: Bell,
+      icon: ShieldCheck,
       preview: 'speed',
-      title: 'Keep it effortless',
-      body: 'The loop stays light enough to use in real life: scan, understand, save, move on.',
+      title: 'See repeat signals',
+      body: 'DigestSnap only calls out a pattern when the same food, timing, and feeling start repeating.',
     },
   ];
 
@@ -1296,7 +1295,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       <section className="mx-auto grid w-full max-w-[1680px] items-center gap-5 px-4 pb-10 pt-7 md:min-h-[calc(100svh-86px)] md:gap-8 md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
         <div className="relative z-10 max-w-[700px] text-center xl:text-left">
           <h1 className="mx-auto max-w-[760px] text-[34px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:mx-0 xl:text-[84px]">
-            Find the food pattern faster.
+            Find what keeps bothering you.
           </h1>
           <p className="mx-auto mt-4 max-w-[660px] text-[15px] font-semibold leading-6 text-[#5f574d] md:mt-6 md:text-[23px] md:leading-[1.42] xl:mx-0">
             Take a photo of what you eat. Log how you feel. See what keeps bothering you.
@@ -1336,7 +1335,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         <div className="mx-auto max-w-[1480px]">
           <div className="mx-auto max-w-[960px] text-center">
               <h2 className="mx-auto max-w-[850px] text-[32px] font-black leading-[1.02] md:text-7xl">
-                One scan, one check-in, then a pattern.
+                The loop is simple enough to keep using.
               </h2>
           </div>
 
@@ -1402,17 +1401,17 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               {
                 icon: Camera,
                 title: 'Scan first, decide fast',
-                body: 'A photo turns into a name, score, and short explanation without making the user dig through labels.',
+                body: 'A photo becomes a food name, score, confidence, and short explanation without forcing label research.',
               },
               {
                 icon: Activity,
                 title: 'The reaction stays linked',
-                body: 'Feeling fine, bloated, nauseous, or in pain connects back to the exact food instead of becoming a vague memory.',
+                body: 'A later Fine, Bloated, Nausea, or Pain tap connects back to the exact scan instead of becoming a vague memory.',
               },
               {
                 icon: ShieldCheck,
                 title: 'The pattern becomes visible',
-                body: 'Scores, nutrition, water, and check-ins stay together so repeat signals are obvious without extra work.',
+                body: 'DigestSnap waits for repeat signals, then shows what keeps appearing before discomfort.',
               },
             ].map(({ icon: Icon, title, body }) => (
               <div
@@ -1569,29 +1568,29 @@ const legalPageContent: Record<
   subscription: {
     eyebrow: 'Account',
     title: 'Manage Subscription',
-    lede: 'You are using the free DigestSnap preview. No payment method is connected and no subscription is active.',
+    lede: 'Your DigestSnap account is currently free. There is no payment method connected and no active billing.',
     sections: [
       {
         title: 'Current status',
-        body: 'Your account is on the free preview. You can test scanning, check-ins, nutrition summaries, and timeline memory without starting a paid plan.',
+        body: 'You can use the core scan, eaten/not eaten, check-in, and pattern flow without a paid plan.',
         items: [
-          'Plan: Free preview',
+          'Plan: Free',
           'Billing: Not active',
           'Payment method: Not connected',
           'Renewal: None',
         ],
       },
       {
-        title: 'Before any paid plan',
-        body: 'If DigestSnap adds paid plans, checkout must clearly show the price, trial length, renewal date, cancellation method, and refund terms before confirmation.',
+        title: 'Before any billing',
+        body: 'If paid plans are added later, price, renewal date, cancellation method, and refund terms must be shown before confirmation.',
       },
       {
         title: 'Cancellation',
-        body: 'No cancellation is needed while you are on the free preview. After payments are connected, cancellation will be reachable from this page and the account area.',
+        body: 'No cancellation is needed while billing is inactive. If payments are connected later, cancellation must be reachable from this page.',
       },
       {
         title: 'Receipts and refunds',
-        body: 'There are no receipts or refunds for the free preview. Future paid purchases will follow the payment provider and policy shown at checkout.',
+        body: 'There are no receipts or refunds while no payment is active. Future purchases would follow the payment provider and policy shown at checkout.',
       },
     ],
   },
@@ -1651,15 +1650,15 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
 
   if (kind === 'subscription') {
     const statusCards = [
-      ['Plan', 'Free preview'],
+      ['Plan', 'Free'],
       ['Billing', 'Not active'],
       ['Payment method', 'Not connected'],
       ['Renewal', 'None'],
     ];
-    const trialSteps = [
-      ['Day 0', 'Start trial', 'Price and billing date shown before confirmation'],
-      ['Day 2', 'Reminder', 'Account-status reminder before billing starts'],
-      ['Day 3', 'Billing', 'Subscription begins only after clear checkout consent'],
+    const accountChecks = [
+      ['Access', 'Core loop available', 'Scan food, mark eaten, check in later, and save the pattern context.'],
+      ['Billing', 'Inactive', 'There is no connected payment method or automatic renewal.'],
+      ['Control', 'User-owned data', 'Export and delete actions stay in the account area.'],
     ];
 
     return (
@@ -1699,25 +1698,25 @@ export function LegalPage({ kind, navigate }: { kind: LegalPageKind; navigate: N
                 disabled
                 type="button"
               >
-                Checkout not active yet
+                Billing inactive
               </button>
               <p className="mt-3 text-center text-xs font-bold leading-5 text-zinc-400">
-                No payment can be started from this preview page
+                No payment can be started from this page
               </p>
             </div>
 
             <div className="grid gap-4">
               <div className="rounded-[36px] bg-white p-6 shadow-[0_22px_70px_rgba(15,15,15,0.08)] ring-1 ring-zinc-950/[0.06] md:p-8">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Future trial flow</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">Account clarity</p>
                 <div className="mt-6 grid gap-4">
-                  {trialSteps.map(([day, title, body], index) => (
-                    <div className="grid grid-cols-[74px_1fr] gap-4" key={day}>
+                  {accountChecks.map(([label, title, body], index) => (
+                    <div className="grid grid-cols-[74px_1fr] gap-4" key={label}>
                       <div className="flex flex-col items-center">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-950 text-sm font-black text-white">{index + 1}</div>
-                        {index < trialSteps.length - 1 && <div className="mt-2 h-12 w-px bg-zinc-200" />}
+                        {index < accountChecks.length - 1 && <div className="mt-2 h-12 w-px bg-zinc-200" />}
                       </div>
                       <div className="pb-5">
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{day}</p>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{label}</p>
                         <h2 className="mt-1 text-2xl font-black">{title}</h2>
                         <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">{body}</p>
                       </div>
@@ -5709,11 +5708,11 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
                 DigestSnap
               </h1>
               <p className="mx-auto mt-4 text-base font-semibold leading-7 text-zinc-500">
-                Sign in to keep scans, check-ins, nutrition, and food patterns tied to your account.
+                Sign in to keep scans, check-ins, and food patterns tied to your account.
               </p>
 
               <div className="mt-7 grid gap-2 text-left">
-                {['Food score and nutrition', 'Personal trigger context', 'Later check-ins'].map((item) => (
+                {['Food score and confidence', 'Personal trigger context', 'Later check-ins'].map((item) => (
                   <div className="flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)] ring-1 ring-zinc-950/[0.04]" key={item}>
                     <Check className="h-4 w-4 stroke-[3]" />
                     <span className="text-sm font-black text-zinc-800">{item}</span>
