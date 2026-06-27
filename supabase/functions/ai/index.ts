@@ -67,6 +67,7 @@ type RequestBody = {
   userTriggers?: unknown;
   userLang?: unknown;
   mimeType?: unknown;
+  barcode?: unknown;
 };
 
 type Rating = 'Safe' | 'Caution' | 'Avoid';
@@ -132,6 +133,7 @@ type ProductDatabaseMatch = {
 type ImagePayload = {
   data: string;
   mimeType: string;
+  barcode?: string;
   triggers: string[];
 };
 
@@ -636,7 +638,16 @@ function parseImagePayload(body: RequestBody): { payload?: ImagePayload; error?:
     return { error: 'Image data must be valid base64.' };
   }
 
-  return { payload: { data: base64, mimeType, triggers: parseUserTriggers(body.userTriggers) } };
+  const barcode = typeof body.barcode === 'string' ? body.barcode.replace(/[^\dA-Za-z-]/g, '').trim().slice(0, 32) : '';
+
+  return {
+    payload: {
+      data: base64,
+      mimeType,
+      barcode: barcode.length >= 6 ? barcode : undefined,
+      triggers: parseUserTriggers(body.userTriggers),
+    },
+  };
 }
 
 function parseUserTriggers(value: unknown) {
@@ -1028,12 +1039,22 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   const targetLang = normalizeLanguage(body.userLang);
   const imageHash = await sha256Hex(`${image.payload.mimeType}:${image.payload.data}`);
   const profileHash = image.payload.triggers.join('|');
-  const cacheKey = await sha256Hex(`${SCAN_CACHE_VERSION}:image:${imageHash}:${targetLang}:${profileHash || 'no-profile'}`);
+  const barcodeHash = image.payload.barcode ? `barcode:${image.payload.barcode}` : 'no-barcode';
+  const cacheKey = await sha256Hex(`${SCAN_CACHE_VERSION}:image:${imageHash}:${targetLang}:${profileHash || 'no-profile'}:${barcodeHash}`);
   const cachedScan = await readCachedScan(cacheKey, targetLang);
 
   if (cachedScan) {
     if (!isUnusableVisualScan(cachedScan)) {
       return jsonResponse(req, cachedScan);
+    }
+  }
+
+  if (image.payload.barcode) {
+    const barcodeMatch = await lookupOpenFoodFactsBarcode(image.payload.barcode);
+    if (barcodeMatch) {
+      const barcodeScan = scanFromDatabaseMatch(barcodeMatch, targetLang);
+      runAfterResponse(cacheScan(cacheKey, targetLang, barcodeScan));
+      return jsonResponse(req, barcodeScan);
     }
   }
 
@@ -2128,6 +2149,82 @@ async function lookupOpenFoodFacts(query: string): Promise<ProductDatabaseMatch 
   } catch {
     return null;
   }
+}
+
+async function lookupOpenFoodFactsBarcode(barcode: string): Promise<ProductDatabaseMatch | null> {
+  const cleanBarcode = barcode.replace(/[^\dA-Za-z-]/g, '').trim();
+  if (cleanBarcode.length < 6 || cleanBarcode.length > 32) return null;
+
+  const params = new URLSearchParams({
+    fields: 'product_name,brands,categories,serving_quantity,nutriments,nutriscore_grade',
+  });
+  const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(cleanBarcode)}.json?${params.toString()}`;
+
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'DigestSnap/1.0 demo nutrition lookup',
+        },
+      },
+      OPEN_FOOD_FACTS_TIMEOUT_MS,
+    );
+
+    if (!response.ok) return null;
+
+    const payload: unknown = await response.json();
+    if (!isRecord(payload) || payload.status !== 1 || !isRecord(payload.product)) {
+      return null;
+    }
+
+    const product = payload.product;
+    const productName = asBoundedString(product.product_name, '', 120);
+    if (!productName) return null;
+    const brand = asBoundedString(product.brands, '', 90).split(',')[0]?.trim() ?? '';
+
+    return {
+      productName,
+      brand,
+      category: asBoundedString(product.categories, '', 120).split(',')[0]?.trim() ?? '',
+      confidenceScore: 98,
+      nutrition: nutritionFromOpenFoodFacts(product),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function scanFromDatabaseMatch(match: ProductDatabaseMatch, targetLang: string): ScanPayload {
+  const productName = [match.brand, match.productName]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const scan: ScanPayload = {
+    result: {
+      productName: productName || match.productName,
+      overallRating: 'Safe',
+      score: 88,
+      nutrition: match.nutrition,
+      basis: {
+        portionBasis: targetLang === 'Russian' ? 'Порция из базы продукта, если доступна' : 'Product database serving when available',
+        decisionBasis: targetLang === 'Russian' ? 'Штрихкод и база OpenFoodFacts' : 'Barcode and OpenFoodFacts product data',
+      },
+      flaggedChemicals: [
+        {
+          chemicalName: targetLang === 'Russian' ? 'Совпадение по штрихкоду' : 'Barcode product match',
+          severity: 'Safe',
+          reason: targetLang === 'Russian'
+            ? 'Продукт найден в базе, поэтому название и питание взяты из справочника.'
+            : 'Product was found in a database, so the name and nutrition use product data.',
+        },
+      ],
+    },
+  };
+
+  return withScanConfidence(enforceFoodRiskRules(scan, targetLang), targetLang, 'database_match', match.confidenceScore);
 }
 
 function databaseLookupCandidates(scan: ScanPayload) {

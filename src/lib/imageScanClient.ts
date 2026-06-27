@@ -66,6 +66,12 @@ type ScanOptions = {
   onTimeout?: () => void;
 };
 
+type BrowserBarcodeDetector = {
+  detect(source: CanvasImageSource): Promise<Array<{ rawValue?: string }>>;
+};
+
+type BrowserBarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BrowserBarcodeDetector;
+
 type FoodTextScanOptions = ScanOptions & {
   labelText?: string;
   dishName?: string;
@@ -74,6 +80,7 @@ type FoodTextScanOptions = ScanOptions & {
 
 export async function scanImageWithClientTimeout(file: File, options: ScanOptions = {}): Promise<ImageScanResult> {
   const compressedImage = await compressImageForUpload(file);
+  const barcode = await detectBarcodeFromImage(compressedImage);
 
   let slowTimer: number | undefined;
   if (options.slowAfterMs && options.onSlow) {
@@ -85,6 +92,7 @@ export async function scanImageWithClientTimeout(file: File, options: ScanOption
       body: {
         imageBase64: compressedImage.imageBase64,
         mimeType: compressedImage.mimeType,
+        barcode,
         userTriggers: options.userTriggers ?? [],
         userLang: options.userLang ?? 'English',
       },
@@ -163,10 +171,12 @@ export function startProgressiveImageScan(file: File, options: ScanOptions = {})
     }),
     task: async () => {
       const compressedImage = await getCompressedImage();
+      const barcode = await detectBarcodeFromImage(compressedImage);
       const { data, error } = await supabase.functions.invoke<ImageScanPayload>('ai', {
         body: {
           imageBase64: compressedImage.imageBase64,
           mimeType: compressedImage.mimeType,
+          barcode,
           userTriggers: options.userTriggers ?? [],
           userLang: options.userLang ?? 'English',
         },
@@ -185,6 +195,28 @@ export function startProgressiveImageScan(file: File, options: ScanOptions = {})
     compressedImage: getCompressedImage(),
     refined,
   };
+}
+
+async function detectBarcodeFromImage(compressedImage: CompressedImage): Promise<string | undefined> {
+  const Detector = (window as typeof window & { BarcodeDetector?: BrowserBarcodeDetectorConstructor }).BarcodeDetector;
+  if (!Detector) return undefined;
+
+  try {
+    const detector = new Detector({
+      formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'],
+    });
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = compressedImage.imageBase64;
+    await image.decode();
+    const detected = await detector.detect(image);
+    const rawValue = detected
+      .map((item) => item.rawValue?.replace(/[^\dA-Za-z-]/g, '').trim())
+      .find((value): value is string => Boolean(value && value.length >= 6 && value.length <= 32));
+    return rawValue;
+  } catch {
+    return undefined;
+  }
 }
 
 function makeInstantScan(fileName: string): ImageScanPayload {
