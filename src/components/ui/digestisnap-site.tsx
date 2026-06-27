@@ -1365,10 +1365,10 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
       <section className="mx-auto grid w-full max-w-[1680px] items-center gap-5 px-4 pb-10 pt-7 md:min-h-[calc(100svh-86px)] md:gap-8 md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
         <div className="relative z-10 max-w-[700px] text-center xl:text-left">
           <h1 className="mx-auto max-w-[760px] text-[34px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:mx-0 xl:text-[84px]">
-            Find what keeps bothering you.
+            Find the food pattern.
           </h1>
           <p className="mx-auto mt-4 max-w-[660px] text-[15px] font-semibold leading-6 text-[#5f574d] md:mt-6 md:text-[23px] md:leading-[1.42] xl:mx-0">
-            Take a photo of your food. Log how you feel later. See what keeps bothering you.
+            Take a photo of what you eat. Log how you feel. DigestSnap connects the repeat.
           </p>
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center md:mt-8 md:gap-4 xl:justify-start">
             <button
@@ -2036,7 +2036,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [logs, setLogs] = useState<DashboardEntry[]>([]);
   const [profileFormMessage, setProfileFormMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const isDarkMode = false;
   const [profileName, setProfileName] = useState(initialName);
   const [profileUsername, setProfileUsername] = useState(initialUsername);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
@@ -2061,9 +2061,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     weightKg: 64,
   });
 
-  useEffect(() => {
-    if (isDarkMode) setIsDarkMode(false);
-  }, [isDarkMode]);
   const [resultSheetOpen, setResultSheetOpen] = useState(false);
   const [scanPreviewUrl, setScanPreviewUrl] = useState('');
   const [language, setLanguage] = useState<AppLanguage>(() => readStoredLanguage(session.user.id));
@@ -3615,7 +3612,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 </p>
               </div>
               <div className={cn('flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full ring-1', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 ring-black/[0.03]')}>
-                <span className="text-3xl font-black">{gutScoreOutOfTen}</span>
+                <span className="text-3xl font-black">{gutScoreOutOfTen ?? (isRussian ? 'Нет' : 'New')}</span>
                 <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{isRussian ? 'балл' : 'score'}</span>
               </div>
             </div>
@@ -3625,8 +3622,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             {[
               [isRussian ? 'Сканы' : 'Scans', String(scanCount), isRussian ? 'сохранено' : 'saved', ScanLine],
               [isRussian ? 'Самочувствие' : 'Check-ins', String(checkInCount), isRussian ? 'отмечено' : 'saved', Activity],
-              [isRussian ? 'Последний' : 'Latest', latestRating ?? 'None', isRussian ? 'результат' : 'result', Target],
-              [isRussian ? 'BMI' : 'BMI', profileBmi?.display ?? '--', isRussian ? 'из профиля' : 'from setup', Flame],
+              [isRussian ? 'Последний' : 'Latest', latestRating ?? (isRussian ? 'Пока нет' : 'None yet'), isRussian ? 'результат' : 'result', Target],
+              [isRussian ? 'BMI' : 'BMI', profileBmi?.display ?? (isRussian ? 'Добавьте' : 'Set'), isRussian ? 'из профиля' : 'from setup', Flame],
             ].map(([label, value, helper, Icon]) => (
               <div
                 className={cn(
@@ -3693,7 +3690,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           <div className="min-w-0">
             <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>{isRussian ? 'Вес' : 'Weight progress'}</p>
             <h2 className="mt-3 text-2xl font-black leading-none sm:text-3xl">
-              {storedProfile ? `${storedProfile.weightKg} kg` : '--'}
+              {storedProfile ? `${storedProfile.weightKg} kg` : isRussian ? 'Добавьте профиль' : 'Set profile'}
             </h2>
             <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>
               {profileBmi
@@ -3702,7 +3699,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             </p>
           </div>
           <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1 sm:h-24 sm:w-24', isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 ring-black/[0.03]')}>
-            <span className="text-2xl font-black sm:text-3xl">{profileBmi?.display ?? '--'}</span>
+            <span className="text-2xl font-black sm:text-3xl">{profileBmi?.display ?? (isRussian ? 'Нет' : 'Set')}</span>
             <span className={cn('text-[10px] font-black uppercase tracking-[0.12em]', theme.faint)}>{profileBmi?.category ?? (isRussian ? 'нет' : 'none')}</span>
           </div>
         </div>
@@ -4012,7 +4009,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                               <div className="flex items-start justify-between gap-3">
                                 <p className="text-[15px] font-black sm:text-[18px]">{isRussian ? 'Счет здоровья' : 'Health score'}</p>
                                 <p className="text-[22px] font-black leading-none sm:text-[28px]">
-                                  {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
+                                  {latestScore !== null ? `${gutScoreOutOfTen}/10` : isRussian ? 'Старт' : 'Start'}
                                 </p>
                               </div>
                               <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
@@ -4091,7 +4088,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         </p>
                       </div>
                       <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-black text-zinc-500">
-                        {selectedDayAverageScore === null ? 'N/A' : `${selectedDayAverageScore}/100`}
+                        {selectedDayAverageScore === null ? (isRussian ? 'Пока нет' : 'None yet') : `${selectedDayAverageScore}/100`}
                       </span>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2">

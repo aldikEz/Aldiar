@@ -161,6 +161,8 @@ site_url = "https://sensibite-ai.vercel.app"
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = [
+  "https://digestsnap-ai.vercel.app/dashboard",
+  "https://digestsnap.vercel.app/dashboard",
   "https://sensibite-ai.vercel.app/dashboard",
   "https://sensibite-ai-aldiar-s-projects.vercel.app/dashboard",
   "https://sensibite-ai-aldikez-aldiar-s-projects.vercel.app/dashboard",
