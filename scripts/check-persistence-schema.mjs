@@ -116,6 +116,15 @@ const checks = [
     ok: /function foodEventRowToRecentScan/.test(app) && /\.map\(foodEventRowToRecentScan\)/.test(app),
   },
   {
+    name: 'frontend does not boot scan history from local cache',
+    ok: /const \[recentScans, setRecentScans\] = useState<RecentScan\[\]>\(\[\]\)/.test(app),
+  },
+  {
+    name: 'frontend only shows recovered cache after Supabase backfill',
+    ok: /Promise\.allSettled\(cachedScans\.map\(\(scan\) => persistFoodEvent\(scan\)\)\)/.test(app)
+      && /setRecentScans\(recoveredScans\)/.test(app),
+  },
+  {
     name: 'frontend reads Supabase daily state',
     ok: /\.from\('user_daily_state'\)[\s\S]{0,500}\.select/.test(app),
   },

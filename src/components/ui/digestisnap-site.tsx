@@ -2103,7 +2103,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [scanProgress, setScanProgress] = useState(0);
   const [scanProgressText, setScanProgressText] = useState('Analyzing image...');
   const [scanResult, setScanResult] = useState<ImageScanPayload | null>(null);
-  const [recentScans, setRecentScans] = useState<RecentScan[]>(() => readRecentScans(session.user.id));
+  const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
   const [logs, setLogs] = useState<DashboardEntry[]>([]);
   const [profileFormMessage, setProfileFormMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
@@ -2298,7 +2298,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       if (remoteScans.length === 0) {
         const cachedScans = readRecentScans(session.user.id);
         if (cachedScans.length > 0) {
-          void Promise.allSettled(cachedScans.map((scan) => persistFoodEvent(scan)));
+          const backfillResults = await Promise.allSettled(cachedScans.map((scan) => persistFoodEvent(scan)));
+          if (!active) return;
+          const recoveredScans = cachedScans.filter((_, index) => {
+            const result = backfillResults[index];
+            return result.status === 'fulfilled' && result.value === true;
+          });
+          setRecentScans(recoveredScans);
+          saveRecentScans(recoveredScans, session.user.id);
         }
         return;
       }
