@@ -6,8 +6,8 @@ const app = readFileSync(appFile, 'utf8');
 const checks = [
   {
     name: 'home recent scans has intentional empty state',
-    ok: /No scans yet/.test(app)
-      && /Take a food or label photo to save the first result/.test(app),
+    ok: /Timeline is empty/.test(app)
+      && /Your first food or label photo will appear here/.test(app),
   },
   {
     name: 'progress timeline has intentional empty state',
