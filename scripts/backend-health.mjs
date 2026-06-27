@@ -5,6 +5,7 @@ const checks = [
   { name: 'functions-audit', command: 'npm', args: ['run', 'backend:functions'] },
   { name: 'ai-config', command: 'npm', args: ['run', 'backend:ai-config'] },
   { name: 'frontend-target', command: 'npm', args: ['run', 'backend:frontend-target'] },
+  { name: 'persistence-schema', command: 'npm', args: ['run', 'db:persistence-check'] },
   { name: 'edge-typecheck', command: 'deno', args: ['check', 'supabase/functions/ai/index.ts'] },
 ];
 
