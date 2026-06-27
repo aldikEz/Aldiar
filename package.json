@@ -12,6 +12,7 @@
     "db:new": "supabase migration new",
     "db:push": "supabase db push",
     "ai:secret": "supabase secrets set",
+    "backend:functions": "node scripts/check-supabase-functions.mjs",
     "ai:deploy": "supabase functions deploy ai",
     "delete-account:deploy": "supabase functions deploy delete-account",
     "pitch:capture": "node scripts/capture-pitch-assets.mjs"
