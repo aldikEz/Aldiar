@@ -508,6 +508,10 @@ const PORTION_MULTIPLIERS: Record<PortionOption, number> = {
 
 function scaleNutritionFacts(nutrition: NutritionFacts, portion: PortionOption): NutritionFacts {
   const multiplier = PORTION_MULTIPLIERS[portion];
+  return scaleNutritionByMultiplier(nutrition, multiplier);
+}
+
+function scaleNutritionByMultiplier(nutrition: NutritionFacts, multiplier: number): NutritionFacts {
   return {
     calories: nutritionNumber(nutrition.calories * multiplier),
     proteinG: nutritionNumber(nutrition.proteinG * multiplier),
@@ -1860,6 +1864,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     rating: 'Caution' as ImageScanPayload['result']['overallRating'],
     reason: '',
     portionBasis: '',
+    servingMultiplier: '1',
     score: '',
     calories: '',
     proteinG: '',
@@ -2826,6 +2831,25 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const portionConfidence = scanResult ? getPortionConfidence(scanResult.result) : null;
   const activeSavedScan = activeRecentScanId ? recentScans.find((scan) => scan.id === activeRecentScanId) : undefined;
   const activeScanNote = activeSavedScan?.note ?? '';
+  const nutritionDraftFromFacts = (nutrition: NutritionFacts) => ({
+    calories: String(nutrition.calories),
+    proteinG: String(nutrition.proteinG),
+    carbsG: String(nutrition.carbsG),
+    fatG: String(nutrition.fatG),
+    fiberG: String(nutrition.fiberG ?? 0),
+    sugarG: String(nutrition.sugarG ?? 0),
+    sodiumMg: String(nutrition.sodiumMg ?? 0),
+  });
+  const setCorrectionServingMultiplier = (multiplier: number) => {
+    if (!scanResult) return;
+    const baseNutrition = scanNutrition ?? nutritionForResult(scanResult.result);
+    const nextNutrition = scaleNutritionByMultiplier(baseNutrition, multiplier);
+    setFixDraft((current) => ({
+      ...current,
+      servingMultiplier: String(multiplier),
+      ...nutritionDraftFromFacts(nextNutrition),
+    }));
+  };
   const openFixResultSheet = () => {
     if (!scanResult) return;
     const nutrition = scanNutrition ?? nutritionForResult(scanResult.result);
@@ -2834,14 +2858,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       rating: scanResult.result.overallRating,
       reason: scanResult.result.flaggedChemicals[0]?.reason ?? '',
       portionBasis: scanResult.result.basis?.portionBasis ?? '',
+      servingMultiplier: '1',
       score: String(scanResult.result.score),
-      calories: String(nutrition.calories),
-      proteinG: String(nutrition.proteinG),
-      carbsG: String(nutrition.carbsG),
-      fatG: String(nutrition.fatG),
-      fiberG: String(nutrition.fiberG ?? 0),
-      sugarG: String(nutrition.sugarG ?? 0),
-      sodiumMg: String(nutrition.sodiumMg ?? 0),
+      ...nutritionDraftFromFacts(nutrition),
     });
     setFixResultSheetOpen(true);
   };
@@ -2859,6 +2878,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     };
     const fixedScore = Math.max(0, Math.min(100, nutritionNumber(fixDraft.score, scanResult.result.score)));
     const correctedReason = fixDraft.reason.trim() || (isRussian ? 'Результат исправлен пользователем' : 'Result corrected by user');
+    const servingMultiplier = Number(fixDraft.servingMultiplier);
+    const servingBasis = fixDraft.portionBasis.trim() || (isRussian ? 'Порция исправлена пользователем' : 'Serving corrected by user');
+    const servingSuffix = Number.isFinite(servingMultiplier) && servingMultiplier > 0 && servingMultiplier !== 1 ? ` (${servingMultiplier}x)` : '';
     const fixedResult: ImageScanPayload['result'] = {
       ...scanResult.result,
       productName: fixDraft.productName.trim() || scanResult.result.productName,
@@ -2873,7 +2895,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         detail: correctedReason,
       },
       basis: {
-        portionBasis: fixDraft.portionBasis.trim() || (isRussian ? 'Порция исправлена пользователем' : 'Serving corrected by user'),
+        portionBasis: `${servingBasis}${servingSuffix}`,
         decisionBasis: correctedReason,
       },
       flaggedChemicals: [
@@ -4334,6 +4356,36 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       value={fixDraft.portionBasis}
                     />
                   </label>
+
+                  <div>
+                    <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Размер порции' : 'Serving size'}</span>
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {([
+                        [0.5, '1/2x'],
+                        [1, '1x'],
+                        [1.5, '1.5x'],
+                        [2, '2x'],
+                      ] as const).map(([multiplier, label]) => {
+                        const active = fixDraft.servingMultiplier === String(multiplier);
+                        return (
+                          <button
+                            className={cn(
+                              'h-11 rounded-[16px] text-sm font-black transition active:scale-[0.97]',
+                              active ? 'bg-zinc-950 text-white shadow-sm' : 'bg-zinc-50 text-zinc-500 ring-1 ring-zinc-950/[0.06]',
+                            )}
+                            key={label}
+                            onClick={() => setCorrectionServingMultiplier(multiplier)}
+                            type="button"
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs font-bold leading-5 text-zinc-500">
+                      {isRussian ? 'Калории и макросы пересчитаются перед сохранением' : 'Calories and macros update before saving'}
+                    </p>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <label className="block">
