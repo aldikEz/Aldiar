@@ -105,7 +105,7 @@ const onboardingSteps: OnboardingStep[] = [
   {
     id: 'welcome',
     kind: 'intro',
-    title: 'Set up your food memory',
+    title: 'Set your scan context',
     subtitle: 'Answer a few quick questions so every scan starts with your goals, symptoms, and habits in mind.',
   },
   {
@@ -121,7 +121,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'multi',
     field: 'symptoms',
     title: 'What do you notice most often?',
-    options: ['Bloating', 'Pain', 'Nausea', 'Gas', 'Acid reflux', 'Low energy'],
+    options: ['Bloating', 'Pain', 'Nausea', 'Gas', 'Acid reflux', 'Not sure'],
   },
   {
     id: 'symptom-time',
@@ -135,9 +135,9 @@ const onboardingSteps: OnboardingStep[] = [
     id: 'tracking-style',
     kind: 'single',
     field: 'trackingStyle',
-    title: 'What usually stops tracking?',
-    subtitle: 'This helps the app match how you actually behave after eating.',
-    options: ['I forget', 'Too much typing', 'No clear pattern', 'I never tried'],
+    title: 'What happens after symptoms?',
+    subtitle: 'This tells DigestSnap what memory gap to solve.',
+    options: ['I forget the meal', 'I guess', 'I Google later', 'I do nothing'],
   },
   {
     id: 'suspected-foods',
@@ -145,7 +145,7 @@ const onboardingSteps: OnboardingStep[] = [
     field: 'triggers',
     title: 'Which foods feel suspicious?',
     subtitle: 'These become your first watchlist.',
-    options: ['Fried food', 'Bread', 'Dairy', 'Soda', 'Late meals', 'Spicy food'],
+    options: ['Fried food', 'Bread', 'Dairy', 'Soda', 'Late meals', 'Not sure yet'],
   },
   {
     id: 'allergies',
@@ -271,9 +271,9 @@ const onboardingSteps: OnboardingStep[] = [
     id: 'motivation',
     kind: 'single',
     field: 'motivation',
-    title: 'What would keep you coming back?',
-    subtitle: 'The dashboard should match what feels useful to you.',
-    options: ['Fast check-ins', 'Pattern callouts', 'Streaks', 'Clear food ratings'],
+    title: 'What should scan explanations focus on?',
+    subtitle: 'This keeps results useful instead of noisy.',
+    options: ['Simple verdict', 'Ingredient concerns', 'Calories/macros', 'Possible triggers'],
   },
   {
     id: 'timeline',
@@ -306,9 +306,9 @@ const onboardingSteps: OnboardingStep[] = [
   {
     id: 'investment',
     kind: 'insight',
-    title: 'Your profile has signal',
+    title: 'Your scan profile is ready',
     subtitle: 'DigestSnap now has enough context to make scans less generic.',
-    insight: 'Your starting profile includes symptoms, timing, suspected foods, and tracking style.',
+    insight: 'DigestSnap will use your symptoms, timing, suspected foods, allergies, and explanation style when reading scans.',
   },
   {
     id: 'processing',
@@ -5331,8 +5331,8 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
     goal: 'Maintain weight',
     dietType: 'No specific diet',
     checkInsPerDay: 2,
-    triggers: ['Fried food', 'Bread'],
-    symptoms: ['Bloating'],
+    triggers: [],
+    symptoms: [],
     allergies: [],
     timelineWeeks: 6,
     answers: {},
@@ -5415,7 +5415,12 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
   const setMultiValue = (field: string, value: string) => {
     setProfile((current) => {
       const existing = field === 'symptoms' ? current.symptoms : field === 'allergies' ? current.allergies : field === 'triggers' ? current.triggers : current.multiAnswers[field] ?? [];
-      const next = value === 'None' ? ['None'] : existing.includes(value) ? existing.filter((item) => item !== value) : [...existing.filter((item) => item !== 'None'), value];
+      const isExclusiveChoice = value === 'None' || /^Not sure/i.test(value);
+      const next = isExclusiveChoice
+        ? [value]
+        : existing.includes(value)
+          ? existing.filter((item) => item !== value)
+          : [...existing.filter((item) => item !== 'None' && !/^Not sure/i.test(item)), value];
       const multiAnswers = { ...current.multiAnswers, [field]: next };
 
       if (field === 'symptoms') return { ...current, symptoms: next, multiAnswers };
