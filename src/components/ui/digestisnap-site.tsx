@@ -1812,11 +1812,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [fixResultSheetOpen, setFixResultSheetOpen] = useState(false);
   const [fixDraft, setFixDraft] = useState({
     productName: '',
+    rating: 'Caution' as ImageScanPayload['result']['overallRating'],
+    reason: '',
+    portionBasis: '',
     score: '',
     calories: '',
     proteinG: '',
     carbsG: '',
     fatG: '',
+    fiberG: '',
+    sugarG: '',
+    sodiumMg: '',
   });
   const [activeRecentScanId, setActiveRecentScanId] = useState<string | null>(null);
   const [historySheetOpen, setHistorySheetOpen] = useState(false);
@@ -2717,11 +2723,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const nutrition = scanNutrition ?? nutritionForResult(scanResult.result);
     setFixDraft({
       productName: scanResult.result.productName,
+      rating: scanResult.result.overallRating,
+      reason: scanResult.result.flaggedChemicals[0]?.reason ?? '',
+      portionBasis: scanResult.result.basis?.portionBasis ?? '',
       score: String(scanResult.result.score),
       calories: String(nutrition.calories),
       proteinG: String(nutrition.proteinG),
       carbsG: String(nutrition.carbsG),
       fatG: String(nutrition.fatG),
+      fiberG: String(nutrition.fiberG ?? 0),
+      sugarG: String(nutrition.sugarG ?? 0),
+      sodiumMg: String(nutrition.sodiumMg ?? 0),
     });
     setFixResultSheetOpen(true);
   };
@@ -2733,29 +2745,34 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       proteinG: nutritionNumber(fixDraft.proteinG),
       carbsG: nutritionNumber(fixDraft.carbsG),
       fatG: nutritionNumber(fixDraft.fatG),
-      fiberG: scanNutrition?.fiberG ?? 0,
-      sugarG: scanNutrition?.sugarG ?? 0,
-      sodiumMg: scanNutrition?.sodiumMg ?? 0,
+      fiberG: nutritionNumber(fixDraft.fiberG),
+      sugarG: nutritionNumber(fixDraft.sugarG),
+      sodiumMg: nutritionNumber(fixDraft.sodiumMg),
     };
     const fixedScore = Math.max(0, Math.min(100, nutritionNumber(fixDraft.score, scanResult.result.score)));
+    const correctedReason = fixDraft.reason.trim() || (isRussian ? 'Результат исправлен пользователем' : 'Result corrected by user');
     const fixedResult: ImageScanPayload['result'] = {
       ...scanResult.result,
       productName: fixDraft.productName.trim() || scanResult.result.productName,
       score: fixedScore,
-      overallRating: fixedScore >= 75 ? 'Safe' : fixedScore <= 45 ? 'Avoid' : 'Caution',
+      overallRating: fixDraft.rating,
       nutrition: fixedNutrition,
       confidence: {
         level: 'high',
         source: 'user_corrected',
         score: 100,
         label: isRussian ? 'Исправлено вручную' : 'User corrected',
-        detail: isRussian ? 'Вы вручную исправили этот результат' : 'You corrected this scan manually',
+        detail: correctedReason,
+      },
+      basis: {
+        portionBasis: fixDraft.portionBasis.trim() || (isRussian ? 'Порция исправлена пользователем' : 'Serving corrected by user'),
+        decisionBasis: correctedReason,
       },
       flaggedChemicals: [
         {
           chemicalName: isRussian ? 'Исправлено пользователем' : 'User corrected',
-          severity: fixedScore >= 75 ? 'Safe' : fixedScore <= 45 ? 'Avoid' : 'Caution',
-          reason: isRussian ? 'Эти значения отредактированы вручную' : 'These values were edited manually',
+          severity: fixDraft.rating,
+          reason: correctedReason,
         },
         ...scanResult.result.flaggedChemicals.filter((item) => !/user corrected|исправлено/i.test(item.chemicalName)).slice(0, 2),
       ],
@@ -4067,7 +4084,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             >
               <motion.div
                 animate={{ y: 0 }}
-                className="w-full max-w-[430px] rounded-[28px] bg-white p-4 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.30)] ring-1 ring-black/[0.06] sm:rounded-[32px] sm:p-5"
+                className="max-h-[88vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] bg-white p-4 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.30)] ring-1 ring-black/[0.06] [scrollbar-width:none] sm:rounded-[32px] sm:p-5 [&::-webkit-scrollbar]:hidden"
                 exit={{ y: 24 }}
                 initial={{ y: 24 }}
                 onClick={(event) => event.stopPropagation()}
@@ -4099,6 +4116,45 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     />
                   </label>
 
+                  <div>
+                    <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Вердикт' : 'Verdict'}</span>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {(['Safe', 'Caution', 'Avoid'] as ImageScanPayload['result']['overallRating'][]).map((rating) => (
+                        <button
+                          className={cn(
+                            'h-11 rounded-[16px] text-sm font-black transition active:scale-[0.97]',
+                            fixDraft.rating === rating ? ratingTone(rating).badge : 'bg-zinc-50 text-zinc-500 ring-1 ring-zinc-950/[0.06]',
+                          )}
+                          key={rating}
+                          onClick={() => setFixDraft((current) => ({ ...current, rating }))}
+                          type="button"
+                        >
+                          {rating}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Причина' : 'Reason'}</span>
+                    <textarea
+                      className="mt-2 min-h-[92px] w-full resize-none rounded-[18px] bg-zinc-50 px-4 py-3 text-sm font-bold leading-6 outline-none ring-1 ring-zinc-950/[0.06] transition focus:ring-2 focus:ring-zinc-950/20"
+                      onChange={(event) => setFixDraft((current) => ({ ...current, reason: event.target.value }))}
+                      placeholder={isRussian ? 'Почему вы исправляете результат' : 'What should the result say'}
+                      value={fixDraft.reason}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Порция' : 'Serving basis'}</span>
+                    <input
+                      className="mt-2 h-12 w-full rounded-[18px] bg-zinc-50 px-4 text-base font-black outline-none ring-1 ring-zinc-950/[0.06] transition focus:ring-2 focus:ring-zinc-950/20"
+                      onChange={(event) => setFixDraft((current) => ({ ...current, portionBasis: event.target.value }))}
+                      placeholder={isRussian ? 'Например: один батончик 28 г' : 'Example: one 28g bar'}
+                      value={fixDraft.portionBasis}
+                    />
+                  </label>
+
                   <div className="grid grid-cols-2 gap-2">
                     <label className="block">
                       <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Оценка' : 'Score'}</span>
@@ -4107,7 +4163,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         inputMode="numeric"
                         max={100}
                         min={0}
-                        onChange={(event) => setFixDraft((current) => ({ ...current, score: event.target.value }))}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          const score = nutritionNumber(value, 50);
+                          setFixDraft((current) => ({
+                            ...current,
+                            score: value,
+                            rating: score >= 75 ? 'Safe' : score <= 45 ? 'Avoid' : 'Caution',
+                          }));
+                        }}
                         type="number"
                         value={fixDraft.score}
                       />
@@ -4130,6 +4194,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       ['proteinG', 'Protein'],
                       ['carbsG', 'Carbs'],
                       ['fatG', 'Fat'],
+                      ['fiberG', 'Fiber'],
+                      ['sugarG', 'Sugar'],
+                      ['sodiumMg', 'Sodium'],
                     ] as const).map(([key, label]) => (
                       <label className="block" key={key}>
                         <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{label}</span>
