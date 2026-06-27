@@ -856,14 +856,19 @@ Rules:
 - Return JSON only.
 - Use ${targetLang} for human-facing strings: productName, chemicalName, and reason.
 - If ${targetLang} is Russian, productName, chemicalName, and reason MUST be natural Russian Cyrillic text. Keep brand names in Latin only when they are actual brand names.
+- Treat Cyrillic, Kazakh, Russian, and mixed Latin/Cyrillic package text as first-class label evidence, not as unreadable noise.
+- Front-of-pack text is enough for product identity. Do not require the nutrition facts panel to identify the food.
 - Keep enum values exactly as English strings: "Safe", "Caution", or "Avoid".
 - Forbidden productName values unless there is truly no food or drink visible: "Unreadable Label", "Image check error", "Image unclear", "Could not verify image", "Visual estimate unavailable", "Unknown product".
 - If brand/name is visible in any language, transliterate or preserve the brand. Example: Russian "молочный ломтик" with Kinder logo should become "Kinder Молочный ломтик", not an error.
+- For Cyrillic snacks/drinks, preserve the useful product words: "молочный ломтик", "кефир", "йогурт", "чипсы", "лапша", "шоколад", "батончик", "вода", "газированный напиток".
 - Do not invent ingredients that are not visible, but use strong product-category inference when ingredients are hidden.
 - You are not just OCR. Use logo shape, colors, bottle/can/bag design, mascot, typography fragments, and common product knowledge to identify global packaged foods and drinks.
-- For common packaged products, prefer a specific product identity when visually supported: e.g. "Coca-Cola", "Pepsi", "Sprite", "Fanta", "Red Bull", "Monster Energy", "Lay's potato chips", "Doritos", "Cheetos", "Pringles", "Snickers", "Kinder Bueno".
+- For common packaged products, prefer a specific product identity when visually supported: e.g. "Coca-Cola", "Pepsi", "Sprite", "Fanta", "Red Bull", "Monster Energy", "Lay's potato chips", "Doritos", "Cheetos", "Pringles", "Snickers", "Kinder Bueno", "Kinder Молочный ломтик", "Borjomi mineral water".
 - If the exact brand is not clear, say "Likely [category]" rather than "Unreadable Label".
 - If the image shows everyday unpackaged food, identify the food directly. Examples: avocado, eggs, beef, chicken, fish, rice, macaroni/pasta, bread, potatoes, beans, milk, yogurt, banana, apple, cucumber, tomato, salad, nuts, coffee.
+- For no-label whole foods, never penalize the image for missing text. The correct confidence source is visual/category estimate, not label failure.
+- If the object looks like avocado, apple, banana, eggs, cooked pasta, rice, bread, chicken, beef, fish, cucumber, tomato, or bottled water, return that food/category even when OCR finds nothing.
 - For whole foods, use concerns/signals rather than fake chemicals. Good signal names: "Whole food", "Simple protein", "Wheat base", "Dairy", "High fiber", "Caffeine", "Fried preparation", "Sauce not visible".
 - Plain whole fruits like apple, banana, orange, berries, grapes, or kiwi are "Safe" with score 88-94 unless juiced, candied, syruped, sauced, or matching a user trigger.
 - Vegetables, plain eggs, plain meat/fish/chicken, rice, oats, buckwheat, and plain potatoes are usually "Safe" with score 75-92 unless fried, sauced, sweetened, or matching a user trigger.
@@ -929,6 +934,8 @@ The previous scan was too uncertain. Ignore OCR perfection and identify the visi
 Use packaging, color, logo fragments, shape, container, visible food texture, and common product knowledge.
 If any food, drink, snack, candy, meal, bottle, package, fruit, vegetable, egg, meat, pasta, bread, dairy, chips, soda, tea, water, or bar is visible, return a usable estimate.
 Do not return unreadable, unknown, not checked, or visual estimate unavailable unless there is no food/drink/product visible at all.
+No-label whole foods are valid scans. Avocado, apple, banana, eggs, pasta, rice, chicken, beef, fish, cucumber, tomato, bread, potatoes, and bottled water should be identified visually.
+Cyrillic/Russian/Kazakh labels are valid label evidence. Preserve visible product words and brand names when useful.
 User triggers: ${triggerLine}
 
 Language:
@@ -956,6 +963,8 @@ Use branding, logos, package colors, visible text in any language, food shape, b
 If the image shows a food, drink, snack, fruit, vegetable, meal, bottle, wrapper, can, or packaged product, isFood must be true.
 Do not call it unreadable if a product or food category is visually clear.
 For Russian or Cyrillic labels, preserve brand names and translate/transliterate the product naturally.
+Treat Cyrillic/Kazakh/Russian words such as молочный ломтик, кефир, йогурт, чипсы, шоколад, вода, лапша, батончик as useful identity text.
+For unpackaged food, identify by shape and texture even when there is no label. Examples: avocado, eggs, pasta, rice, chicken, cucumber, tomato, apple.
 Use ${targetLang} for productName and category when they are generic food names. Keep actual brands as written.
 
 Return only this JSON:
