@@ -423,6 +423,12 @@ function nutritionNumber(value: unknown, fallback = 0) {
   return Math.max(0, Math.round(numberValue));
 }
 
+function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+  const numberValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.min(max, Math.max(min, numberValue));
+}
+
 function normalizeNutritionFacts(value: unknown): NutritionFacts | null {
   if (!isRecord(value)) return null;
 
@@ -2694,7 +2700,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     if (error || !data) {
       setProfileFormMessage({
         tone: 'error',
-        text: error?.message?.includes('profiles_username_unique') ? copy.profileUsernameTaken : copy.profileSaveError,
+        text: /profiles_username|username/i.test(error?.message ?? '') ? copy.profileUsernameTaken : copy.profileSaveError,
       });
       return;
     }
@@ -3435,12 +3441,24 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }));
   };
   const saveGoalDetails = () => {
+    const normalizedGoalDraft: StoredSensiProfile = {
+      ...goalDraft,
+      age: Math.round(clampNumber(goalDraft.age, storedProfile?.age ?? 24, 13, 99)),
+      heightCm: Math.round(clampNumber(goalDraft.heightCm, storedProfile?.heightCm ?? 170, 90, 240)),
+      weightKg: Math.round(clampNumber(goalDraft.weightKg, storedProfile?.weightKg ?? 64, 30, 250)),
+      checkInsPerDay: Math.round(clampNumber(goalDraft.checkInsPerDay, storedProfile?.checkInsPerDay ?? 2, 1, 6)),
+      symptoms: goalDraft.symptoms.map((item) => item.trim()).filter(Boolean).slice(0, 8),
+      triggers: goalDraft.triggers.map((item) => item.trim()).filter(Boolean).slice(0, 10),
+      allergies: goalDraft.allergies.map((item) => item.trim()).filter(Boolean).slice(0, 10),
+    };
+
     try {
-      window.localStorage.setItem(profileStorageKey(session.user.id), JSON.stringify(goalDraft));
+      window.localStorage.setItem(profileStorageKey(session.user.id), JSON.stringify(normalizedGoalDraft));
     } catch {
       // Keep the in-memory draft if local storage is unavailable.
     }
-    setStoredProfile(goalDraft);
+    setGoalDraft(normalizedGoalDraft);
+    setStoredProfile(normalizedGoalDraft);
     setGoalsSheetOpen(false);
   };
   const progressPage = (
