@@ -1006,6 +1006,8 @@ function clearUserLocalData(userId: string) {
       streakStorageKey(userId),
       recentScansStorageKey(userId),
       languageStorageKey(userId),
+      DIGESTSNAP_PENDING_PROFILE_KEY,
+      DIGESTSNAP_PROFILE_STORAGE_KEY,
     ].forEach((key) => window.localStorage.removeItem(key));
   } catch {
     // Account deletion should not fail because local cleanup is unavailable.

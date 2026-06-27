@@ -12,6 +12,7 @@
     "db:new": "supabase migration new",
     "db:push": "supabase db push",
     "ai:secret": "supabase secrets set",
+    "account:lifecycle-check": "node scripts/check-account-lifecycle.mjs",
     "backend:ai-config": "node scripts/check-ai-config.mjs",
     "backend:frontend-target": "node scripts/check-frontend-backend.mjs",
     "backend:data-isolation": "node scripts/check-frontend-data-isolation.mjs",

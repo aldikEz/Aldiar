@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  { name: 'account-lifecycle', command: 'npm', args: ['run', 'account:lifecycle-check'] },
   { name: 'functions-audit', command: 'npm', args: ['run', 'backend:functions'] },
   { name: 'ai-config', command: 'npm', args: ['run', 'backend:ai-config'] },
   { name: 'frontend-target', command: 'npm', args: ['run', 'backend:frontend-target'] },
