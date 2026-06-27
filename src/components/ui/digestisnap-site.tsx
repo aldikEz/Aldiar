@@ -3327,10 +3327,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           key="macro-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                             {macroCards.map((card) => (
                               <div
-                                className="flex h-[118px] min-w-0 flex-col justify-between rounded-[18px] bg-white p-2.5 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:h-[142px] sm:rounded-[22px] sm:p-3.5 md:h-[156px] md:p-4"
+                                className="flex h-[108px] min-w-0 flex-col justify-between rounded-[18px] bg-white p-3 shadow-[0_8px_20px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:h-[142px] sm:rounded-[22px] sm:p-3.5 md:h-[156px] md:p-4"
                                 key={card.label}
                               >
                                 <div className="min-w-0">
@@ -3339,7 +3339,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                                   </p>
                                   <p className="mt-1.5 truncate text-[10px] font-black leading-3 text-zinc-500 sm:text-[12px] md:text-[13px]">{card.label}</p>
                                 </div>
-                                <div className="flex h-12 w-12 items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:h-16 sm:w-16 sm:border-[9px] md:h-[72px] md:w-[72px]">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:h-16 sm:w-16 sm:border-[9px] md:h-[72px] md:w-[72px]">
                                   <span className={cn('text-[10px] font-black sm:text-[13px] md:text-[14px]', card.color)}>{card.icon}</span>
                                 </div>
                               </div>
