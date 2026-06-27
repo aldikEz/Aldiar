@@ -1182,6 +1182,7 @@ function isHardImageFailure(scan: ImageScanPayload) {
 
   return (
     text.includes('image check error') ||
+    text.includes('could not verify image') ||
     text.includes('ai cooling down') ||
     text.includes('quota') ||
     text.includes('rate-limited') ||
@@ -1193,12 +1194,12 @@ function isHardImageFailure(scan: ImageScanPayload) {
 function makeImageCheckErrorResult(fileName: string, errorMessage = ''): ImageScanPayload['result'] {
   const isQuotaError = /quota|cooling|too many|rate/i.test(errorMessage);
   return {
-    productName: isQuotaError ? 'AI cooling down' : 'Image check error',
+    productName: isQuotaError ? 'AI cooling down' : 'Could not verify image',
     overallRating: 'Caution',
     score: 0,
     flaggedChemicals: [
       {
-        chemicalName: isQuotaError ? 'AI cooling down' : 'Image check failed',
+        chemicalName: isQuotaError ? 'AI cooling down' : 'Could not verify image',
         severity: 'Caution',
         reason: isQuotaError
           ? 'Gemini quota is temporarily cooling down'
@@ -1209,7 +1210,7 @@ function makeImageCheckErrorResult(fileName: string, errorMessage = ''): ImageSc
 }
 
 function isImageCheckErrorResult(result: ImageScanPayload['result']) {
-  return result.productName === 'Image check error' || isAiCoolingDownResult(result);
+  return result.productName === 'Image check error' || result.productName === 'Could not verify image' || isAiCoolingDownResult(result);
 }
 
 function isAiCoolingDownResult(result: ImageScanPayload['result']) {
@@ -2530,7 +2531,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
     async function startCamera() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError('Camera is not available in this browser. Try opening DigestSnap in a browser with camera access.');
+        setCameraError(copy.cameraBrowserUnsupported);
         return;
       }
 
@@ -2555,7 +2556,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           await videoRef.current.play().catch(() => undefined);
         }
       } catch {
-        setCameraError('Camera permission was blocked. Allow camera access and try again.');
+        setCameraError(copy.cameraPermissionBlocked);
       }
     }
 
@@ -3290,6 +3291,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     uploadedImage: isRussian ? 'загруженное фото' : 'uploaded image',
     cameraLoading: isRussian ? 'Камера еще загружается. Попробуйте через секунду.' : 'Camera is still loading. Try again in a second.',
     cameraCaptureError: isRussian ? 'Не удалось сделать снимок. Держите продукт внутри рамки.' : 'Unable to capture this frame. Try again with the label inside the square.',
+    cameraBrowserUnsupported: isRussian ? 'Камера недоступна в этом браузере. Откройте DigestSnap в браузере с доступом к камере.' : 'Camera is not available in this browser. Open DigestSnap in a browser with camera access.',
+    cameraPermissionBlocked: isRussian ? 'Доступ к камере заблокирован. Разрешите камеру и попробуйте снова.' : 'Camera permission is blocked. Allow camera access and try again.',
     cameraTitle: isRussian ? 'Камера DigestSnap' : 'DigestSnap camera',
     cameraSubtitle: isRussian ? 'Заполните рамку продуктом или этикеткой' : 'Fill the square with the label',
     cameraHint: isRussian ? 'Держите состав четко и ровно' : 'Keep ingredients sharp and flat',

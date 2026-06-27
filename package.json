@@ -25,6 +25,7 @@
     "delete-account:deploy": "supabase functions deploy delete-account",
     "pitch:capture": "node scripts/capture-pitch-assets.mjs",
     "qa:empty-states": "node scripts/check-empty-states.mjs",
+    "qa:error-states": "node scripts/check-error-states.mjs",
     "qa:feeling-flow": "node scripts/check-feeling-flow.mjs",
     "qa:loading-states": "node scripts/check-loading-states.mjs",
     "qa:pattern-engine": "node scripts/check-pattern-engine.mjs",
