@@ -1099,14 +1099,6 @@ async function handleImageRequest(req: Request, body: RequestBody) {
     }
   }
 
-  const identityScan = await identifyAndRateVisibleFood(image.payload, targetLang);
-
-  if (identityScan && !isUnusableVisualScan(identityScan)) {
-    const enrichedIdentityScan = await enrichWithProductDatabase(identityScan, targetLang);
-    runAfterResponse(cacheScan(cacheKey, targetLang, enrichedIdentityScan));
-    return jsonResponse(req, enrichedIdentityScan);
-  }
-
   const geminiResult = await callGemini({
     contents: [
       {
@@ -1134,7 +1126,16 @@ async function handleImageRequest(req: Request, body: RequestBody) {
   }
 
   const parsed = parseModelJson(geminiResult.text);
-  let scan = withScanConfidence(normalizeScanPayload(parsed, targetLang), targetLang, 'label_read');
+  let scan = normalizeScanPayload(parsed, targetLang);
+  scan = withScanConfidence(scan, targetLang, inferScanConfidenceSource(scan));
+
+  if (isUnusableVisualScan(scan)) {
+    const identityScan = await identifyAndRateVisibleFood(image.payload, targetLang);
+
+    if (identityScan && !isUnusableVisualScan(identityScan)) {
+      scan = identityScan;
+    }
+  }
 
   if (isUnusableVisualScan(scan)) {
     const rescueResult = await callGemini({
@@ -1475,6 +1476,38 @@ function normalizeScanPayload(value: unknown, targetLang: string, fallback: Scan
       flaggedChemicals,
     },
   }, targetLang), targetLang);
+}
+
+function inferScanConfidenceSource(scan: ScanPayload): ScanConfidenceSource {
+  const basisText = [
+    scan.result.productName,
+    scan.result.basis?.decisionBasis,
+    scan.result.basis?.portionBasis,
+    ...scan.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (hasAny(basisText, [
+    /\blikely\b/i,
+    /\bvisual\b/i,
+    /\bcategory\b/i,
+    /\bshape\b/i,
+    /\btexture\b/i,
+    /\bnot\s+verified\b/i,
+    /\blabel\s+not\s+(?:verified|confirmed)\b/i,
+    /\bwhole\s+food\b/i,
+    /похож/i,
+    /визуальн/i,
+    /категор/i,
+    /этикетк\w*\s+не\s+подтверж/i,
+    /состав\s+не\s+подтверж/i,
+  ])) {
+    return 'visual_estimate';
+  }
+
+  return 'label_read';
 }
 
 function getScanText(scan: ScanPayload) {
@@ -2191,7 +2224,7 @@ async function lookupOpenFoodFacts(query: string): Promise<ProductDatabaseMatch 
       {
         headers: {
           accept: 'application/json',
-          'user-agent': 'DigestSnap/1.0 demo nutrition lookup',
+          'user-agent': 'DigestSnap/1.0 product lookup',
         },
       },
       OPEN_FOOD_FACTS_TIMEOUT_MS,
@@ -2244,7 +2277,7 @@ async function lookupOpenFoodFactsBarcode(barcode: string): Promise<ProductDatab
       {
         headers: {
           accept: 'application/json',
-          'user-agent': 'DigestSnap/1.0 demo nutrition lookup',
+          'user-agent': 'DigestSnap/1.0 product lookup',
         },
       },
       OPEN_FOOD_FACTS_TIMEOUT_MS,

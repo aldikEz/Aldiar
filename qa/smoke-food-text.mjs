@@ -22,9 +22,13 @@ const headers = {
 
 const cases = [
   { id: 'apple', body: { productKey: 'apple', labelText: 'apple', userLang: 'English', userTriggers: [] }, rating: 'Safe', min: 85, max: 100 },
+  { id: 'avocado', body: { productKey: 'avocado', labelText: 'plain avocado', userLang: 'English', userTriggers: [] }, rating: 'Safe', min: 75, max: 95 },
+  { id: 'eggs', body: { productKey: 'eggs', labelText: 'plain boiled eggs', userLang: 'English', userTriggers: [] }, rating: 'Safe', min: 75, max: 95 },
+  { id: 'pasta', body: { productKey: 'plain pasta', labelText: 'plain macaroni pasta', userLang: 'English', userTriggers: [] }, rating: 'Caution', min: 45, max: 75 },
   { id: 'borjomi', body: { productKey: 'Borjomi mineral water', labelText: 'Borjomi Georgian natural mineral water', userLang: 'English', userTriggers: [] }, rating: 'Safe', min: 80, max: 95 },
   { id: 'coca-cola', body: { productKey: 'Coca-Cola 330ml', labelText: 'Coca-Cola sugar carbonated soft drink', userLang: 'English', userTriggers: ['soda'] }, rating: 'Avoid', min: 0, max: 45 },
   { id: 'fuse-tea', body: { productKey: 'Fuse Tea', labelText: 'Fuse Tea sweetened iced tea sugar black tea extract citric acid', userLang: 'English', userTriggers: ['soda'] }, rating: 'Avoid', min: 0, max: 55 },
+  { id: 'lays', body: { productKey: "Lay's potato chips", labelText: "Lay's potato chips fried snack salt oil", userLang: 'English', userTriggers: ['fried'] }, rating: 'Avoid', min: 0, max: 50 },
   { id: 'kinder-ru', body: { productKey: 'Kinder Молочный ломтик', labelText: 'Kinder Молочный ломтик сахар молоко шоколад', userLang: 'Russian', userTriggers: ['dairy'] }, rating: 'Avoid', min: 0, max: 50 },
 ];
 
