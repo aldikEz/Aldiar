@@ -5826,7 +5826,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             >
               <motion.div
                 animate={{ y: 0 }}
-                className="w-full max-w-[430px] rounded-[28px] bg-white px-4 pb-4 pt-6 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] sm:rounded-[34px] sm:px-5 sm:pb-5 sm:pt-7"
+                className="max-h-[88vh] w-full max-w-[430px] overflow-y-auto rounded-[28px] bg-white px-4 pb-4 pt-6 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] [scrollbar-width:none] sm:rounded-[34px] sm:px-5 sm:pb-5 sm:pt-7 [&::-webkit-scrollbar]:hidden"
                 exit={{ y: 26 }}
                 initial={{ y: 26 }}
                 onClick={(event) => event.stopPropagation()}
