@@ -12,6 +12,7 @@ import {
   ChevronRight,
   CircleUserRound,
   ClipboardList,
+  Download,
   Flame,
   Home,
   LoaderCircle,
@@ -879,6 +880,19 @@ function clearPendingStoredProfile() {
     window.localStorage.removeItem(SENSIBITE_PROFILE_STORAGE_KEY);
   } catch {
     // Ignore storage cleanup failures.
+  }
+}
+
+function clearUserLocalData(userId: string) {
+  try {
+    [
+      profileStorageKey(userId),
+      streakStorageKey(userId),
+      recentScansStorageKey(userId),
+      languageStorageKey(userId),
+    ].forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Account deletion should not fail because local cleanup is unavailable.
   }
 }
 
@@ -2442,6 +2456,48 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     navigate('/');
   };
 
+  const exportAccountData = () => {
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      account: {
+        id: session.user.id,
+        email: session.user.email ?? null,
+        fullName: profileName,
+        username: profileUsername,
+      },
+      profile: storedProfile,
+      streak: readStoredStreak(session.user.id),
+      water: {
+        amountMl: waterMl,
+        unit: waterUnit,
+      },
+      entries: logs,
+      scans: recentScans.map((scan) => ({
+        id: scan.id,
+        createdAt: scan.createdAt,
+        consumedAt: scan.consumedAt ?? null,
+        eaten: scan.eaten ?? null,
+        feeling: scan.feeling ?? null,
+        note: scan.note ?? null,
+        productName: scan.result.productName,
+        rating: scan.result.overallRating,
+        score: scan.result.score,
+        confidence: scan.result.confidence ?? null,
+        nutrition: scan.nutrition,
+        flags: scan.result.flaggedChemicals,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `digestsnap-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const deleteAccount = async () => {
     setDeleteLoading(true);
     setDeleteError('');
@@ -2449,6 +2505,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     try {
       const { error } = await supabase.functions.invoke('delete-account', { body: {} });
       if (error) throw error;
+      clearUserLocalData(session.user.id);
       await supabase.auth.signOut();
       navigate('/');
     } catch {
@@ -2619,6 +2676,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     privacyPolicy: isRussian ? 'Политика конфиденциальности' : 'Privacy Policy',
     terms: isRussian ? 'Условия использования' : 'Terms and Conditions',
     accountActions: isRussian ? 'Действия аккаунта' : 'Account Actions',
+    exportData: isRussian ? 'Скачать данные' : 'Export Data',
     logout: isRussian ? 'Выйти' : 'Logout',
     dayStreak: isRussian ? 'Дней подряд' : 'Day streak',
     streakHelp: isRussian ? 'Сохраняйте хотя бы одну запись за 24 часа' : 'Log once every 24 hours to keep it alive',
@@ -3500,6 +3558,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       <div>
         <p className={cn('mb-3 text-[15px] font-black uppercase tracking-[0.12em]', theme.muted)}>{copy.accountActions}</p>
         <div className={cn('overflow-hidden rounded-[24px] bg-white shadow-[0_14px_32px_rgba(15,15,15,0.10)] ring-1 ring-black/[0.03] transition-colors duration-700', isDarkMode && theme.card)}>
+          <button className={cn('flex min-h-[60px] w-full items-center gap-3 border-b px-4 text-left transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5', theme.line)} onClick={exportAccountData} type="button">
+            <Download className="h-6 w-6" />
+            <span className="flex-1 text-lg font-black sm:text-xl">{copy.exportData}</span>
+            <ChevronRight className={cn('h-6 w-6', theme.muted)} />
+          </button>
           <button className={cn('flex min-h-[60px] w-full items-center gap-3 border-b px-4 text-left transition active:scale-[0.99] sm:min-h-[66px] sm:gap-4 sm:px-5', theme.line)} onClick={signOut} type="button">
             <LogOut className="h-6 w-6" />
             <span className="flex-1 text-lg font-black sm:text-xl">{copy.logout}</span>
