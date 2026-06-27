@@ -2427,12 +2427,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
 
   const visibleLogs = logs.filter((item) => !/check-in saved|unreadable label|image check error|ai cooling|visual estimate unavailable|визуальная оценка недоступна/i.test(item.title));
-  const hasActivity = visibleLogs.length > 0 || Boolean(scanResult && !isImageCheckErrorResult(scanResult.result));
+  const latestSavedScan = recentScans[0];
+  const hasActivity = recentScans.some((scan) => !isImageCheckErrorResult(scan.result));
   const isRussian = language === 'Russian';
-  const scanCount = visibleLogs.length;
-  const gutScoreOutOfTen = scanResult ? Math.max(1, Math.round(scanResult.result.score / 10)) : null;
-  const latestTitle = scanResult?.result.productName ?? visibleLogs[0]?.title ?? '';
-  const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? '';
+  const validScoredScans = recentScans.filter((scan) => !isImageCheckErrorResult(scan.result));
+  const scanCount = validScoredScans.length;
+  const recentAverageScore = validScoredScans.length
+    ? Math.round(validScoredScans.slice(0, 7).reduce((sum, scan) => sum + scan.result.score, 0) / validScoredScans.slice(0, 7).length)
+    : null;
+  const gutScoreOutOfTen = recentAverageScore === null ? null : Math.max(1, Math.round(recentAverageScore / 10));
+  const latestTitle = scanResult?.result.productName ?? latestSavedScan?.result.productName ?? visibleLogs[0]?.title ?? '';
+  const latestReason = scanResult?.result.flaggedChemicals[0]?.reason ?? latestSavedScan?.result.flaggedChemicals[0]?.reason ?? '';
   const profileBmi = getBmiFromProfile(storedProfile);
   const today = new Date();
   const homeWeek = Array.from({ length: 7 }, (_, index) => {
@@ -2446,9 +2451,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       future: date > today,
     };
   });
-  const checkInCount = logs.filter((item) => /check-in saved/i.test(item.title)).length;
-  const latestScore = scanResult?.result.score ?? null;
-  const latestRating = scanResult?.result.overallRating ?? null;
+  const checkInCount = recentScans.filter((item) => item.feeling).length;
+  const latestScore = scanResult?.result.score ?? latestSavedScan?.result.score ?? null;
+  const latestRating = scanResult?.result.overallRating ?? latestSavedScan?.result.overallRating ?? null;
   const healthScoreBarColor =
     gutScoreOutOfTen === null
       ? 'bg-zinc-200'
@@ -2460,8 +2465,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const healthScoreBarWidth = gutScoreOutOfTen === null ? '0%' : `${gutScoreOutOfTen * 10}%`;
   const healthScoreExplanation =
     gutScoreOutOfTen === null
-      ? 'Track a couple foods to generate your health score'
-      : 'Your health score reflects recent scan ratings and logged reactions';
+      ? isRussian ? 'Сделайте первый скан, чтобы появился счет' : 'Your first clear scan creates the score'
+      : isRussian ? 'Счет отражает последние сканы и отметки самочувствия' : 'Score reflects recent scans and feeling logs';
   const waterOz = waterMl / 29.5735;
   const waterCardLabel = waterUnit === 'ml' ? `${Math.round(waterMl)} mL` : `${Math.round(waterOz)} fl oz`;
   const calorieMode = getCalorieGoalMode(storedProfile);
@@ -3046,7 +3051,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           )) : (
             <div className={cn('rounded-[24px] p-5 text-center', theme.soft)}>
               <ScanLine className={cn('mx-auto h-8 w-8', theme.muted)} />
-              <p className="mt-3 text-base font-black">{isRussian ? 'Пусто' : 'Empty'}</p>
+              <p className="mt-3 text-base font-black">{isRussian ? 'История появится после первого скана' : 'History appears after your first scan'}</p>
+              <p className={cn('mx-auto mt-2 max-w-[320px] text-sm font-semibold leading-6', theme.muted)}>
+                {isRussian ? 'Здесь будут только сохраненные продукты и реальные отметки' : 'Only saved foods and real check-ins show up here'}
+              </p>
             </div>
           )}
         </div>
@@ -3289,7 +3297,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                               {latestScore !== null && <span className="pb-1.5 text-[22px] font-black text-zinc-400 sm:text-[26px]">/100</span>}
                             </div>
                             <p className="mx-auto mt-2 max-w-[520px] text-[13px] font-black leading-5 text-zinc-500 sm:mt-3 sm:text-[15px] sm:leading-6">
-                              {latestScore !== null ? latestRating : 'Your first scan will start your food timeline'}
+                              {latestScore !== null ? latestRating : (isRussian ? 'Сфотографируйте еду или состав, чтобы получить первый результат' : 'Scan food or a label to get the first result')}
                             </p>
                           </div>
                         </motion.div>
@@ -3478,7 +3486,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             </div>
                           </div>
                         </div>
-                        <p className="mt-4 text-[17px] font-black text-zinc-500 sm:mt-6 sm:text-[22px]">Tap + to add your first meal of the day</p>
+                        <p className="mt-4 text-[17px] font-black text-zinc-950 sm:mt-6 sm:text-[22px]">{isRussian ? 'Первый скан появится здесь' : 'Your first scan appears here'}</p>
+                        <p className="mx-auto mt-2 max-w-[420px] text-sm font-semibold leading-6 text-zinc-500">
+                          {isRussian ? 'Фото, оценка, питание и отметка самочувствия будут храниться в одном месте' : 'Photo, score, nutrition, and later feeling stay attached to the same item'}
+                        </p>
                       </div>
                     )}
                   </section>
