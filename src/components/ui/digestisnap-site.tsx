@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Flame,
   Home,
+  LoaderCircle,
   LogOut,
   Mail,
   Plus,
@@ -1880,6 +1881,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [historyFilter, setHistoryFilter] = useState<ScanHistoryFilter>('all');
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [cameraCapturing, setCameraCapturing] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [waterSheetOpen, setWaterSheetOpen] = useState(false);
@@ -2332,17 +2334,20 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
 
   const captureCameraFrame = async () => {
+    if (cameraCapturing) return;
     const video = videoRef.current;
     if (!video || video.readyState < 2) {
       setCameraError(copy.cameraLoading);
       return;
     }
 
+    setCameraCapturing(true);
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth || 1080;
     canvas.height = video.videoHeight || 1080;
     const context = canvas.getContext('2d');
     if (!context) {
+      setCameraCapturing(false);
       setCameraError(copy.cameraCaptureError);
       return;
     }
@@ -2350,12 +2355,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
     if (!blob) {
+      setCameraCapturing(false);
       setCameraError(copy.cameraCaptureError);
       return;
     }
 
     const file = new File([blob], `digestisnap-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
     setCameraSheetOpen(false);
+    setCameraCapturing(false);
     await runImageScan(file);
   };
 
@@ -3745,14 +3752,20 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       )}
                     </div>
 
-                    {scanState === 'scanning' && scanPreviewUrl ? (
+                    {scanState === 'scanning' ? (
                       <div className="mt-3 rounded-[24px] bg-white p-4 shadow-[0_10px_28px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] sm:mt-5 sm:rounded-[28px] sm:p-5">
                         <div className="flex items-center gap-4">
-                          <img
-                            alt="Meal being analyzed"
-                            className="h-20 w-20 shrink-0 rounded-[22px] object-cover blur-[2px]"
-                            src={scanPreviewUrl}
-                          />
+                          {scanPreviewUrl ? (
+                            <img
+                              alt="Meal being analyzed"
+                              className="h-20 w-20 shrink-0 rounded-[22px] object-cover blur-[2px]"
+                              src={scanPreviewUrl}
+                            />
+                          ) : (
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[22px] bg-zinc-100">
+                              <LoaderCircle className="h-7 w-7 animate-spin text-zinc-950" />
+                            </div>
+                          )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-3">
                               <p className="truncate text-[18px] font-black">{scanProgress}% progress</p>
@@ -3882,11 +3895,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className="mx-auto flex max-w-[420px] items-center justify-center">
                   <button
                     className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_0_0_8px_rgba(255,255,255,0.16)] transition active:scale-95"
+                    disabled={cameraCapturing}
                     onClick={captureCameraFrame}
                     type="button"
                     aria-label="Capture food photo"
                   >
-                    <Camera className="h-9 w-9 stroke-[2.8]" />
+                    {cameraCapturing ? <LoaderCircle className="h-9 w-9 animate-spin stroke-[2.8]" /> : <Camera className="h-9 w-9 stroke-[2.8]" />}
                   </button>
                 </div>
               </div>
@@ -3930,11 +3944,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <span className={cn('mt-2 block text-xs font-semibold', theme.muted)}>Unique. 3-24 characters. Letters, numbers, underscore.</span>
                 </label>
                 <button
-                  className="mt-5 h-14 w-full rounded-full bg-white text-base font-black text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10 transition active:scale-[0.98] disabled:opacity-50"
+                  className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-white text-base font-black text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10 transition active:scale-[0.98] disabled:opacity-50"
                   disabled={profileSaving}
                   onClick={saveProfileDetails}
                   type="button"
                 >
+                  {profileSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
                   {profileSaving ? copy.saving : copy.saveProfile}
                 </button>
               </motion.div>
@@ -4841,11 +4856,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     {copy.cancel}
                   </button>
                   <button
-                    className="h-14 rounded-full bg-red-500 text-sm font-black text-white transition active:scale-[0.98] disabled:opacity-60"
+                    className="flex h-14 items-center justify-center gap-2 rounded-full bg-red-500 text-sm font-black text-white transition active:scale-[0.98] disabled:opacity-60"
                     disabled={deleteLoading}
                     onClick={deleteAccount}
                     type="button"
                   >
+                    {deleteLoading && <LoaderCircle className="h-4 w-4 animate-spin" />}
                     {deleteLoading ? copy.deleting : copy.deleteConfirm}
                   </button>
                 </div>
@@ -5369,7 +5385,9 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
                 onClick={handleGoogleSignIn}
                 type="button"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg font-black text-zinc-950">G</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg font-black text-zinc-950">
+                  {authLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : 'G'}
+                </span>
                 {authLoading ? 'Opening Google...' : 'Continue with Google'}
               </button>
 
