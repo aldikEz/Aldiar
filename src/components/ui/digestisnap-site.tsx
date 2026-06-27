@@ -3857,6 +3857,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   });
   const weeklyTopConcern = Array.from(weeklyConcernCounts.entries()).sort((a, b) => b[1] - a[1])[0];
   const weeklyRepeatedConcern = weeklyTopConcern && weeklyTopConcern[1] >= 2 ? weeklyTopConcern : null;
+  const showWeeklyRecap = weeklyRealScans.length >= 2 || weeklyCheckIns >= 2 || Boolean(weeklyRepeatedConcern);
+  const weeklyRecapBody = weeklyRepeatedConcern
+    ? isRussian
+      ? `${weeklyRepeatedConcern[0]} повторилось ${weeklyRepeatedConcern[1]} раза на этой неделе`
+      : `${weeklyRepeatedConcern[0]} repeated ${weeklyRepeatedConcern[1]} times this week`
+    : isRussian
+      ? `${weeklyRealScans.length} съеденных скана и ${weeklyCheckIns} отметок самочувствия за неделю`
+      : `${weeklyRealScans.length} eaten scans and ${weeklyCheckIns} feeling check-ins this week`;
   const watchlistTerms = Array.from(new Set([
     ...(storedProfile?.triggers ?? []),
     ...(storedProfile?.allergies ?? []),
@@ -4543,6 +4551,27 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         </p>
                         <p className="mt-1 truncate text-xs font-bold text-zinc-500 sm:text-sm">
                           {inAppReminder.body}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-6 w-6 shrink-0 text-zinc-400 transition group-hover:translate-x-0.5" />
+                    </button>
+                  )}
+
+                  {showWeeklyRecap && (
+                    <button
+                      className="group flex w-full items-center rounded-[22px] bg-white px-4 py-3.5 text-left shadow-[0_7px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[24px] sm:px-5 sm:py-4 md:px-7 md:py-5"
+                      onClick={() => setActiveTab('progress')}
+                      type="button"
+                    >
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950">
+                        <BarChart3 className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1 px-4">
+                        <p className="truncate text-[17px] font-black sm:text-[20px]">
+                          {isRussian ? 'Итог недели' : 'Weekly recap'}
+                        </p>
+                        <p className="mt-1 truncate text-xs font-bold text-zinc-500 sm:text-sm">
+                          {weeklyRecapBody}
                         </p>
                       </div>
                       <ChevronRight className="h-6 w-6 shrink-0 text-zinc-400 transition group-hover:translate-x-0.5" />

@@ -24,6 +24,11 @@ const checks = [
       && /foodCategory/.test(app)
       && /feelingDelayMinutes/.test(app),
   },
+  {
+    name: 'weekly recap appears only after real activity',
+    ok: /const showWeeklyRecap = weeklyRealScans\.length >= 2 \|\| weeklyCheckIns >= 2 \|\| Boolean\(weeklyRepeatedConcern\)/.test(app)
+      && /Weekly recap/.test(app),
+  },
 ];
 
 const failed = checks.filter((check) => !check.ok);
