@@ -2509,6 +2509,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const selectedDayAverageScore = selectedDayScans.length
     ? Math.round(selectedDayScans.reduce((sum, item) => sum + item.result.score, 0) / selectedDayScans.length)
     : null;
+  const selectedDateIsToday = selectedHomeDate === new Date().toDateString();
+  const inAppReminder = laterCheckInCandidate
+    ? {
+        kind: 'checkin' as const,
+        title: isRussian ? 'Проверить самочувствие' : 'Check in on this meal',
+        body: `${laterCheckInCandidate.result.productName} · ${laterCheckInAge === null ? (isRussian ? 'позже' : 'later') : laterCheckInAge === 0 ? (isRussian ? 'только что' : 'just now') : `${laterCheckInAge}h ago`}`,
+        action: () => openSavedScan(laterCheckInCandidate),
+      }
+    : selectedDateIsToday && selectedDayScans.length === 0
+      ? {
+          kind: 'scan' as const,
+          title: isRussian ? 'Первый скан за сегодня' : 'First scan for today',
+          body: isRussian ? 'Один снимок создаст дневную историю' : 'One photo starts today’s timeline',
+          action: openCamera,
+        }
+      : null;
   const eatenNutrition = addNutritionValues(selectedDayEatenScans.map((item) => item.nutrition));
   const caloriesEaten = eatenNutrition.calories;
   const remainingCalories = Math.max(0, calorieTarget - caloriesEaten);
@@ -3650,21 +3666,21 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     </div>
                   </section>
 
-                  {laterCheckInCandidate && (
+                  {inAppReminder && (
                     <button
                       className="group flex w-full items-center rounded-[22px] bg-white px-4 py-3.5 text-left shadow-[0_7px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[24px] sm:px-5 sm:py-4 md:px-7 md:py-5"
-                      onClick={() => openSavedScan(laterCheckInCandidate)}
+                      onClick={inAppReminder.action}
                       type="button"
                     >
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950">
-                        <Activity className="h-5 w-5" />
+                        {inAppReminder.kind === 'checkin' ? <Activity className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
                       </div>
                       <div className="min-w-0 flex-1 px-4">
                         <p className="truncate text-[17px] font-black sm:text-[20px]">
-                          {isRussian ? 'Проверить самочувствие' : 'Check in on this meal'}
+                          {inAppReminder.title}
                         </p>
                         <p className="mt-1 truncate text-xs font-bold text-zinc-500 sm:text-sm">
-                          {laterCheckInCandidate.result.productName} · {laterCheckInAge === null ? (isRussian ? 'позже' : 'later') : laterCheckInAge === 0 ? (isRussian ? 'только что' : 'just now') : `${laterCheckInAge}h ago`}
+                          {inAppReminder.body}
                         </p>
                       </div>
                       <ChevronRight className="h-6 w-6 shrink-0 text-zinc-400 transition group-hover:translate-x-0.5" />
