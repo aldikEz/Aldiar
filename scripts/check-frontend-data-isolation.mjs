@@ -13,7 +13,7 @@ const checks = [
   },
   {
     name: 'food_events read is scoped to current user',
-    ok: has(/\.from\('food_events'\)[\s\S]{0,260}\.select\('user_id,local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,note,created_at'\)[\s\S]{0,180}\.eq\('user_id', session\.user\.id\)/),
+    ok: has(/\.from\('food_events'\)[\s\S]{0,360}\.select\('user_id,local_scan_id,result,nutrition,image_data_url,eaten,feeling,feeling_logged_at,feeling_delay_minutes,food_category,consumed_at,note,created_at'\)[\s\S]{0,180}\.eq\('user_id', session\.user\.id\)/),
   },
   {
     name: 'profiles read is scoped to current user',
@@ -29,7 +29,7 @@ const checks = [
   },
   {
     name: 'scan corrections upsert is user-owned',
-    ok: has(/\.from\('scan_corrections'\)[\s\S]{0,420}user_id: session\.user\.id[\s\S]{0,260}\{ onConflict: 'user_id,local_scan_id' \}/),
+    ok: has(/const payload = \{[\s\S]{0,160}user_id: session\.user\.id[\s\S]{0,520}\.from\('scan_corrections'\)[\s\S]{0,140}\.upsert\(payload, \{ onConflict: 'user_id,local_scan_id' \}\)/),
   },
   {
     name: 'food events upsert is user-owned',
@@ -54,6 +54,19 @@ const checks = [
   {
     name: 'volatile dashboard state resets on user switch',
     ok: has(/useEffect\(\(\) => \{[\s\S]{0,900}setRecentScans\(\[\]\);[\s\S]{0,900}setActiveRecentScanId\(null\);[\s\S]{0,900}setWaterMl\(0\);[\s\S]{0,900}\}, \[initialName, initialUsername, session\.user\.id\]\);/),
+  },
+  {
+    name: 'recent scan cache is namespaced by user and owner filtered',
+    ok: has(/function recentScansStorageKey\(userId\?: string\)[\s\S]{0,120}DIGESTSNAP_RECENT_SCANS_STORAGE_KEY}:\$\{userId\}/)
+      && has(/\(!userId \|\| typeof item\.ownerId !== 'string' \|\| item\.ownerId === userId\)/)
+      && has(/\.filter\(\(scan\) => !userId \|\| !scan\.ownerId \|\| scan\.ownerId === userId\)/)
+      && has(/window\.localStorage\.setItem\(recentScansStorageKey\(userId\), JSON\.stringify\(ownedScans\)\)/),
+  },
+  {
+    name: 'profile, streak, and language cache keys are namespaced by user',
+    ok: has(/function profileStorageKey\(userId\?: string\)/)
+      && has(/function streakStorageKey\(userId\?: string\)/)
+      && has(/function languageStorageKey\(userId\?: string\)/),
   },
   {
     name: 'entries reload when user changes',
