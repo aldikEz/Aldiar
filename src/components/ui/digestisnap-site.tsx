@@ -64,6 +64,11 @@ type FoodEventRow = {
   note: string | null;
   created_at: string;
 };
+type ScanCorrectionRow = {
+  user_id: string;
+  corrected_result: unknown;
+  corrected_nutrition: unknown;
+};
 type UserDailyStateRow = {
   user_id: string;
   day: string;
@@ -429,6 +434,16 @@ function languageStorageKey(userId?: string) {
   return userId ? `${DIGESTSNAP_LANGUAGE_STORAGE_KEY}:${userId}` : DIGESTSNAP_LANGUAGE_STORAGE_KEY;
 }
 
+function scanCorrectionProductKey(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .slice(0, 160);
+}
+
 function nutritionNumber(value: unknown, fallback = 0) {
   const numberValue = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(numberValue)) return fallback;
@@ -562,6 +577,15 @@ function nutritionForResult(result: ImageScanPayload['result']): NutritionFacts 
   }
 
   return normalizeNutritionFacts(result.nutrition) ?? (isLikelyMealOrWholeFoodNutrition(result) ? estimateNutritionFromScan(result) : EMPTY_NUTRITION);
+}
+
+function isScanResultLike(value: unknown): value is ImageScanPayload['result'] {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ImageScanPayload['result']>;
+  return typeof candidate.productName === 'string'
+    && ['Safe', 'Caution', 'Avoid'].includes(String(candidate.overallRating))
+    && typeof candidate.score === 'number'
+    && Array.isArray(candidate.flaggedChemicals);
 }
 
 const PORTION_MULTIPLIERS: Record<PortionOption, number> = {
@@ -2533,27 +2557,78 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     correctedNutrition: NutritionFacts,
   ) => {
     if (!localScanId) return false;
+    const productKey = scanCorrectionProductKey(correctedResult.productName || originalResult.productName);
+    const payload = {
+      user_id: session.user.id,
+      local_scan_id: localScanId,
+      product_key: productKey,
+      original_result: originalResult,
+      corrected_result: correctedResult,
+      corrected_nutrition: correctedNutrition,
+      updated_at: new Date().toISOString(),
+    };
 
     const { error } = await supabase
       .from('scan_corrections')
-      .upsert(
-        {
-          user_id: session.user.id,
-          local_scan_id: localScanId,
-          original_result: originalResult,
-          corrected_result: correctedResult,
-          corrected_nutrition: correctedNutrition,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,local_scan_id' },
-      );
+      .upsert(payload, { onConflict: 'user_id,local_scan_id' });
 
     if (error) {
+      if (/product_key/i.test(error.message)) {
+        const { product_key: _productKey, ...fallbackPayload } = payload;
+        const { error: fallbackError } = await supabase
+          .from('scan_corrections')
+          .upsert(fallbackPayload, { onConflict: 'user_id,local_scan_id' });
+
+        if (!fallbackError) return true;
+      }
+
       console.warn('DigestSnap correction persistence failed.', error.message);
       return false;
     }
 
     return true;
+  };
+
+  const applyReusableScanCorrection = async (scan: ImageScanPayload): Promise<ImageScanPayload> => {
+    const productKey = scanCorrectionProductKey(scan.result.productName);
+    if (!productKey) return scan;
+
+    const { data, error } = await supabase
+      .from('scan_corrections')
+      .select('user_id,corrected_result,corrected_nutrition')
+      .eq('user_id', session.user.id)
+      .eq('product_key', productKey)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<ScanCorrectionRow>();
+
+    if (error || !data || data.user_id !== session.user.id || !isScanResultLike(data.corrected_result)) {
+      return scan;
+    }
+
+    const correctedNutrition = normalizeNutritionFacts(data.corrected_nutrition)
+      ?? normalizeNutritionFacts(data.corrected_result.nutrition)
+      ?? nutritionForResult(data.corrected_result);
+
+    return {
+      result: {
+        ...data.corrected_result,
+        nutrition: correctedNutrition,
+        nutritionMeta: {
+          source: 'user_corrected',
+          confidence: 'high',
+          label: isRussian ? 'Питание исправлено' : 'User corrected nutrition',
+          detail: isRussian ? 'Использовано ваше последнее исправление для этого продукта' : 'Used your latest correction for this product',
+        },
+        confidence: {
+          level: 'high',
+          source: 'user_corrected',
+          score: 100,
+          label: isRussian ? 'Исправлено вручную' : 'User corrected',
+          detail: isRussian ? 'Использовано сохраненное исправление' : 'Used your saved correction',
+        },
+      },
+    };
   };
 
   const persistFoodEvent = async (scan: RecentScan) => {
@@ -2691,11 +2766,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         return;
       }
 
+      const correctedScan = await applyReusableScanCorrection(result.scan);
       const scanImageDataUrl = normalizeImageDataUrl(result.compressedImage.imageBase64 || stableImageDataUrl, result.compressedImage.mimeType);
-      const nutrition = nutritionForResult(result.scan.result);
+      const nutrition = nutritionForResult(correctedScan.result);
       const normalizedScan: ImageScanPayload = {
         result: {
-          ...result.scan.result,
+          ...correctedScan.result,
           nutrition,
         },
       };
@@ -2765,10 +2841,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         slowAfterMs: 1_800,
         hardTimeoutMs: 9_000,
       });
-      const nutrition = nutritionForResult(result.result);
+      const correctedScan = await applyReusableScanCorrection(result);
+      const nutrition = nutritionForResult(correctedScan.result);
       const normalizedScan: ImageScanPayload = {
         result: {
-          ...result.result,
+          ...correctedScan.result,
           nutrition,
         },
       };

@@ -92,6 +92,11 @@ const checks = [
     ok: /on public\.user_daily_state[\s\S]+auth\.uid\(\)\s*=\s*user_id/.test(migrations),
   },
   {
+    name: 'scan corrections have reusable product key',
+    ok: /\bproduct_key\s+text\b/.test(migrations)
+      && /scan_corrections_user_product_key_updated_idx/.test(migrations),
+  },
+  {
     name: 'frontend reads Supabase food_events',
     ok: /\.from\('food_events'\)[\s\S]{0,500}\.select/.test(app),
   },
@@ -123,6 +128,11 @@ const checks = [
     name: 'frontend only shows recovered cache after Supabase backfill',
     ok: /Promise\.allSettled\(cachedScans\.map\(\(scan\) => persistFoodEvent\(scan\)\)\)/.test(app)
       && /setRecentScans\(recoveredScans\)/.test(app),
+  },
+  {
+    name: 'frontend persists reusable scan corrections',
+    ok: /product_key:\s*productKey/.test(app)
+      && /\.from\('scan_corrections'\)[\s\S]{0,700}\.eq\('product_key', productKey\)/.test(app),
   },
   {
     name: 'frontend reads Supabase daily state',
