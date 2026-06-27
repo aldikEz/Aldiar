@@ -27,7 +27,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { scanImageWithClientTimeout, type ImageScanPayload, type NutritionFacts } from '../../lib/imageScanClient';
+import { scanFoodTextWithClientTimeout, scanImageWithClientTimeout, type ImageScanPayload, type NutritionFacts } from '../../lib/imageScanClient';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import IPhoneMockup from './iphone-mockup';
@@ -743,6 +743,27 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+function createMenuScanThumbnail(title: string) {
+  const safeTitle = title.trim().replace(/[<&>]/g, '').slice(0, 42) || 'Menu item';
+  const initials = safeTitle
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? '')
+    .join('') || 'DS';
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640">
+      <rect width="640" height="640" rx="128" fill="#f7f5f1"/>
+      <rect x="62" y="62" width="516" height="516" rx="104" fill="#ffffff" stroke="#e7e2da" stroke-width="4"/>
+      <circle cx="320" cy="250" r="86" fill="#111111"/>
+      <text x="320" y="276" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="900" fill="#ffffff">${initials}</text>
+      <text x="320" y="390" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="36" font-weight="900" fill="#111111">Menu check</text>
+      <text x="320" y="438" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700" fill="#7a766f">${safeTitle}</text>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;base64,${window.btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
 function normalizeImageDataUrl(value: unknown, mimeType = 'image/jpeg') {
@@ -1911,6 +1932,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [cameraCapturing, setCameraCapturing] = useState(false);
+  const [menuDishInput, setMenuDishInput] = useState('');
+  const [menuDishScanning, setMenuDishScanning] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -2358,6 +2381,82 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }
   };
 
+  const runMenuDishScan = async () => {
+    const dishName = menuDishInput.trim();
+    if (dishName.length < 2 || menuDishScanning) return;
+
+    setMenuDishScanning(true);
+    setCameraSheetOpen(false);
+    setActiveTab('home');
+    setScanState('scanning');
+    setScanProgress(12);
+    setScanProgressText(copy.menuFallbackLoading);
+    setSelectedFeeling(null);
+    setSelectedMealStatus(null);
+    setSelectedPortion('medium');
+    setFixResultSheetOpen(false);
+    setActiveRecentScanId(null);
+    setResultSheetOpen(false);
+
+    const thumbnail = createMenuScanThumbnail(dishName);
+    setScanPreviewUrl(thumbnail);
+    const progressTimer = window.setInterval(() => {
+      setScanProgress((current) => Math.min(92, current + 9));
+    }, 260);
+
+    try {
+      const scanProfile = readStoredProfile(session.user.id) ?? storedProfile;
+      const result = await scanFoodTextWithClientTimeout({
+        dishName,
+        productKey: dishName,
+        userLang: language,
+        userTriggers: getProfileScanTriggers(scanProfile),
+        slowAfterMs: 1_800,
+        hardTimeoutMs: 9_000,
+      });
+      const nutrition = nutritionForResult(result.result);
+      const normalizedScan: ImageScanPayload = {
+        result: {
+          ...result.result,
+          nutrition,
+        },
+      };
+      const recentId = crypto.randomUUID();
+      const recentScan: RecentScan = {
+        id: recentId,
+        ownerId: session.user.id,
+        imageDataUrl: thumbnail,
+        result: normalizedScan.result,
+        nutrition,
+        createdAt: new Date().toISOString(),
+      };
+
+      await saveEntry(`${normalizedScan.result.overallRating}: ${normalizedScan.result.productName} scored ${normalizedScan.result.score}/100`);
+      window.clearInterval(progressTimer);
+      setScanResult(normalizedScan);
+      setScanProgress(100);
+      setScanProgressText(copy.savedRecent);
+      setScanState('done');
+      setActiveRecentScanId(recentId);
+      setRecentScans((items) => {
+        const next = [recentScan, ...items].slice(0, MAX_STORED_SCANS);
+        saveRecentScans(next, session.user.id);
+        return next;
+      });
+      setMenuDishInput('');
+      touchUserStreak();
+      void persistFoodEvent(recentScan);
+      window.setTimeout(() => setResultSheetOpen(true), 450);
+    } catch {
+      window.clearInterval(progressTimer);
+      setScanState('error');
+      setScanProgress(0);
+      setScanProgressText(copy.cameraCaptureError);
+    } finally {
+      setMenuDishScanning(false);
+    }
+  };
+
   const openCamera = () => {
     setResultSheetOpen(false);
     setCameraSheetOpen(true);
@@ -2719,6 +2818,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     cameraSubtitle: isRussian ? 'Заполните рамку продуктом или этикеткой' : 'Fill the square with the label',
     cameraHint: isRussian ? 'Держите состав четко и ровно' : 'Keep ingredients sharp and flat',
     cameraUnavailable: isRussian ? 'Камера недоступна' : 'Camera unavailable',
+    menuFallbackTitle: isRussian ? 'Нет фото? Введите блюдо' : 'No photo? Type the dish',
+    menuFallbackPlaceholder: isRussian ? 'Например: курица терияки' : 'Example: chicken teriyaki',
+    menuFallbackAction: isRussian ? 'Проверить' : 'Check',
+    menuFallbackLoading: isRussian ? 'Проверяем блюдо...' : 'Checking dish...',
     aiCoolingDownTitle: isRussian ? 'AI временно занят' : 'AI cooling down',
     aiCoolingDownBody: isRussian ? 'Gemini временно ограничил запросы. Этот результат не добавлен в историю. Попробуйте еще раз через минуту' : 'Gemini temporarily rate-limited scans. This result was not added to history; try again in a minute',
   };
@@ -3999,6 +4102,35 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     {cameraCapturing ? <LoaderCircle className="h-9 w-9 animate-spin stroke-[2.8]" /> : <Camera className="h-9 w-9 stroke-[2.8]" />}
                   </button>
                 </div>
+                <form
+                  className="mx-auto mt-5 flex max-w-[420px] gap-2 rounded-[22px] bg-white/10 p-2 ring-1 ring-white/10 backdrop-blur-xl"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void runMenuDishScan();
+                  }}
+                >
+                  <label className="sr-only" htmlFor="menu-dish-input">
+                    {copy.menuFallbackTitle}
+                  </label>
+                  <input
+                    className="min-w-0 flex-1 rounded-[16px] border-0 bg-white px-4 py-3 text-sm font-bold text-zinc-950 outline-none placeholder:text-zinc-400"
+                    id="menu-dish-input"
+                    maxLength={80}
+                    onChange={(event) => setMenuDishInput(event.target.value)}
+                    placeholder={copy.menuFallbackPlaceholder}
+                    value={menuDishInput}
+                  />
+                  <button
+                    className={cn(
+                      'rounded-[16px] px-4 py-3 text-sm font-black transition active:scale-95',
+                      menuDishInput.trim().length >= 2 && !menuDishScanning ? 'bg-white text-zinc-950' : 'bg-white/20 text-white/45',
+                    )}
+                    disabled={menuDishInput.trim().length < 2 || menuDishScanning}
+                    type="submit"
+                  >
+                    {menuDishScanning ? <LoaderCircle className="h-5 w-5 animate-spin" /> : copy.menuFallbackAction}
+                  </button>
+                </form>
               </div>
             </motion.div>
           )}
