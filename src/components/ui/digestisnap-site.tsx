@@ -3512,6 +3512,21 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             ? 'Дальше выберите: съели это или просто проверяли'
             : 'Next, choose whether you ate it or were just checking'
     : '';
+  const resultNutritionSummary = scanResult
+    ? scanNutrition && scanNutrition.calories > 0
+      ? `${scanNutrition.calories} cal`
+      : isRussian
+        ? 'Не подтв.'
+        : 'Unconfirmed'
+    : '--';
+  const resultSnapshotItems = scanResult
+    ? [
+        [isRussian ? 'Вердикт' : 'Verdict', isResultImageCheckError ? copy.needsRetake : ratingLabel(scanResult.result.overallRating)],
+        [isRussian ? 'Оценка' : 'Score', resultScoreLabel],
+        [isRussian ? 'Доверие' : 'Trust', resultConfidenceShort],
+        [isRussian ? 'Питание' : 'Nutrition', resultNutritionSummary],
+      ]
+    : [];
   const aiIdentifiedText = scanResult
     ? isResultImageCheckError
       ? isRussian ? 'Фото сохранено, но AI не уверен в еде' : 'Image saved, but AI is not confident about the food'
@@ -4958,6 +4973,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   />
                 )}
 
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {resultSnapshotItems.map(([label, value]) => (
+                    <div className="min-w-0 rounded-[18px] bg-white px-3 py-3 shadow-sm ring-1 ring-zinc-950/[0.06]" key={label}>
+                      <p className="truncate text-base font-black leading-none text-zinc-950">{value}</p>
+                      <p className="mt-2 truncate text-[10px] font-black uppercase text-zinc-400">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
                 <div className={cn('mt-3 grid gap-2 rounded-[22px] p-3 ring-1 sm:grid-cols-2', theme.soft)}>
                   {[
                     [isRussian ? 'AI увидел' : 'AI identified', aiIdentifiedText],
@@ -5046,24 +5070,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     </div>
                   </div>
                 )}
-
-                <div className={cn('mt-3 grid grid-cols-3 gap-2 rounded-[22px] p-3 ring-1 sm:mt-4 sm:rounded-[24px]', theme.soft)}>
-                  {[
-                    [isRussian ? 'Питание' : 'Nutrition', selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено' : 'Counted') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Только сохранено' : 'Saved only') : (isRussian ? 'Выберите' : 'Choose')],
-                    [isRussian ? 'Самочувствие' : 'Feeling', selectedFeeling ?? (isRussian ? 'Later' : 'Later')],
-                    [
-                      isRussian ? 'Сохранено' : 'Saved',
-                      activeSavedScan
-                        ? new Date(activeSavedScan.createdAt).toLocaleDateString(language === 'Russian' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })
-                        : isRussian ? 'Сейчас' : 'Now',
-                    ],
-                  ].map(([label, value]) => (
-                    <div className="min-w-0 rounded-[18px] bg-white px-3 py-3 text-center shadow-sm ring-1 ring-zinc-950/[0.05]" key={label}>
-                      <p className="truncate text-sm font-black">{value}</p>
-                      <p className="mt-1 truncate text-[10px] font-black uppercase text-zinc-400">{label}</p>
-                    </div>
-                  ))}
-                </div>
 
                 {!isResultImageCheckError && scanNutrition && (
                   <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
