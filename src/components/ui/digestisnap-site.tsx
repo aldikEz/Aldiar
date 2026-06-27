@@ -2177,6 +2177,32 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const todayKey = localDateKey();
 
+  useEffect(() => {
+    setRecentScans([]);
+    setLogs([]);
+    setScanResult(null);
+    setScanPreviewUrl((current) => {
+      if (current) revokeObjectUrl(current);
+      return '';
+    });
+    setActiveRecentScanId(null);
+    setSelectedMealStatus(null);
+    setSelectedFeeling(null);
+    setSelectedPortion('medium');
+    setResultSheetOpen(false);
+    setHistorySheetOpen(false);
+    setFixResultSheetOpen(false);
+    setWaterMl(0);
+    setWaterUnit('oz');
+    setManualWaterAmount('');
+    setStreak(readStoredStreak(session.user.id));
+    setLanguage(readStoredLanguage(session.user.id));
+    setProfileName(initialName);
+    setProfileUsername(initialUsername);
+    setProfileDraftName(initialName);
+    setProfileDraftUsername(initialUsername);
+  }, [initialName, initialUsername, session.user.id]);
+
   const persistDailyState = async (patch: { waterMl?: number; waterUnit?: WaterUnit; streak?: StoredStreak }) => {
     const nextWaterMl = Math.round(clampNumber(patch.waterMl ?? waterMl, waterMl, 0, 20000));
     const nextWaterUnit = patch.waterUnit ?? waterUnit;
@@ -2272,7 +2298,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return () => {
       active = false;
     };
-  }, []);
+  }, [session.user.id]);
 
   useEffect(() => {
     let active = true;

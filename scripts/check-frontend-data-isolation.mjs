@@ -51,6 +51,14 @@ const checks = [
     name: 'remote entry rows are filtered after fetch',
     ok: has(/setLogs\(\(data \?\? \[\]\)\.filter\(\(item\) => item\.user_id === session\.user\.id\)\)/),
   },
+  {
+    name: 'volatile dashboard state resets on user switch',
+    ok: has(/useEffect\(\(\) => \{[\s\S]{0,900}setRecentScans\(\[\]\);[\s\S]{0,900}setActiveRecentScanId\(null\);[\s\S]{0,900}setWaterMl\(0\);[\s\S]{0,900}\}, \[initialName, initialUsername, session\.user\.id\]\);/),
+  },
+  {
+    name: 'entries reload when user changes',
+    ok: has(/loadEntries\(\);[\s\S]{0,120}return \(\) => \{[\s\S]{0,80}active = false;[\s\S]{0,80}\};[\s\S]{0,40}\}, \[session\.user\.id\]\);/),
+  },
 ];
 
 const failed = checks.filter((check) => !check.ok);
