@@ -588,6 +588,10 @@ function addNutritionValues(items: NutritionFacts[]): NutritionFacts {
   );
 }
 
+function isNutritionCountedScan(scan: RecentScan) {
+  return scan.eaten === true;
+}
+
 function isSameLocalDay(value: string | undefined, dayKey: string) {
   if (!value) return false;
   const date = new Date(value);
@@ -2896,7 +2900,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         ? isRussian ? 'Профиль ставит умеренный дефицит от поддержки веса' : 'Your profile sets a moderate deficit from maintenance'
         : isRussian ? 'Профиль держит цель около поддержки веса' : 'Your profile keeps the target near maintenance';
   const selectedDayScans = recentScans.filter((item) => isSameLocalDay(item.createdAt, selectedHomeDate));
-  const selectedDayEatenScans = selectedDayScans.filter((item) => item.eaten);
+  const selectedDayEatenScans = selectedDayScans.filter(isNutritionCountedScan);
   const selectedDayFeelingCount = selectedDayScans.filter((item) => item.eaten === true && item.feeling).length;
   const selectedDayAverageScore = selectedDayScans.length
     ? Math.round(selectedDayScans.reduce((sum, item) => sum + item.result.score, 0) / selectedDayScans.length)
