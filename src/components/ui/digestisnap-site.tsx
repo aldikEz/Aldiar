@@ -371,6 +371,7 @@ type StoredStreak = {
 
 type RecentScan = {
   id: string;
+  ownerId?: string;
   imageDataUrl: string;
   result: ImageScanPayload['result'];
   nutrition: NutritionFacts;
@@ -674,10 +675,12 @@ function readRecentScans(userId?: string): RecentScan[] {
         typeof item.id === 'string' &&
         typeof item.imageDataUrl === 'string' &&
         typeof item.createdAt === 'string' &&
+        (!userId || typeof item.ownerId !== 'string' || item.ownerId === userId) &&
         Boolean(item.result?.productName)
       ))
       .map((item) => ({
         id: item.id,
+        ownerId: typeof item.ownerId === 'string' ? item.ownerId : userId,
         imageDataUrl: normalizeImageDataUrl(item.imageDataUrl),
         result: {
           ...item.result,
@@ -698,7 +701,11 @@ function readRecentScans(userId?: string): RecentScan[] {
 
 function saveRecentScans(scans: RecentScan[], userId?: string) {
   try {
-    window.localStorage.setItem(recentScansStorageKey(userId), JSON.stringify(scans.slice(0, MAX_STORED_SCANS)));
+    const ownedScans = scans
+      .filter((scan) => !userId || !scan.ownerId || scan.ownerId === userId)
+      .map((scan) => ({ ...scan, ownerId: scan.ownerId ?? userId }))
+      .slice(0, MAX_STORED_SCANS);
+    window.localStorage.setItem(recentScansStorageKey(userId), JSON.stringify(ownedScans));
   } catch {
     // Recent scan thumbnails are a convenience cache; scanning still works without it.
   }
@@ -713,6 +720,7 @@ function foodEventRowToRecentScan(row: FoodEventRow): RecentScan | null {
 
   return {
     id: row.local_scan_id,
+    ownerId: row.user_id,
     imageDataUrl: normalizeImageDataUrl(row.image_data_url ?? ''),
     result: {
       ...result,
@@ -2246,6 +2254,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       const errorNutrition = nutritionForResult(errorResult);
       const errorRecentScan: RecentScan = {
         id: crypto.randomUUID(),
+        ownerId: session.user.id,
         imageDataUrl: normalizeImageDataUrl(imageDataUrl),
         result: {
           ...errorResult,
@@ -2310,6 +2319,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       await saveEntry(`${normalizedScan.result.overallRating}: ${normalizedScan.result.productName} scored ${normalizedScan.result.score}/100`);
       const recentScan: RecentScan = {
         id: recentId,
+        ownerId: session.user.id,
         imageDataUrl: scanImageDataUrl,
         result: normalizedScan.result,
         nutrition,
