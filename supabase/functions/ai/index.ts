@@ -1716,6 +1716,110 @@ function applyUncertaintyGuardrails(scan: ScanPayload, targetLang: string): Scan
   };
 }
 
+function getNutritionGuardrailText(scan: ScanPayload) {
+  return [
+    scan.result.productName,
+    scan.result.basis?.portionBasis,
+    scan.result.basis?.decisionBasis,
+    ...scan.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function isPackagedNutritionEstimate(scan: ScanPayload) {
+  const text = getNutritionGuardrailText(scan);
+  return hasAny(text, [
+    /\b(package|packaged|wrapper|label|barcode|bottle|can|bar|chips|crisps|snack|candy|chocolate|soda|cola|fanta|sprite|pepsi|fuse|iced?\s*tea|energy\s*drink|juice|kinder|lays?|pringles|doritos|cheetos)\b/i,
+    /упаков/i,
+    /этикетк/i,
+    /штрихкод/i,
+    /бутыл/i,
+    /банка/i,
+    /батончик/i,
+    /чипс/i,
+    /снек/i,
+    /конфет/i,
+    /шоколад/i,
+    /газиров/i,
+    /кола/i,
+    /сок/i,
+    /холодн\w*\s+чай/i,
+    /энергет/i,
+    /молочный\s+ломтик/i,
+  ]);
+}
+
+function isMealOrWholeFoodEstimate(scan: ScanPayload) {
+  const text = getNutritionGuardrailText(scan);
+  return hasAny(text, [
+    /\b(apple|banana|orange|berries|grapes|kiwi|avocado|egg|omelette|chicken|turkey|beef|steak|meat|fish|salmon|tuna|rice|buckwheat|oats|oatmeal|pasta|macaroni|spaghetti|noodles|bread|toast|wrap|bun|potato|beans|lentils|vegetable|salad|cucumber|tomato|carrot|broccoli|spinach|burger|shawarma|kebab|fried\s+chicken|meal|plate|bowl)\b/i,
+    /яблок/i,
+    /банан/i,
+    /апельсин/i,
+    /ягод/i,
+    /виноград/i,
+    /киви/i,
+    /авокад/i,
+    /яйц/i,
+    /омлет/i,
+    /куриц/i,
+    /индейк/i,
+    /говядин/i,
+    /мясо/i,
+    /рыб/i,
+    /лосос/i,
+    /тунец/i,
+    /рис/i,
+    /гречк/i,
+    /овсян/i,
+    /паста/i,
+    /макарон/i,
+    /спагетти/i,
+    /лапша/i,
+    /хлеб/i,
+    /тост/i,
+    /лаваш/i,
+    /картоф/i,
+    /боб/i,
+    /овощ/i,
+    /салат/i,
+    /огур/i,
+    /помидор/i,
+    /морков/i,
+    /брокколи/i,
+    /бургер/i,
+    /шаурм/i,
+    /кебаб/i,
+    /тарелк/i,
+    /миска/i,
+  ]);
+}
+
+function applyNutritionSourceGuardrails(scan: ScanPayload, targetLang: string): ScanPayload {
+  if (!scan.result.nutrition) {
+    return scan;
+  }
+
+  const source = scan.result.nutritionMeta?.source;
+  if (source === 'database' || source === 'label_estimate' || source === 'manual_estimate' || source === 'user_corrected') {
+    return scan;
+  }
+
+  if (!isPackagedNutritionEstimate(scan) || isMealOrWholeFoodEstimate(scan)) {
+    return scan;
+  }
+
+  return {
+    result: {
+      ...scan.result,
+      nutrition: undefined,
+      nutritionMeta: makeNutritionMeta('unknown', targetLang, 'low'),
+    },
+  };
+}
+
 function withScanConfidence(scan: ScanPayload, targetLang: string, source?: ScanConfidenceSource, scoreOverride?: number): ScanPayload {
   const fallbackSource = source ?? scan.result.confidence?.source ?? (isUnusableVisualScan(scan) ? 'fallback' : 'label_read');
   const fallback = makeScanConfidence(fallbackSource, targetLang, scoreOverride ?? (source ? undefined : scan.result.confidence?.score));
@@ -1729,14 +1833,14 @@ function withScanConfidence(scan: ScanPayload, targetLang: string, source?: Scan
       )
     : undefined;
 
-  return applyUncertaintyGuardrails({
+  return applyNutritionSourceGuardrails(applyUncertaintyGuardrails({
     result: {
       ...scan.result,
       nutritionMeta,
       confidence,
       basis: normalizeScanBasis(scan.result.basis, targetLang, confidence.source),
     },
-  }, targetLang);
+  }, targetLang), targetLang);
 }
 
 function normalizeScanPayload(value: unknown, targetLang: string, fallback: ScanPayload = fallbackScanPayload(targetLang)): ScanPayload {

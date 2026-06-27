@@ -504,8 +504,43 @@ function estimateNutritionFromScan(result: ImageScanPayload['result']): Nutritio
   return { calories: 160, proteinG: 8, carbsG: 18, fatG: 5, fiberG: 3, sugarG: 4, sodiumMg: 120 };
 }
 
+const EMPTY_NUTRITION: NutritionFacts = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sugarG: 0, sodiumMg: 0 };
+
+function nutritionSearchText(result: ImageScanPayload['result']) {
+  return [
+    result.productName,
+    result.overallRating,
+    result.basis?.portionBasis,
+    result.basis?.decisionBasis,
+    ...result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+  ].join(' ').toLowerCase();
+}
+
+function isLikelyPackagedNutrition(result: ImageScanPayload['result']) {
+  const text = nutritionSearchText(result);
+  return /\b(package|packaged|wrapper|label|barcode|bottle|can|bar|chips|crisps|snack|candy|chocolate|soda|cola|fanta|sprite|pepsi|fuse|iced?\s*tea|energy\s*drink|juice|kinder|lays?|pringles|doritos|cheetos)\b|упаков|этикетк|штрихкод|бутыл|банка|батончик|чипс|снек|конфет|шоколад|газиров|кола|сок|холодн\w*\s+чай|энергет|молочный\s+ломтик/i.test(text);
+}
+
+function isLikelyMealOrWholeFoodNutrition(result: ImageScanPayload['result']) {
+  const text = nutritionSearchText(result);
+  return /\b(apple|banana|orange|berries|grapes|kiwi|avocado|egg|omelette|chicken|turkey|beef|steak|meat|fish|salmon|tuna|rice|buckwheat|oats|oatmeal|pasta|macaroni|spaghetti|noodles|bread|toast|wrap|bun|potato|beans|lentils|vegetable|salad|cucumber|tomato|carrot|broccoli|spinach|burger|shawarma|kebab|fried\s+chicken|meal|plate|bowl)\b|яблок|банан|апельсин|ягод|виноград|киви|авокад|яйц|омлет|куриц|индейк|говядин|мясо|рыб|лосос|тунец|рис|гречк|овсян|паста|макарон|спагетти|лапша|хлеб|тост|лаваш|картоф|боб|овощ|салат|огур|помидор|морков|брокколи|бургер|шаурм|кебаб|жарен\w*\s+куриц|тарелк|миска/i.test(text);
+}
+
+function shouldSuppressUnverifiedPackagedNutrition(result: ImageScanPayload['result']) {
+  const source = result.nutritionMeta?.source;
+  if (source === 'database' || source === 'label_estimate' || source === 'manual_estimate' || source === 'user_corrected') {
+    return false;
+  }
+
+  return isLikelyPackagedNutrition(result) && !isLikelyMealOrWholeFoodNutrition(result);
+}
+
 function nutritionForResult(result: ImageScanPayload['result']): NutritionFacts {
-  return normalizeNutritionFacts(result.nutrition) ?? estimateNutritionFromScan(result);
+  if (shouldSuppressUnverifiedPackagedNutrition(result)) {
+    return EMPTY_NUTRITION;
+  }
+
+  return normalizeNutritionFacts(result.nutrition) ?? (isLikelyMealOrWholeFoodNutrition(result) ? estimateNutritionFromScan(result) : EMPTY_NUTRITION);
 }
 
 const PORTION_MULTIPLIERS: Record<PortionOption, number> = {
@@ -3085,6 +3120,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     };
   };
   const getNutritionMeta = (result: ImageScanPayload['result']) => {
+    if (shouldSuppressUnverifiedPackagedNutrition(result)) {
+      return {
+        source: 'unknown' as const,
+        confidence: 'low' as const,
+        label: isRussian ? 'Питание не подтверждено' : 'Nutrition not confirmed',
+        detail: isRussian ? 'Для упаковки нужны база, этикетка или ручное исправление' : 'Packaged nutrition needs database data, a readable label, or a manual correction',
+      };
+    }
+
     if (result.nutritionMeta) {
       return result.nutritionMeta;
     }
