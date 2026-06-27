@@ -374,7 +374,9 @@ type RecentScan = {
   ownerId?: string;
   imageDataUrl: string;
   result: ImageScanPayload['result'];
+  baseNutrition?: NutritionFacts;
   nutrition: NutritionFacts;
+  portion?: PortionOption;
   eaten?: boolean;
   feeling?: FeelingOption;
   consumedAt?: string;
@@ -441,6 +443,10 @@ function normalizeNutritionFacts(value: unknown): NutritionFacts | null {
     sugarG: nutritionNumber(value.sugarG),
     sodiumMg: nutritionNumber(value.sodiumMg),
   };
+}
+
+function isPortionOption(value: unknown): value is PortionOption {
+  return value === 'small' || value === 'medium' || value === 'large' || value === 'package';
 }
 
 function estimateNutritionFromScan(result: ImageScanPayload['result']): NutritionFacts {
@@ -735,21 +741,29 @@ function readRecentScans(userId?: string): RecentScan[] {
         (!userId || typeof item.ownerId !== 'string' || item.ownerId === userId) &&
         Boolean(item.result?.productName)
       ))
-      .map((item) => ({
-        id: item.id,
-        ownerId: typeof item.ownerId === 'string' ? item.ownerId : userId,
-        imageDataUrl: normalizeImageDataUrl(item.imageDataUrl),
-        result: {
-          ...item.result,
-          nutrition: normalizeNutritionFacts(item.result.nutrition) ?? normalizeNutritionFacts(item.nutrition) ?? estimateNutritionFromScan(item.result),
-        },
-        nutrition: normalizeNutritionFacts(item.nutrition) ?? normalizeNutritionFacts(item.result.nutrition) ?? estimateNutritionFromScan(item.result),
-        eaten: typeof item.eaten === 'boolean' ? item.eaten : undefined,
-        feeling: item.feeling === 'Fine' || item.feeling === 'Bloated' || item.feeling === 'Pain' || item.feeling === 'Nausea' ? item.feeling : undefined,
-        consumedAt: typeof item.consumedAt === 'string' ? item.consumedAt : undefined,
-        note: typeof item.note === 'string' ? item.note : undefined,
-        createdAt: item.createdAt,
-      }))
+      .map((item) => {
+        const portion = isPortionOption(item.portion) ? item.portion : 'medium';
+        const baseNutrition = normalizeNutritionFacts(item.baseNutrition) ?? normalizeNutritionFacts(item.result.nutrition) ?? nutritionForResult(item.result);
+        const nutrition = normalizeNutritionFacts(item.nutrition) ?? scaleNutritionFacts(baseNutrition, portion);
+
+        return {
+          id: item.id,
+          ownerId: typeof item.ownerId === 'string' ? item.ownerId : userId,
+          imageDataUrl: normalizeImageDataUrl(item.imageDataUrl),
+          result: {
+            ...item.result,
+            nutrition: baseNutrition,
+          },
+          baseNutrition,
+          nutrition,
+          portion,
+          eaten: typeof item.eaten === 'boolean' ? item.eaten : undefined,
+          feeling: item.feeling === 'Fine' || item.feeling === 'Bloated' || item.feeling === 'Pain' || item.feeling === 'Nausea' ? item.feeling : undefined,
+          consumedAt: typeof item.consumedAt === 'string' ? item.consumedAt : undefined,
+          note: typeof item.note === 'string' ? item.note : undefined,
+          createdAt: item.createdAt,
+        };
+      })
       .slice(0, MAX_STORED_SCANS);
   } catch {
     return [];
@@ -773,7 +787,8 @@ function foodEventRowToRecentScan(row: FoodEventRow): RecentScan | null {
   const productName = typeof row.result.productName === 'string' ? row.result.productName : '';
   if (!productName) return null;
   const result = row.result as ImageScanPayload['result'];
-  const nutrition = normalizeNutritionFacts(row.nutrition) ?? normalizeNutritionFacts(result.nutrition) ?? estimateNutritionFromScan(result);
+  const baseNutrition = normalizeNutritionFacts(result.nutrition) ?? nutritionForResult(result);
+  const nutrition = normalizeNutritionFacts(row.nutrition) ?? baseNutrition;
 
   return {
     id: row.local_scan_id,
@@ -781,9 +796,11 @@ function foodEventRowToRecentScan(row: FoodEventRow): RecentScan | null {
     imageDataUrl: normalizeImageDataUrl(row.image_data_url ?? ''),
     result: {
       ...result,
-      nutrition,
+      nutrition: baseNutrition,
     },
+    baseNutrition,
     nutrition,
+    portion: 'medium',
     eaten: typeof row.eaten === 'boolean' ? row.eaten : undefined,
     feeling: row.feeling === 'Fine' || row.feeling === 'Bloated' || row.feeling === 'Pain' || row.feeling === 'Nausea' ? row.feeling : undefined,
     consumedAt: row.consumed_at ?? undefined,
@@ -2434,7 +2451,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return true;
   };
 
-  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'result' | 'note'>>) => {
+  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'baseNutrition' | 'portion' | 'result' | 'note'>>) => {
     if (!id) return;
     setRecentScans((items) => {
       let updatedScan: RecentScan | null = null;
@@ -2450,12 +2467,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   };
 
   const openSavedScan = (item: RecentScan) => {
-    setScanResult({ result: { ...item.result, nutrition: item.nutrition } });
+    setScanResult({ result: { ...item.result, nutrition: item.baseNutrition ?? item.result.nutrition ?? item.nutrition } });
     setScanPreviewUrl(item.imageDataUrl);
     setActiveRecentScanId(item.id);
     setSelectedMealStatus(typeof item.eaten === 'boolean' ? (item.eaten ? 'eaten' : 'not_eaten') : null);
     setSelectedFeeling(item.feeling ?? null);
-    setSelectedPortion('medium');
+    setSelectedPortion(item.portion ?? 'medium');
     setHistorySheetOpen(false);
     setResultSheetOpen(true);
   };
@@ -2495,7 +2512,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           ...errorResult,
           nutrition: errorNutrition,
         },
+        baseNutrition: errorNutrition,
         nutrition: errorNutrition,
+        portion: 'medium',
         createdAt: new Date().toISOString(),
       };
       window.clearInterval(progressTimer);
@@ -2557,7 +2576,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         ownerId: session.user.id,
         imageDataUrl: scanImageDataUrl,
         result: normalizedScan.result,
+        baseNutrition: nutrition,
         nutrition,
+        portion: 'medium',
         createdAt: new Date().toISOString(),
       };
       setActiveRecentScanId(recentId);
@@ -2621,7 +2642,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         ownerId: session.user.id,
         imageDataUrl: thumbnail,
         result: normalizedScan.result,
+        baseNutrition: nutrition,
         nutrition,
+        portion: 'medium',
         createdAt: new Date().toISOString(),
       };
 
@@ -3407,7 +3430,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setScanResult({ result: fixedResult });
     updateRecentScan(activeRecentScanId, {
       result: fixedResult,
+      baseNutrition: fixedNutrition,
       nutrition: fixedNutrition,
+      portion: 'medium',
     });
     void persistScanCorrection(activeRecentScanId, originalResult, fixedResult, fixedNutrition);
     setFixResultSheetOpen(false);
@@ -4910,11 +4935,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             )}
                             key={portion}
                             onClick={() => {
-                              const nextNutrition = baseScanNutrition ? scaleNutritionFacts(baseScanNutrition, portion) : scanNutrition;
+                              const baseNutritionForPortion = activeSavedScan?.baseNutrition ?? baseScanNutrition ?? scanNutrition;
+                              if (!baseNutritionForPortion) return;
+                              const nextNutrition = scaleNutritionFacts(baseNutritionForPortion, portion);
                               setSelectedPortion(portion);
-                              if (selectedMealStatus === 'eaten') {
-                                updateRecentScan(activeRecentScanId, { nutrition: nextNutrition });
-                              }
+                              updateRecentScan(activeRecentScanId, {
+                                baseNutrition: baseNutritionForPortion,
+                                nutrition: nextNutrition,
+                                portion,
+                              });
                             }}
                             type="button"
                           >
@@ -4990,11 +5019,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 	                          onClick={() => {
 	                            setSelectedMealStatus(status);
 	                            if (status === 'not_eaten') setSelectedFeeling(null);
+                              const baseNutritionForPortion = activeSavedScan?.baseNutrition ?? baseScanNutrition ?? scanNutrition ?? undefined;
 	                            updateRecentScan(activeRecentScanId, {
 	                              eaten: status === 'eaten',
 	                              consumedAt: status === 'eaten' ? new Date().toISOString() : undefined,
 	                              feeling: status === 'eaten' ? selectedFeeling ?? undefined : undefined,
+                                baseNutrition: baseNutritionForPortion,
 	                              nutrition: scanNutrition ?? undefined,
+                                portion: selectedPortion,
 	                            });
 	                          }}
                           type="button"
