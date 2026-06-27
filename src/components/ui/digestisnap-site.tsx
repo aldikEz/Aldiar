@@ -517,6 +517,13 @@ function addNutritionValues(items: NutritionFacts[]): NutritionFacts {
   );
 }
 
+function isSameLocalDay(value: string | undefined, dayKey: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.toDateString() === dayKey;
+}
+
 function readStoredLanguage(userId?: string): AppLanguage {
   try {
     const raw = window.localStorage.getItem(languageStorageKey(userId));
@@ -2219,7 +2226,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : calorieMode === 'lose'
         ? Math.max(1200, maintenanceCalories - 350)
         : maintenanceCalories;
-  const eatenNutrition = addNutritionValues(recentScans.filter((item) => item.eaten).map((item) => item.nutrition));
+  const selectedDayEatenScans = recentScans.filter((item) => item.eaten && isSameLocalDay(item.consumedAt ?? item.createdAt, selectedHomeDate));
+  const eatenNutrition = addNutritionValues(selectedDayEatenScans.map((item) => item.nutrition));
   const caloriesEaten = eatenNutrition.calories;
   const weightKg = storedProfile?.weightKg && storedProfile.weightKg > 0 ? storedProfile.weightKg : 70;
   const proteinTarget = Math.round(weightKg * (calorieMode === 'gain' ? 2 : calorieMode === 'lose' ? 1.8 : 1.6));
@@ -2230,6 +2238,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     { label: 'Protein', value: eatenNutrition.proteinG, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
     { label: 'Carbs', value: eatenNutrition.carbsG, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
     { label: 'Fat', value: eatenNutrition.fatG, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
+  ];
+  const nutritionDetailCards = [
+    { label: 'Fiber', value: eatenNutrition.fiberG ?? 0, target: 30, unit: 'g' },
+    { label: 'Sugar', value: eatenNutrition.sugarG ?? 0, target: 50, unit: 'g' },
+    { label: 'Sodium', value: eatenNutrition.sodiumMg ?? 0, target: 2300, unit: 'mg' },
   ];
   const manualWaterNumber = Number(manualWaterAmount);
   const manualWaterMl =
@@ -2983,6 +2996,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full border-[7px] border-[#f4f2f8] sm:h-16 sm:w-16 sm:border-[9px] md:h-[72px] md:w-[72px]">
                                   <span className={cn('text-[10px] font-black sm:text-[13px] md:text-[14px]', card.color)}>{card.icon}</span>
                                 </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 rounded-[22px] bg-white p-2 shadow-[0_8px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:gap-3 sm:rounded-[24px] sm:p-3">
+                            {nutritionDetailCards.map((card) => (
+                              <div className="rounded-[16px] bg-zinc-50 px-2.5 py-3 text-center ring-1 ring-zinc-950/[0.04] sm:rounded-[18px] sm:px-3 sm:py-3.5" key={card.label}>
+                                <p className="text-[17px] font-black leading-none sm:text-[22px]">
+                                  {card.value}<span className="text-[10px] text-zinc-400 sm:text-xs">/{card.target}{card.unit}</span>
+                                </p>
+                                <p className="mt-1.5 text-[10px] font-black uppercase text-zinc-400 sm:text-[11px]">{card.label}</p>
                               </div>
                             ))}
                           </div>
