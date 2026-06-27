@@ -30,6 +30,7 @@
     "qa:history-isolation": "node scripts/check-history-isolation.mjs",
     "qa:loading-states": "node scripts/check-loading-states.mjs",
     "qa:copy": "node scripts/check-copy-consistency.mjs",
+    "qa:dashboard-clarity": "node scripts/check-dashboard-clarity.mjs",
     "qa:responsive": "node scripts/check-responsive-layout.mjs",
     "qa:pattern-engine": "node scripts/check-pattern-engine.mjs",
     "qa:catalog": "node qa/validate-real-scan-catalog.mjs",

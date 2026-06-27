@@ -3149,6 +3149,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     : null;
   const latestScore = scanResult?.result.score ?? latestSavedScan?.result.score ?? null;
   const latestRating = scanResult?.result.overallRating ?? latestSavedScan?.result.overallRating ?? null;
+  const homeHeroTitle = laterCheckInCandidate
+    ? isRussian ? 'Проверка' : 'Check in'
+    : latestScore !== null
+      ? isRussian ? 'Сохранено' : 'Saved'
+      : isRussian ? 'Готово' : 'Ready';
+  const homeHeroSubtitle = laterCheckInCandidate
+    ? isRussian
+      ? `Отметьте самочувствие после ${laterCheckInCandidate.result.productName}`
+      : `Log how you felt after ${laterCheckInCandidate.result.productName}`
+    : latestScore !== null
+      ? latestRating ?? (isRussian ? 'Результат сохранен' : 'Result saved')
+      : isRussian ? 'Первый снимок начнет вашу историю' : 'Your first photo starts the timeline';
   const healthScoreBarColor =
     gutScoreOutOfTen === null
       ? 'bg-zinc-200'
@@ -4434,11 +4446,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                               </div>
                             </div>
                             <div className="mt-4 flex items-end justify-center gap-1 sm:mt-5">
-                              <span className="text-[42px] font-black leading-none tracking-normal sm:text-[52px] md:text-[60px]">{latestScore ?? (isRussian ? 'Готово' : 'Ready')}</span>
-                              {latestScore !== null && <span className="pb-1.5 text-[22px] font-black text-zinc-400 sm:text-[26px]">/100</span>}
+                              <span className="text-[42px] font-black leading-none tracking-normal sm:text-[52px] md:text-[60px]">{laterCheckInCandidate ? homeHeroTitle : latestScore ?? homeHeroTitle}</span>
+                              {!laterCheckInCandidate && latestScore !== null && <span className="pb-1.5 text-[22px] font-black text-zinc-400 sm:text-[26px]">/100</span>}
                             </div>
                             <p className="mx-auto mt-2 max-w-[520px] text-[13px] font-black leading-5 text-zinc-500 sm:mt-3 sm:text-[15px] sm:leading-6">
-                              {latestScore !== null ? latestRating : (isRussian ? 'Сфотографируйте еду или состав, чтобы получить первый результат' : 'Scan food or a label to get the first result')}
+                              {homeHeroSubtitle}
                             </p>
                           </div>
                         </motion.div>
@@ -4597,9 +4609,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   >
                     <div className="flex w-full items-center justify-between gap-4">
                       <div>
-                        <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">{isRussian ? 'Паттерны' : 'Patterns'}</p>
+                        <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">{isRussian ? 'Прогресс' : 'Progress'}</p>
                         <p className="mt-1 text-[12px] font-semibold leading-4 text-zinc-500 sm:text-[13px] sm:leading-5 md:text-sm">
-                          {isRussian ? 'Серия, реакции и повторяющиеся продукты' : 'Streak, reactions, and repeat foods'}
+                          {isRussian ? 'Серия, реакции и повторяющиеся продукты' : 'Streak, check-ins, and repeat foods'}
                         </p>
                       </div>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 transition group-hover:scale-105 sm:h-11 sm:w-11">
@@ -4640,14 +4652,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                   <section className="pt-1 sm:pt-2">
                     <div className="flex items-center justify-between gap-4">
-                      <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">{isRussian ? 'Последние сканы' : 'Recent scans'}</h2>
+                      <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">{isRussian ? 'Таймлайн' : 'Timeline'}</h2>
                       {ownedRecentScans.length > 0 && (
                         <button
                           className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 shadow-[0_8px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.06] transition active:scale-95 sm:text-sm"
                           onClick={() => setHistorySheetOpen(true)}
                           type="button"
                         >
-                          {isRussian ? 'История' : 'View all'}
+                          {isRussian ? 'История' : 'Full history'}
                         </button>
                       )}
                     </div>
@@ -4716,9 +4728,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 shadow-inner ring-1 ring-zinc-950/[0.04]">
                           <Camera className="h-7 w-7" />
                         </div>
-                        <p className="mt-4 text-[17px] font-black text-zinc-950 sm:mt-5 sm:text-[22px]">{isRussian ? 'Сканов пока нет' : 'No scans yet'}</p>
+                        <p className="mt-4 text-[17px] font-black text-zinc-950 sm:mt-5 sm:text-[22px]">{isRussian ? 'Таймлайн пуст' : 'Timeline is empty'}</p>
                         <p className="mx-auto mt-2 max-w-[420px] text-sm font-semibold leading-6 text-zinc-500">
-                          {isRussian ? 'Сделайте фото еды или состава, чтобы сохранить первый результат' : 'Take a food or label photo to save the first result'}
+                          {isRussian ? 'Первое фото еды или состава появится здесь' : 'Your first food or label photo will appear here'}
                         </p>
                       </div>
                     )}
