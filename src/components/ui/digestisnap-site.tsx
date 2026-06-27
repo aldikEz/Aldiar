@@ -2958,6 +2958,24 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const termTokens = normalizedTerm.split(/\s+/).filter((token) => token.length >= 3);
     return scanResultSearchText.includes(normalizedTerm) || termTokens.some((token) => scanResultSearchText.includes(token));
   });
+  const personalScanMatches = Array.from(new Set([
+    ...(storedProfile?.triggers ?? []),
+    ...(storedProfile?.symptoms ?? []),
+  ].filter((item) => item && item !== 'None'))).filter((term) => {
+    const normalizedTerm = term.toLowerCase();
+    const termTokens = normalizedTerm.split(/\s+/).filter((token) => token.length >= 3);
+    return scanResultSearchText.includes(normalizedTerm) || termTokens.some((token) => scanResultSearchText.includes(token));
+  }).slice(0, 3);
+  const personalScanExplanation =
+    scanResult && !isResultImageCheckError && personalScanMatches.length > 0
+      ? isRussian
+        ? `Персонально для вас: совпало с ${personalScanMatches.join(', ')} из профиля`
+        : `Personal to you: matches ${personalScanMatches.join(', ')} from your profile`
+      : scanResult && !isResultImageCheckError && (storedProfile?.triggers.length || storedProfile?.symptoms.length)
+        ? isRussian
+          ? 'DigestSnap сравнил результат с вашим профилем, но явных совпадений не нашел'
+          : 'DigestSnap checked this against your profile and found no direct match'
+        : '';
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const patternInsight = buildPatternInsight(recentScans, language);
   const watchlistTerms = Array.from(new Set([
@@ -4105,6 +4123,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       <p className={cn('mt-3 max-w-[31rem] text-sm font-bold leading-6', resultTone.muted)}>
                         {resultVibe(scanResult.result)}
                       </p>
+                      {personalScanExplanation && (
+                        <p className="mt-2 max-w-[31rem] rounded-full bg-white px-3 py-2 text-xs font-black leading-5 text-zinc-700 shadow-sm ring-1 ring-zinc-950/[0.06]">
+                          {personalScanExplanation}
+                        </p>
+                      )}
                       {scanConfidence && (
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <span className={cn('rounded-full px-3 py-1 text-[11px] font-black uppercase', resultTone.badge)}>
