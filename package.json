@@ -24,6 +24,7 @@
     "ai:deploy": "supabase functions deploy ai",
     "delete-account:deploy": "supabase functions deploy delete-account",
     "pitch:capture": "node scripts/capture-pitch-assets.mjs",
+    "qa:feeling-flow": "node scripts/check-feeling-flow.mjs",
     "qa:catalog": "node qa/validate-real-scan-catalog.mjs",
     "qa:scan": "node qa/run-scan-contract.mjs"
   },
