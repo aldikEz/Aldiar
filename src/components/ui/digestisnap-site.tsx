@@ -48,6 +48,16 @@ type ProfileRow = {
   full_name: string;
   username: string;
 };
+type FoodEventRow = {
+  local_scan_id: string;
+  result: unknown;
+  nutrition: unknown;
+  image_data_url: string | null;
+  eaten: boolean | null;
+  feeling: string | null;
+  consumed_at: string | null;
+  created_at: string;
+};
 type GenderOption = 'Male' | 'Female' | 'Other';
 type SensiGoal = 'Lose weight' | 'Maintain weight' | 'Gain weight' | 'Find triggers' | 'Reduce bloating' | 'Build consistency';
 type UnitSystem = 'metric' | 'imperial';
@@ -579,6 +589,28 @@ function saveRecentScans(scans: RecentScan[], userId?: string) {
   } catch {
     // Recent scan thumbnails are a convenience cache; scanning still works without it.
   }
+}
+
+function foodEventRowToRecentScan(row: FoodEventRow): RecentScan | null {
+  if (!row.local_scan_id || !isRecord(row.result)) return null;
+  const productName = typeof row.result.productName === 'string' ? row.result.productName : '';
+  if (!productName) return null;
+  const result = row.result as ImageScanPayload['result'];
+  const nutrition = normalizeNutritionFacts(row.nutrition) ?? normalizeNutritionFacts(result.nutrition) ?? estimateNutritionFromScan(result);
+
+  return {
+    id: row.local_scan_id,
+    imageDataUrl: normalizeImageDataUrl(row.image_data_url ?? ''),
+    result: {
+      ...result,
+      nutrition,
+    },
+    nutrition,
+    eaten: typeof row.eaten === 'boolean' ? row.eaten : undefined,
+    feeling: row.feeling === 'Fine' || row.feeling === 'Bloated' || row.feeling === 'Pain' || row.feeling === 'Nausea' ? row.feeling : undefined,
+    consumedAt: row.consumed_at ?? undefined,
+    createdAt: row.created_at,
+  };
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -1773,6 +1805,45 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   useEffect(() => {
     let active = true;
 
+    async function loadFoodEvents() {
+      const { data, error } = await supabase
+        .from('food_events')
+        .select('local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,created_at')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!active || error || !data) return;
+
+      const remoteScans = (data as FoodEventRow[])
+        .map(foodEventRowToRecentScan)
+        .filter((item): item is RecentScan => item !== null);
+
+      if (remoteScans.length === 0) return;
+
+      setRecentScans((current) => {
+        const byId = new Map<string, RecentScan>();
+        [...remoteScans, ...current].forEach((scan) => {
+          if (!byId.has(scan.id)) byId.set(scan.id, scan);
+        });
+        const next = Array.from(byId.values())
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+          .slice(0, 10);
+        saveRecentScans(next, session.user.id);
+        return next;
+      });
+    }
+
+    loadFoodEvents();
+
+    return () => {
+      active = false;
+    };
+  }, [session.user.id]);
+
+  useEffect(() => {
+    let active = true;
+
     async function ensureProfile() {
       const pendingProfile = readPendingStoredProfile();
       if (pendingProfile) {
@@ -1930,15 +2001,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return true;
   };
 
-  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'result'>>) => {
-    if (!id) return;
-    setRecentScans((items) => {
-      const next = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      saveRecentScans(next, session.user.id);
-      return next;
-    });
-  };
-
   const persistScanCorrection = async (
     localScanId: string | null,
     originalResult: ImageScanPayload['result'],
@@ -1969,6 +2031,51 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return true;
   };
 
+  const persistFoodEvent = async (scan: RecentScan) => {
+    const { error } = await supabase
+      .from('food_events')
+      .upsert(
+        {
+          user_id: session.user.id,
+          local_scan_id: scan.id,
+          product_name: scan.result.productName,
+          rating: scan.result.overallRating,
+          score: scan.result.score,
+          result: scan.result,
+          nutrition: scan.nutrition,
+          image_data_url: scan.imageDataUrl,
+          eaten: typeof scan.eaten === 'boolean' ? scan.eaten : null,
+          feeling: scan.feeling ?? null,
+          consumed_at: scan.consumedAt ?? null,
+          created_at: scan.createdAt,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,local_scan_id' },
+      );
+
+    if (error) {
+      console.warn('DigestSnap food event persistence failed.', error.message);
+      return false;
+    }
+
+    return true;
+  };
+
+  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'result'>>) => {
+    if (!id) return;
+    setRecentScans((items) => {
+      let updatedScan: RecentScan | null = null;
+      const next = items.map((item) => {
+        if (item.id !== id) return item;
+        updatedScan = { ...item, ...patch };
+        return updatedScan;
+      });
+      saveRecentScans(next, session.user.id);
+      if (updatedScan) void persistFoodEvent(updatedScan);
+      return next;
+    });
+  };
+
   const runImageScan = async (file: File | undefined) => {
     if (!file) return;
     setActiveTab('home');
@@ -1996,12 +2103,30 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const saveImageCheckError = async (imageDataUrl = stableImageDataUrl, errorMessage = '') => {
       const errorResult = makeImageCheckErrorResult(file.name, errorMessage);
       const errorScan: ImageScanPayload = { result: errorResult };
+      const errorNutrition = nutritionForResult(errorResult);
+      const errorRecentScan: RecentScan = {
+        id: crypto.randomUUID(),
+        imageDataUrl: normalizeImageDataUrl(imageDataUrl),
+        result: {
+          ...errorResult,
+          nutrition: errorNutrition,
+        },
+        nutrition: errorNutrition,
+        createdAt: new Date().toISOString(),
+      };
       window.clearInterval(progressTimer);
       setScanResult(errorScan);
       setScanProgress(100);
       setScanProgressText(isAiCoolingDownResult(errorResult) ? copy.aiCoolingDownTitle : copy.visualUnavailable);
       setScanState('done');
       setScanPreviewUrl((current) => current || normalizeImageDataUrl(imageDataUrl));
+      setActiveRecentScanId(errorRecentScan.id);
+      setRecentScans((items) => {
+        const next = [errorRecentScan, ...items].slice(0, 10);
+        saveRecentScans(next, session.user.id);
+        return next;
+      });
+      void persistFoodEvent(errorRecentScan);
       window.setTimeout(() => setResultSheetOpen(true), 450);
     };
 
@@ -2055,18 +2180,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         saveRecentScans(next, session.user.id);
         return next;
       });
+      void persistFoodEvent(recentScan);
       window.setTimeout(() => setResultSheetOpen(true), 450);
     } catch (error) {
-      window.clearInterval(progressTimer);
       const message = error instanceof Error ? error.message : '';
-      const errorResult = makeImageCheckErrorResult(file.name, message);
-      const errorScan: ImageScanPayload = { result: errorResult };
-      setScanResult(errorScan);
-      setScanProgress(100);
-      setScanProgressText(isAiCoolingDownResult(errorResult) ? copy.aiCoolingDownTitle : copy.visualUnavailable);
-      setScanState('done');
-      setScanPreviewUrl((current) => current || normalizeImageDataUrl(stableImageDataUrl));
-      window.setTimeout(() => setResultSheetOpen(true), 450);
+      await saveImageCheckError(stableImageDataUrl, message);
     }
   };
 
