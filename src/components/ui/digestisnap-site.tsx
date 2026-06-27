@@ -2566,7 +2566,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     feelingConnectEmpty: isRussian ? 'Выберите самочувствие, чтобы скан стал полезным паттерном позже' : 'Pick one feeling so this scan can become a useful pattern later.',
     analyzingImage: isRussian ? 'Анализируем фото...' : 'Analyzing image...',
     checkingContext: isRussian ? 'Проверяем состав и контекст...' : 'Checking portions and context...',
-    savedRecent: isRussian ? 'Сохранено в последние сканы' : 'Saved to Recently uploaded',
+    savedRecent: isRussian ? 'Сохранено в последние сканы' : 'Saved to Recent scans',
     visualUnavailable: isRussian ? 'Визуальная оценка недоступна' : 'Saved with visual estimate unavailable',
     uploadedImage: isRussian ? 'загруженное фото' : 'uploaded image',
     cameraLoading: isRussian ? 'Камера еще загружается. Попробуйте через секунду.' : 'Camera is still loading. Try again in a second.',
@@ -3397,7 +3397,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <div className="flex w-full items-center justify-between gap-4">
                       <div>
                         <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">My progress</p>
-                        <p className="mt-1 text-[12px] font-semibold leading-4 text-zinc-500 sm:text-[13px] sm:leading-5 md:text-sm">Timeline, streak, and weight</p>
+                        <p className="mt-1 text-[12px] font-semibold leading-4 text-zinc-500 sm:text-[13px] sm:leading-5 md:text-sm">Patterns, streak, and body baseline</p>
                       </div>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 transition group-hover:scale-105 sm:h-11 sm:w-11">
                         {hasActivity ? <BarChart3 className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
@@ -3407,7 +3407,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                   <section className="pt-1 sm:pt-2">
                     <div className="flex items-center justify-between gap-4">
-                      <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">Recently uploaded</h2>
+                      <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">Recent scans</h2>
                       {recentScans.length > 0 && (
                         <button
                           className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 shadow-[0_8px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.06] transition active:scale-95 sm:text-sm"
@@ -3469,26 +3469,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         ))}
                       </div>
                     ) : (
-                      <div className="mt-3 rounded-[24px] bg-[#f7f6fb] p-4 text-center shadow-[0_10px_28px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:mt-5 sm:rounded-[28px] sm:p-5">
-                        <div className="mx-auto max-w-[560px] rounded-[22px] bg-white p-3.5 shadow-[0_12px_28px_rgba(15,15,15,0.06)] sm:rounded-[24px] sm:p-4">
-                          <div className="flex items-center gap-4">
-                            <span
-                              aria-label="Meal"
-                              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-zinc-50 text-[38px] shadow-inner ring-1 ring-zinc-950/[0.04]"
-                              role="img"
-                              style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
-                            >
-                              🍲
-                            </span>
-                            <div className="min-w-0 flex-1 space-y-2">
-                              <div className="h-3 w-full rounded-full bg-zinc-200" />
-                              <div className="h-3 w-2/3 rounded-full bg-zinc-200" />
-                            </div>
-                          </div>
+                      <div className="mt-3 rounded-[24px] bg-white p-5 text-center shadow-[0_10px_28px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:mt-5 sm:rounded-[28px] sm:p-6">
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 shadow-inner ring-1 ring-zinc-950/[0.04]">
+                          <Camera className="h-7 w-7" />
                         </div>
-                        <p className="mt-4 text-[17px] font-black text-zinc-950 sm:mt-6 sm:text-[22px]">{isRussian ? 'Первый скан появится здесь' : 'Your first scan appears here'}</p>
+                        <p className="mt-4 text-[17px] font-black text-zinc-950 sm:mt-5 sm:text-[22px]">{isRussian ? 'Первый результат появится здесь' : 'Your first result appears here'}</p>
                         <p className="mx-auto mt-2 max-w-[420px] text-sm font-semibold leading-6 text-zinc-500">
-                          {isRussian ? 'Фото, оценка, питание и отметка самочувствия будут храниться в одном месте' : 'Photo, score, nutrition, and later feeling stay attached to the same item'}
+                          {isRussian ? 'Фото, оценка, питание и самочувствие останутся связанными с одним продуктом' : 'Photo, score, nutrition, and feeling stay attached to one item'}
                         </p>
                       </div>
                     )}
