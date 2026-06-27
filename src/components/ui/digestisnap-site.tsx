@@ -1206,6 +1206,10 @@ function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'score' }:
 
 export function LandingPage({ navigate }: { navigate: Navigate }) {
   const [activeIncludeIndex, setActiveIncludeIndex] = useState(0);
+  useEffect(() => {
+    clearPendingStoredProfile();
+  }, []);
+
   const scrollToSection = (id: string) => {
     const target = document.getElementById(id);
     if (!target) return;
@@ -5022,6 +5026,10 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
     answers: {},
     multiAnswers: {},
   });
+
+  useEffect(() => {
+    if (startAtLogin) clearPendingStoredProfile();
+  }, [startAtLogin]);
 
   const setupComplete = setupStep >= SETUP_TOTAL_STEPS;
   const currentStep = setupSteps[Math.min(setupStep, SETUP_TOTAL_STEPS - 1)];
