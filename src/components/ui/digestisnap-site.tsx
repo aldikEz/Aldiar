@@ -1271,13 +1271,15 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </div>
         </div>
 
-        <div className="relative h-[364px] overflow-visible rounded-[28px] bg-white sm:h-[660px] lg:h-[720px]">
+        <div className="relative h-[364px] overflow-visible rounded-[28px] bg-white sm:h-[560px] lg:h-[720px]">
           <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 sm:left-[12%] sm:top-8 sm:translate-x-0 lg:left-[7%] xl:left-[10%]">
             <LandingPhoneMockup className="sm:hidden" scale={0.38} variant="score" />
-            <LandingPhoneMockup className="hidden sm:block" variant="score" />
+            <LandingPhoneMockup className="hidden sm:block lg:hidden" scale={0.56} variant="score" />
+            <LandingPhoneMockup className="hidden lg:block" variant="score" />
           </div>
           <div className="absolute right-[-2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[1%] xl:right-[5%]">
-            <LandingPhoneMockup scale={0.64} variant="water" />
+            <LandingPhoneMockup className="lg:hidden" scale={0.52} variant="water" />
+            <LandingPhoneMockup className="hidden lg:block" scale={0.64} variant="water" />
           </div>
         </div>
       </section>
