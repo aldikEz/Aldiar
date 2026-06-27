@@ -13,6 +13,7 @@
     "db:push": "supabase db push",
     "ai:secret": "supabase secrets set",
     "backend:ai-config": "node scripts/check-ai-config.mjs",
+    "backend:frontend-target": "node scripts/check-frontend-backend.mjs",
     "backend:functions": "node scripts/check-supabase-functions.mjs",
     "ai:deploy": "supabase functions deploy ai",
     "delete-account:deploy": "supabase functions deploy delete-account",
