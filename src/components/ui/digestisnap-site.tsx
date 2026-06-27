@@ -2947,6 +2947,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         },
       ]).slice(0, 2)
     : [];
+  const scanResultSearchText = scanResult
+    ? [
+        scanResult.result.productName,
+        ...scanResult.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+      ].join(' ').toLowerCase()
+    : '';
+  const hardAvoidWarnings = Array.from(new Set((storedProfile?.allergies ?? []).filter((item) => item && item !== 'None'))).filter((term) => {
+    const normalizedTerm = term.toLowerCase();
+    const termTokens = normalizedTerm.split(/\s+/).filter((token) => token.length >= 3);
+    return scanResultSearchText.includes(normalizedTerm) || termTokens.some((token) => scanResultSearchText.includes(token));
+  });
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const patternInsight = buildPatternInsight(recentScans, language);
   const watchlistTerms = Array.from(new Set([
@@ -4138,6 +4149,20 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     ))}
                   </div>
                 </div>
+
+                {hardAvoidWarnings.length > 0 && (
+                  <div className="mt-3 rounded-[24px] bg-red-50 p-4 text-red-950 ring-1 ring-red-200 sm:mt-4 sm:rounded-[26px] sm:p-5">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-black">{isRussian ? 'Совпадает с вашим списком избегания' : 'Matches your hard avoid list'}</p>
+                        <p className="mt-1 text-xs font-bold leading-5 text-red-900/75">
+                          {hardAvoidWarnings.join(', ')} · {isRussian ? 'проверьте состав вручную, если это важно для безопасности' : 'confirm the label manually if this matters for safety'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className={cn('mt-3 grid grid-cols-3 gap-2 rounded-[22px] p-3 ring-1 sm:mt-4 sm:rounded-[24px]', theme.soft)}>
                   {[
