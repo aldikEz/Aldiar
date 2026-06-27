@@ -96,6 +96,12 @@ type ScanConfidence = {
   score: number;
   label: string;
   detail: string;
+  components?: {
+    identity: number;
+    ocr: number;
+    nutrition: number;
+    portion: number;
+  };
 };
 
 type ScanPayload = {
@@ -1371,7 +1377,28 @@ function confidenceLevelFromScore(score: number): ScanConfidenceLevel {
   return 'low';
 }
 
-function makeScanConfidence(source: ScanConfidenceSource, targetLang: string, scoreOverride?: number): ScanConfidence {
+function makeConfidenceComponents(source: ScanConfidenceSource, score: number) {
+  const boundedScore = Math.max(0, Math.min(100, Math.round(score)));
+  const bySource: Record<ScanConfidenceSource, { identity: number; ocr: number; nutrition: number; portion: number }> = {
+    label_read: { identity: 88, ocr: 84, nutrition: 68, portion: 58 },
+    database_match: { identity: 92, ocr: 82, nutrition: 94, portion: 74 },
+    visual_estimate: { identity: 72, ocr: 20, nutrition: 48, portion: 42 },
+    manual_text: { identity: 72, ocr: 0, nutrition: 54, portion: 52 },
+    fallback: { identity: 34, ocr: 10, nutrition: 20, portion: 18 },
+    user_corrected: { identity: 100, ocr: 100, nutrition: 100, portion: 100 },
+  };
+  const selected = bySource[source];
+  const adjustment = boundedScore - makeScanConfidenceSourceBaseScore(source);
+
+  return {
+    identity: Math.max(0, Math.min(100, selected.identity + adjustment)),
+    ocr: Math.max(0, Math.min(100, selected.ocr + adjustment)),
+    nutrition: Math.max(0, Math.min(100, selected.nutrition + adjustment)),
+    portion: Math.max(0, Math.min(100, selected.portion + adjustment)),
+  };
+}
+
+function makeScanConfidenceSourceBaseScore(source: ScanConfidenceSource) {
   const scoreBySource: Record<ScanConfidenceSource, number> = {
     label_read: 86,
     database_match: 92,
@@ -1380,7 +1407,12 @@ function makeScanConfidence(source: ScanConfidenceSource, targetLang: string, sc
     fallback: 34,
     user_corrected: 100,
   };
-  const score = Math.max(0, Math.min(100, Math.round(scoreOverride ?? scoreBySource[source])));
+
+  return scoreBySource[source];
+}
+
+function makeScanConfidence(source: ScanConfidenceSource, targetLang: string, scoreOverride?: number): ScanConfidence {
+  const score = Math.max(0, Math.min(100, Math.round(scoreOverride ?? makeScanConfidenceSourceBaseScore(source))));
   const level = confidenceLevelFromScore(score);
   const russian = targetLang === 'Russian';
   const copy: Record<ScanConfidenceSource, { label: string; detail: string; ruLabel: string; ruDetail: string }> = {
@@ -1429,6 +1461,20 @@ function makeScanConfidence(source: ScanConfidenceSource, targetLang: string, sc
     score,
     label: russian ? selected.ruLabel : selected.label,
     detail: russian ? selected.ruDetail : selected.detail,
+    components: makeConfidenceComponents(source, score),
+  };
+}
+
+function normalizeConfidenceComponents(value: unknown, fallback: NonNullable<ScanConfidence['components']>) {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  return {
+    identity: Math.max(0, Math.min(100, Math.round(Number(value.identity) || fallback.identity))),
+    ocr: Math.max(0, Math.min(100, Math.round(Number(value.ocr) || fallback.ocr))),
+    nutrition: Math.max(0, Math.min(100, Math.round(Number(value.nutrition) || fallback.nutrition))),
+    portion: Math.max(0, Math.min(100, Math.round(Number(value.portion) || fallback.portion))),
   };
 }
 
@@ -1447,6 +1493,7 @@ function normalizeConfidence(value: unknown, targetLang: string, fallback: ScanC
     score,
     label: asBoundedString(value.label, base.label, 60),
     detail: asBoundedString(value.detail, base.detail, 140),
+    components: normalizeConfidenceComponents(value.components, base.components ?? makeConfidenceComponents(source, score)),
   };
 }
 

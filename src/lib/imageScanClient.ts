@@ -22,6 +22,12 @@ export type ScanConfidence = {
   score: number;
   label: string;
   detail: string;
+  components?: {
+    identity: number;
+    ocr: number;
+    nutrition: number;
+    portion: number;
+  };
 };
 
 export type ScanBasis = {
