@@ -158,7 +158,7 @@ const rateLimitBuckets = new Map<string, RateLimitBucket>();
 
 const MAX_FOOD_TEXT_LENGTH = 1800;
 const MAX_PRODUCT_KEY_LENGTH = 160;
-const MAX_TRIGGER_COUNT = 12;
+const MAX_TRIGGER_COUNT = 20;
 const MAX_TRIGGER_LENGTH = 40;
 
 type FoodRiskRule = {

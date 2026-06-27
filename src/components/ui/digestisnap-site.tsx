@@ -883,7 +883,7 @@ function getProfileScanTriggers(profile: StoredSensiProfile | null) {
     ...Object.entries(profile?.multiAnswers ?? {}).flatMap(([key, values]) => values.map((value) => `${key}: ${value}`)),
   ];
 
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value && value !== 'None')))).slice(0, 12);
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value && value !== 'None')))).slice(0, 20);
 }
 
 function getBmiFromProfile(profile: StoredSensiProfile | null) {
@@ -2272,9 +2272,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }, 260);
 
     try {
+      const scanProfile = readStoredProfile(session.user.id) ?? storedProfile;
       const result = await scanImageWithClientTimeout(file, {
         userLang: language,
-        userTriggers: getProfileScanTriggers(storedProfile),
+        userTriggers: getProfileScanTriggers(scanProfile),
         slowAfterMs: 2_500,
         hardTimeoutMs: 18_000,
       });
