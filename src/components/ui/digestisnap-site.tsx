@@ -1268,7 +1268,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </header>
 
-      <section className="mx-auto grid w-full max-w-[1680px] items-center gap-6 px-4 pb-8 pt-6 md:min-h-[calc(100svh-86px)] md:gap-8 md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
+      <section className="mx-auto grid w-full max-w-[1680px] items-center gap-5 px-4 pb-10 pt-7 md:min-h-[calc(100svh-86px)] md:gap-8 md:px-10 md:py-10 xl:grid-cols-[0.78fr_1.22fr] xl:px-12">
         <div className="relative z-10 max-w-[700px] text-center xl:text-left">
           <h1 className="mx-auto max-w-[760px] text-[34px] font-black leading-[1.02] sm:text-[60px] md:text-[74px] xl:mx-0 xl:text-[84px]">
             Find the food pattern faster.
@@ -1294,11 +1294,11 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </div>
         </div>
 
-        <div className="relative h-[364px] overflow-visible rounded-[28px] bg-white sm:h-[560px] lg:h-[720px]">
-          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 sm:left-[12%] sm:top-8 sm:translate-x-0 lg:left-[7%] xl:left-[10%]">
-            <LandingPhoneMockup className="sm:hidden" scale={0.38} variant="score" />
+        <div className="relative mx-auto h-[430px] w-full max-w-[420px] overflow-hidden rounded-[30px] bg-white sm:h-[590px] sm:max-w-none sm:overflow-visible lg:h-[720px]">
+          <div className="absolute left-1/2 top-2 z-20 -translate-x-1/2 sm:left-[12%] sm:top-8 sm:translate-x-0 lg:left-[7%] xl:left-[10%]">
+            <LandingPhoneMockup className="sm:hidden" scale={0.42} variant="score" />
             <LandingPhoneMockup className="hidden sm:block lg:hidden" scale={0.56} variant="score" />
-            <LandingPhoneMockup className="hidden lg:block" variant="score" />
+            <LandingPhoneMockup className="hidden lg:block" scale={0.86} variant="score" />
           </div>
           <div className="absolute right-[-2%] top-20 z-10 hidden rotate-6 opacity-95 sm:block lg:right-[1%] xl:right-[5%]">
             <LandingPhoneMockup className="lg:hidden" scale={0.52} variant="water" />
@@ -1318,10 +1318,10 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           <div className="mt-8 grid items-start gap-4 md:mt-14 md:gap-6 lg:grid-cols-[0.82fr_1.18fr]">
             <div className="lg:sticky lg:top-28">
               <div className="relative overflow-hidden rounded-[26px] bg-white p-3 text-zinc-950 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.05] md:rounded-[34px] md:p-8">
-                <div className="relative flex h-[366px] items-start justify-center overflow-visible rounded-[22px] bg-white pt-3 ring-1 ring-zinc-950/[0.04] md:h-[628px] md:rounded-[30px] md:pt-6">
+                <div className="relative flex h-[420px] items-start justify-center overflow-hidden rounded-[22px] bg-white pt-3 ring-1 ring-zinc-950/[0.04] md:h-[628px] md:rounded-[30px] md:pt-6">
                   <LandingPhoneMockup
                     className="md:hidden"
-                    scale={0.39}
+                    scale={0.43}
                     variant={activeIncludeIndex === 0 ? 'score' : activeIncludeIndex === 1 ? 'water' : activeIncludeIndex === 2 ? 'score' : 'macros'}
                   />
                   <LandingPhoneMockup
@@ -1368,7 +1368,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               Why us?
             </h2>
             <p className="mx-auto mt-4 max-w-[760px] text-base font-semibold leading-7 text-[#605a51] md:mt-6 md:text-2xl md:leading-10">
-              DigestSnap is built for the moment people need most: a quick food read, a saved result, and a cleaner way to see what keeps showing up.
+              DigestSnap keeps the loop short: scan the food, understand the score, save the reaction, and see what repeats.
             </p>
           </div>
 
@@ -1376,22 +1376,22 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             {[
               {
                 icon: Camera,
-                title: 'Photo becomes a result',
-                body: 'No long diary entry. A scan saves the image, name, score, and short explanation while the food is still fresh.',
+                title: 'Scan first, decide fast',
+                body: 'A photo turns into a name, score, and short explanation without making the user dig through labels.',
               },
               {
                 icon: Activity,
-                title: 'The score is readable',
-                body: 'Users see Safe, Caution, or Avoid with a clear 1-100 rating instead of a wall of nutrition text.',
+                title: 'The reaction stays linked',
+                body: 'Feeling fine, bloated, nauseous, or in pain connects back to the exact food instead of becoming a vague memory.',
               },
               {
                 icon: ShieldCheck,
-                title: 'The timeline stays useful',
-                body: 'Recent scans, water, and health score stay together, so the dashboard keeps its shape after real use.',
+                title: 'The pattern becomes visible',
+                body: 'Scores, nutrition, water, and check-ins stay together so repeat signals are obvious without extra work.',
               },
             ].map(({ icon: Icon, title, body }) => (
               <div
-                className="group flex min-h-[168px] gap-4 rounded-[26px] bg-white p-5 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.06] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_76px_rgba(15,23,42,0.10)] md:min-h-[210px] md:gap-5 md:rounded-[30px] md:p-6"
+                className="group flex min-h-[148px] gap-4 rounded-[26px] bg-white p-5 shadow-[0_18px_54px_rgba(15,23,42,0.07)] ring-1 ring-zinc-950/[0.06] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_76px_rgba(15,23,42,0.10)] md:min-h-[178px] md:gap-5 md:rounded-[30px] md:p-6"
                 key={title}
               >
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#f7f6f2] text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.05] transition duration-300 group-hover:bg-zinc-950 group-hover:text-white md:h-14 md:w-14 md:rounded-[18px]">
