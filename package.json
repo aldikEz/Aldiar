@@ -18,7 +18,8 @@
     "backend:health": "node scripts/backend-health.mjs",
     "ai:deploy": "supabase functions deploy ai",
     "delete-account:deploy": "supabase functions deploy delete-account",
-    "pitch:capture": "node scripts/capture-pitch-assets.mjs"
+    "pitch:capture": "node scripts/capture-pitch-assets.mjs",
+    "qa:scan": "node qa/run-scan-contract.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

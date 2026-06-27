@@ -1,0 +1,51 @@
+{
+  "version": "p1-scan-contract-2026-06-27",
+  "description": "DigestSnap machine-runnable scan contract cases. These are text/image-surrogate checks against the deployed AI function; real photo cases live in the manual matrix.",
+  "cases": [
+    {
+      "id": "apple",
+      "body": { "productKey": "apple", "labelText": "apple", "userLang": "English", "userTriggers": [] },
+      "expected": { "rating": "Safe", "scoreMin": 85, "scoreMax": 100, "nameIncludes": ["apple"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "avocado",
+      "body": { "productKey": "avocado", "labelText": "plain avocado", "userLang": "English", "userTriggers": [] },
+      "expected": { "rating": "Safe", "scoreMin": 75, "scoreMax": 95, "nameIncludes": ["avocado"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "eggs",
+      "body": { "productKey": "eggs", "labelText": "plain boiled eggs", "userLang": "English", "userTriggers": [] },
+      "expected": { "rating": "Safe", "scoreMin": 75, "scoreMax": 95, "nameIncludes": ["egg"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "pasta",
+      "body": { "productKey": "plain pasta", "labelText": "plain macaroni pasta", "userLang": "English", "userTriggers": [] },
+      "expected": { "rating": "Caution", "scoreMin": 45, "scoreMax": 75, "nameIncludes": ["pasta", "macaroni"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "borjomi",
+      "body": { "productKey": "Borjomi mineral water", "labelText": "Borjomi Georgian natural mineral water", "userLang": "English", "userTriggers": [] },
+      "expected": { "rating": "Safe", "scoreMin": 80, "scoreMax": 95, "nameIncludes": ["borjomi"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "coca-cola",
+      "body": { "productKey": "Coca-Cola 330ml", "labelText": "Coca-Cola sugar carbonated soft drink", "userLang": "English", "userTriggers": ["soda"] },
+      "expected": { "rating": "Avoid", "scoreMin": 0, "scoreMax": 45, "nameIncludes": ["coca", "cola"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "fuse-tea",
+      "body": { "productKey": "Fuse Tea", "labelText": "Fuse Tea sweetened iced tea sugar black tea extract citric acid", "userLang": "English", "userTriggers": ["soda"] },
+      "expected": { "rating": "Avoid", "scoreMin": 0, "scoreMax": 55, "nameIncludes": ["fuse", "tea"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "lays",
+      "body": { "productKey": "Lay's potato chips", "labelText": "Lay's potato chips fried snack salt oil", "userLang": "English", "userTriggers": ["fried"] },
+      "expected": { "rating": "Avoid", "scoreMin": 0, "scoreMax": 50, "nameIncludes": ["lay", "chip"], "confidenceSources": ["manual_text"] }
+    },
+    {
+      "id": "kinder-ru",
+      "body": { "productKey": "Kinder Молочный ломтик", "labelText": "Kinder Молочный ломтик сахар молоко шоколад", "userLang": "Russian", "userTriggers": ["dairy"] },
+      "expected": { "rating": "Avoid", "scoreMin": 0, "scoreMax": 50, "nameIncludes": ["kinder", "молочный", "ломтик"], "confidenceSources": ["manual_text"] }
+    }
+  ]
+}
