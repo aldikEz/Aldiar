@@ -2847,7 +2847,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           severity: scanResult.result.overallRating,
           reason: copy.noMajorFlagsReason,
         },
-      ]).slice(0, 3)
+      ]).slice(0, 2)
     : [];
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const patternInsight = buildPatternInsight(recentScans, language);
@@ -3904,45 +3904,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   />
                 )}
 
-                <div className={cn('mt-4 grid grid-cols-3 gap-2 rounded-[22px] p-3 ring-1 sm:mt-5 sm:rounded-[24px]', theme.soft)}>
-                  {[
-                    [isRussian ? 'Статус' : 'Status', selectedMealStatus === 'eaten' ? (isRussian ? 'Eaten' : 'Eaten') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Skipped' : 'Skipped') : (isRussian ? 'Open' : 'Open')],
-                    [isRussian ? 'Самочувствие' : 'Feeling', selectedFeeling ?? (isRussian ? 'Later' : 'Later')],
-                    [
-                      isRussian ? 'Сохранено' : 'Saved',
-                      activeSavedScan
-                        ? new Date(activeSavedScan.createdAt).toLocaleDateString(language === 'Russian' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })
-                        : isRussian ? 'Сейчас' : 'Now',
-                    ],
-                  ].map(([label, value]) => (
-                    <div className="min-w-0 rounded-[18px] bg-white px-3 py-3 text-center shadow-sm ring-1 ring-zinc-950/[0.05]" key={label}>
-                      <p className="truncate text-sm font-black">{value}</p>
-                      <p className="mt-1 truncate text-[10px] font-black uppercase text-zinc-400">{label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {scanConfidence && (
-                  <div className={cn('mt-4 rounded-[20px] p-3.5 ring-1 sm:mt-5', scanConfidence.className)}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">{isRussian ? 'Доверие к скану' : 'Scan confidence'}</p>
-                        <p className="mt-1 text-base font-black">{scanConfidence.label}</p>
-                      </div>
-                      {!isResultImageCheckError && (
-                        <button
-                          className="h-9 shrink-0 rounded-full bg-white px-3 text-xs font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08] transition active:scale-[0.97]"
-                          onClick={openFixResultSheet}
-                          type="button"
-                        >
-                          {isRussian ? 'Исправить' : 'Fix result'}
-                        </button>
-                      )}
-                    </div>
-                    <p className="mt-2 text-xs font-semibold leading-5 opacity-75">{scanConfidence.detail}</p>
-                  </div>
-                )}
-
                 <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[28px] sm:p-5', resultTone.block)}>
                   <div className="grid grid-cols-[1fr_auto] items-start gap-4">
                     <div>
@@ -3953,6 +3914,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       <p className={cn('mt-3 max-w-[31rem] text-sm font-bold leading-6', resultTone.muted)}>
                         {resultVibe(scanResult.result)}
                       </p>
+                      {scanConfidence && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span className={cn('rounded-full px-3 py-1 text-[11px] font-black uppercase', resultTone.badge)}>
+                            {scanConfidence.label}
+                          </span>
+                          {!isResultImageCheckError && (
+                            <button
+                              className="min-h-[36px] rounded-full bg-white px-3 text-[11px] font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08] transition active:scale-[0.97]"
+                              onClick={openFixResultSheet}
+                              type="button"
+                            >
+                              {isRussian ? 'Исправить' : 'Fix result'}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className={cn('flex h-20 w-20 flex-col items-center justify-center rounded-full shadow-inner ring-4 sm:h-24 sm:w-24', resultTone.circle)}>
                       <p className="text-2xl font-black sm:text-3xl">{isResultImageCheckError ? '--' : scanResult.result.score}</p>
@@ -3980,6 +3957,24 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className={cn('mt-3 grid grid-cols-3 gap-2 rounded-[22px] p-3 ring-1 sm:mt-4 sm:rounded-[24px]', theme.soft)}>
+                  {[
+                    [isRussian ? 'Статус' : 'Status', selectedMealStatus === 'eaten' ? (isRussian ? 'Eaten' : 'Eaten') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Skipped' : 'Skipped') : (isRussian ? 'Open' : 'Open')],
+                    [isRussian ? 'Самочувствие' : 'Feeling', selectedFeeling ?? (isRussian ? 'Later' : 'Later')],
+                    [
+                      isRussian ? 'Сохранено' : 'Saved',
+                      activeSavedScan
+                        ? new Date(activeSavedScan.createdAt).toLocaleDateString(language === 'Russian' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })
+                        : isRussian ? 'Сейчас' : 'Now',
+                    ],
+                  ].map(([label, value]) => (
+                    <div className="min-w-0 rounded-[18px] bg-white px-3 py-3 text-center shadow-sm ring-1 ring-zinc-950/[0.05]" key={label}>
+                      <p className="truncate text-sm font-black">{value}</p>
+                      <p className="mt-1 truncate text-[10px] font-black uppercase text-zinc-400">{label}</p>
+                    </div>
+                  ))}
                 </div>
 
                 {!isResultImageCheckError && scanNutrition && (
