@@ -4688,7 +4688,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-[16px] font-black sm:text-[18px]">{item.result.productName}</p>
                               <p className="mt-1 text-xs font-semibold leading-4 text-zinc-500 sm:text-sm sm:leading-5">
-                                {isImageCheckErrorResult(item.result) ? 'Needs retake · not scored' : `${item.result.overallRating} · ${item.result.score}/100`}
+                                {isImageCheckErrorResult(item.result) ? `${copy.needsRetake} · ${copy.notScored}` : `${ratingLabel(item.result.overallRating)} · ${item.result.score}/100`}
                               </p>
                               <p className="mt-1 line-clamp-1 text-xs font-semibold text-zinc-400">
                                 {item.eaten
