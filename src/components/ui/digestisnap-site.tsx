@@ -65,7 +65,7 @@ type FoodEventRow = {
   created_at: string;
 };
 type GenderOption = 'Male' | 'Female' | 'Other';
-type SensiGoal = 'Lose weight' | 'Maintain weight' | 'Gain weight' | 'Find triggers' | 'Reduce bloating' | 'Build consistency';
+type DigestGoal = 'Lose weight' | 'Maintain weight' | 'Gain weight' | 'Find triggers' | 'Reduce bloating' | 'Build consistency';
 type UnitSystem = 'metric' | 'imperial';
 type OnboardingStepKind = 'intro' | 'single' | 'multi' | 'basics' | 'timeline' | 'insight' | 'processing';
 type BmiCategory = 'Underweight' | 'Balanced' | 'Elevated' | 'High';
@@ -76,7 +76,7 @@ type SetupProfile = {
   age: number;
   heightCm: number;
   weightKg: number;
-  goal: SensiGoal;
+  goal: DigestGoal;
   dietType: string;
   checkInsPerDay: number;
   triggers: string[];
@@ -98,8 +98,8 @@ type OnboardingStep = {
 };
 
 const genderOptions: GenderOption[] = ['Male', 'Female', 'Other'];
-const goalOptions: SensiGoal[] = ['Lose weight', 'Maintain weight', 'Gain weight', 'Find triggers', 'Reduce bloating', 'Build consistency'];
-const isSensiGoal = (value: unknown): value is SensiGoal => typeof value === 'string' && goalOptions.includes(value as SensiGoal);
+const goalOptions: DigestGoal[] = ['Lose weight', 'Maintain weight', 'Gain weight', 'Find triggers', 'Reduce bloating', 'Build consistency'];
+const isDigestGoal = (value: unknown): value is DigestGoal => typeof value === 'string' && goalOptions.includes(value as DigestGoal);
 const processingInsights = ['Reading your scan context', 'Mapping symptom timing', 'Building your trigger baseline', 'Preparing DigestSnap'];
 const onboardingSteps: OnboardingStep[] = [
   {
@@ -349,16 +349,16 @@ const personalizationStepIds = new Set([
 ]);
 const setupSteps = onboardingSteps.filter((step) => personalizationStepIds.has(step.id));
 const SETUP_TOTAL_STEPS = setupSteps.length;
-const SENSIBITE_PROFILE_STORAGE_KEY = 'digestisnap-profile-v1';
-const SENSIBITE_PENDING_PROFILE_KEY = 'digestisnap-profile-pending';
-const SENSIBITE_STREAK_STORAGE_KEY = 'digestisnap-streak-v1';
-const SENSIBITE_RECENT_SCANS_STORAGE_KEY = 'digestisnap-recent-scans-v2';
+const DIGESTSNAP_PROFILE_STORAGE_KEY = 'digestisnap-profile-v1';
+const DIGESTSNAP_PENDING_PROFILE_KEY = 'digestisnap-profile-pending';
+const DIGESTSNAP_STREAK_STORAGE_KEY = 'digestisnap-streak-v1';
+const DIGESTSNAP_RECENT_SCANS_STORAGE_KEY = 'digestisnap-recent-scans-v2';
 const DIGESTSNAP_LANGUAGE_STORAGE_KEY = 'digestisnap-language-v1';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_STORED_SCANS = 50;
 const MAX_RECENT_UPLOADS = 10;
 
-type StoredSensiProfile = Pick<
+type StoredDigestSnapProfile = Pick<
   SetupProfile,
   'age' | 'allergies' | 'answers' | 'checkInsPerDay' | 'dietType' | 'gender' | 'goal' | 'heightCm' | 'multiAnswers' | 'symptoms' | 'timelineWeeks' | 'triggers' | 'unitSystem' | 'weightKg'
 >;
@@ -382,7 +382,7 @@ type RecentScan = {
   createdAt: string;
 };
 
-function toStoredProfile(profile: SetupProfile): StoredSensiProfile {
+function toStoredProfile(profile: SetupProfile): StoredDigestSnapProfile {
   return {
     age: profile.age,
     allergies: profile.allergies,
@@ -402,15 +402,15 @@ function toStoredProfile(profile: SetupProfile): StoredSensiProfile {
 }
 
 function profileStorageKey(userId?: string) {
-  return userId ? `${SENSIBITE_PROFILE_STORAGE_KEY}:${userId}` : SENSIBITE_PROFILE_STORAGE_KEY;
+  return userId ? `${DIGESTSNAP_PROFILE_STORAGE_KEY}:${userId}` : DIGESTSNAP_PROFILE_STORAGE_KEY;
 }
 
 function streakStorageKey(userId?: string) {
-  return userId ? `${SENSIBITE_STREAK_STORAGE_KEY}:${userId}` : SENSIBITE_STREAK_STORAGE_KEY;
+  return userId ? `${DIGESTSNAP_STREAK_STORAGE_KEY}:${userId}` : DIGESTSNAP_STREAK_STORAGE_KEY;
 }
 
 function recentScansStorageKey(userId?: string) {
-  return userId ? `${SENSIBITE_RECENT_SCANS_STORAGE_KEY}:${userId}` : SENSIBITE_RECENT_SCANS_STORAGE_KEY;
+  return userId ? `${DIGESTSNAP_RECENT_SCANS_STORAGE_KEY}:${userId}` : DIGESTSNAP_RECENT_SCANS_STORAGE_KEY;
 }
 
 function languageStorageKey(userId?: string) {
@@ -877,11 +877,11 @@ function saveStoredProfile(profile: SetupProfile, userId?: string) {
   }
 }
 
-function readStoredProfile(userId?: string): StoredSensiProfile | null {
+function readStoredProfile(userId?: string): StoredDigestSnapProfile | null {
   try {
     const raw = window.localStorage.getItem(profileStorageKey(userId));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<StoredSensiProfile>;
+    const parsed = JSON.parse(raw) as Partial<StoredDigestSnapProfile>;
     return {
       age: typeof parsed.age === 'number' ? parsed.age : 24,
       allergies: Array.isArray(parsed.allergies) ? parsed.allergies.filter((value): value is string => typeof value === 'string') : [],
@@ -889,7 +889,7 @@ function readStoredProfile(userId?: string): StoredSensiProfile | null {
       checkInsPerDay: typeof parsed.checkInsPerDay === 'number' ? parsed.checkInsPerDay : 2,
       dietType: typeof parsed.dietType === 'string' ? parsed.dietType : 'No specific diet',
       gender: parsed.gender === 'Male' || parsed.gender === 'Other' ? parsed.gender : 'Female',
-      goal: isSensiGoal(parsed.goal) ? parsed.goal : 'Maintain weight',
+      goal: isDigestGoal(parsed.goal) ? parsed.goal : 'Maintain weight',
       heightCm: typeof parsed.heightCm === 'number' ? parsed.heightCm : 170,
       multiAnswers: isRecord(parsed.multiAnswers)
         ? Object.fromEntries(
@@ -912,7 +912,7 @@ function readStoredProfile(userId?: string): StoredSensiProfile | null {
 
 function readPendingStoredProfile() {
   try {
-    if (window.localStorage.getItem(SENSIBITE_PENDING_PROFILE_KEY) !== '1') return null;
+    if (window.localStorage.getItem(DIGESTSNAP_PENDING_PROFILE_KEY) !== '1') return null;
     return readStoredProfile();
   } catch {
     return null;
@@ -921,8 +921,8 @@ function readPendingStoredProfile() {
 
 function clearPendingStoredProfile() {
   try {
-    window.localStorage.removeItem(SENSIBITE_PENDING_PROFILE_KEY);
-    window.localStorage.removeItem(SENSIBITE_PROFILE_STORAGE_KEY);
+    window.localStorage.removeItem(DIGESTSNAP_PENDING_PROFILE_KEY);
+    window.localStorage.removeItem(DIGESTSNAP_PROFILE_STORAGE_KEY);
   } catch {
     // Ignore storage cleanup failures.
   }
@@ -941,7 +941,7 @@ function clearUserLocalData(userId: string) {
   }
 }
 
-function getProfileScanTriggers(profile: StoredSensiProfile | null) {
+function getProfileScanTriggers(profile: StoredDigestSnapProfile | null) {
   const values = [
     ...(profile?.triggers ?? []),
     ...(profile?.allergies ?? []),
@@ -955,7 +955,7 @@ function getProfileScanTriggers(profile: StoredSensiProfile | null) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value && value !== 'None')))).slice(0, 20);
 }
 
-function getBmiFromProfile(profile: StoredSensiProfile | null) {
+function getBmiFromProfile(profile: StoredDigestSnapProfile | null) {
   if (!profile || profile.heightCm <= 0 || profile.weightKg <= 0) return null;
   const heightMeters = profile.heightCm / 100;
   const value = profile.weightKg / (heightMeters * heightMeters);
@@ -972,14 +972,14 @@ function getBmiFromProfile(profile: StoredSensiProfile | null) {
   };
 }
 
-function getCalorieGoalMode(profile: StoredSensiProfile | null): 'lose' | 'maintain' | 'gain' {
+function getCalorieGoalMode(profile: StoredDigestSnapProfile | null): 'lose' | 'maintain' | 'gain' {
   const goalText = `${profile?.goal ?? ''} ${profile?.answers?.goal ?? ''}`.toLowerCase();
   if (/gain|bulk|muscle|build/.test(goalText)) return 'gain';
   if (/lose|cut|reduce|weight loss/.test(goalText)) return 'lose';
   return 'maintain';
 }
 
-function estimateDailyCalories(profile: StoredSensiProfile | null) {
+function estimateDailyCalories(profile: StoredDigestSnapProfile | null) {
   const weightKg = profile?.weightKg && profile.weightKg > 0 ? profile.weightKg : 70;
   const heightCm = profile?.heightCm && profile.heightCm > 0 ? profile.heightCm : 170;
   const age = profile?.age && profile.age > 0 ? profile.age : 24;
@@ -2027,7 +2027,7 @@ export function AboutPage({ navigate }: { navigate: Navigate }) {
 export function DashboardPage({ navigate, session }: { navigate: Navigate; session: Session }) {
   const initialName = normalizeProfileName(session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'DigestSnap user');
   const initialUsername = usernameFromName(initialName);
-  const [storedProfile, setStoredProfile] = useState<StoredSensiProfile | null>(() => readStoredProfile(session.user.id));
+  const [storedProfile, setStoredProfile] = useState<StoredDigestSnapProfile | null>(() => readStoredProfile(session.user.id));
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle');
   const [scanProgress, setScanProgress] = useState(0);
   const [scanProgressText, setScanProgressText] = useState('Analyzing image...');
@@ -2044,7 +2044,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [profileDraftUsername, setProfileDraftUsername] = useState(initialUsername);
   const [profileSaving, setProfileSaving] = useState(false);
   const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
-  const [goalDraft, setGoalDraft] = useState<StoredSensiProfile>(() => readStoredProfile(session.user.id) ?? {
+  const [goalDraft, setGoalDraft] = useState<StoredDigestSnapProfile>(() => readStoredProfile(session.user.id) ?? {
     age: 24,
     allergies: [],
     answers: {},
@@ -3443,7 +3443,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }));
   };
   const saveGoalDetails = () => {
-    const normalizedGoalDraft: StoredSensiProfile = {
+    const normalizedGoalDraft: StoredDigestSnapProfile = {
       ...goalDraft,
       age: Math.round(clampNumber(goalDraft.age, storedProfile?.age ?? 24, 13, 99)),
       heightCm: Math.round(clampNumber(goalDraft.heightCm, storedProfile?.heightCm ?? 170, 90, 240)),
@@ -4392,7 +4392,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Главная цель' : 'Main goal'}</span>
                     <select
                       className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
-                      onChange={(event) => setGoalDraft((current) => ({ ...current, goal: event.target.value as SensiGoal }))}
+                      onChange={(event) => setGoalDraft((current) => ({ ...current, goal: event.target.value as DigestGoal }))}
                       value={goalDraft.goal}
                     >
                       {goalOptions.map((option) => (
@@ -5376,7 +5376,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
 
     saveStoredProfile(profile);
     try {
-      window.localStorage.setItem(SENSIBITE_PENDING_PROFILE_KEY, '1');
+      window.localStorage.setItem(DIGESTSNAP_PENDING_PROFILE_KEY, '1');
     } catch {
       // The setup still works if browser storage is unavailable.
     }
@@ -5415,7 +5415,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
 
   const setSingleValue = (field: string, value: string) => {
     setProfile((current) => {
-      if (field === 'goal') return { ...current, goal: value as SensiGoal, answers: { ...current.answers, [field]: value } };
+      if (field === 'goal') return { ...current, goal: value as DigestGoal, answers: { ...current.answers, [field]: value } };
       if (field === 'dietType') return { ...current, dietType: value, answers: { ...current.answers, [field]: value } };
       if (field === 'checkInsPerDay') {
         const nextCount = value === 'Only after meals' ? 3 : Number.parseInt(value, 10);

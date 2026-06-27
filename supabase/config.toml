@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "sensibite-ai"
+project_id = "digestisnap-ai"
 
 [api]
 enabled = true
@@ -156,16 +156,13 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "https://sensibite-ai.vercel.app"
+site_url = "https://digestsnap-ai.vercel.app"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = [
   "https://digestsnap-ai.vercel.app/dashboard",
   "https://digestsnap.vercel.app/dashboard",
-  "https://sensibite-ai.vercel.app/dashboard",
-  "https://sensibite-ai-aldiar-s-projects.vercel.app/dashboard",
-  "https://sensibite-ai-aldikez-aldiar-s-projects.vercel.app/dashboard",
   "http://localhost:5173/dashboard",
   "http://localhost:5174/dashboard",
   "http://localhost:5175/dashboard",
