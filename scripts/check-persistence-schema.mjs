@@ -58,6 +58,40 @@ const checks = [
     ok: /on public\.food_events[\s\S]+auth\.uid\(\)\s*=\s*user_id/.test(migrations),
   },
   {
+    name: 'user_daily_state table exists',
+    ok: /create table if not exists public\.user_daily_state/.test(migrations),
+  },
+  {
+    name: 'user_daily_state stores water',
+    ok: /\bwater_ml\s+integer\b/.test(migrations) && /\bwater_unit\s+text\b/.test(migrations),
+  },
+  {
+    name: 'user_daily_state stores streak',
+    ok: /\bstreak_count\s+integer\b/.test(migrations)
+      && /\bstreak_max_count\s+integer\b/.test(migrations)
+      && /\bstreak_last_logged_at\s+timestamptz\b/.test(migrations),
+  },
+  {
+    name: 'user_daily_state has user/day primary key',
+    ok: /primary key\s*\(\s*user_id\s*,\s*day\s*\)/.test(migrations),
+  },
+  {
+    name: 'user_daily_state has RLS enabled',
+    ok: /alter table(?: if exists)? public\.user_daily_state enable row level security/.test(migrations),
+  },
+  {
+    name: 'user_daily_state has forced RLS',
+    ok: /alter table(?: if exists)? public\.user_daily_state force row level security/.test(migrations),
+  },
+  {
+    name: 'user_daily_state is not readable by anon',
+    ok: /revoke all on table public\.user_daily_state from anon/.test(migrations),
+  },
+  {
+    name: 'user_daily_state policies enforce auth uid ownership',
+    ok: /on public\.user_daily_state[\s\S]+auth\.uid\(\)\s*=\s*user_id/.test(migrations),
+  },
+  {
     name: 'frontend reads Supabase food_events',
     ok: /\.from\('food_events'\)[\s\S]{0,500}\.select/.test(app),
   },
@@ -80,6 +114,20 @@ const checks = [
   {
     name: 'frontend restores remote rows into recent scans',
     ok: /function foodEventRowToRecentScan/.test(app) && /\.map\(foodEventRowToRecentScan\)/.test(app),
+  },
+  {
+    name: 'frontend reads Supabase daily state',
+    ok: /\.from\('user_daily_state'\)[\s\S]{0,500}\.select/.test(app),
+  },
+  {
+    name: 'frontend upserts Supabase daily state',
+    ok: /\.from\('user_daily_state'\)[\s\S]{0,900}\.upsert/.test(app),
+  },
+  {
+    name: 'frontend persists water and streak state',
+    ok: /water_ml:\s*nextWaterMl/.test(app)
+      && /streak_count:\s*nextStreak\.count/.test(app)
+      && /streak_last_logged_at:\s*nextStreak\.lastLoggedAt/.test(app),
   },
 ];
 

@@ -64,6 +64,16 @@ type FoodEventRow = {
   note: string | null;
   created_at: string;
 };
+type UserDailyStateRow = {
+  user_id: string;
+  day: string;
+  water_ml: number;
+  water_unit: string;
+  streak_count: number;
+  streak_max_count: number;
+  streak_last_logged_at: string | null;
+  updated_at: string;
+};
 type GenderOption = 'Male' | 'Female' | 'Other';
 type DigestGoal = 'Lose weight' | 'Maintain weight' | 'Gain weight' | 'Find triggers' | 'Reduce bloating' | 'Build consistency';
 type UnitSystem = 'metric' | 'imperial';
@@ -429,6 +439,11 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
   const numberValue = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(numberValue)) return fallback;
   return Math.min(max, Math.max(min, numberValue));
+}
+
+function localDateKey(date = new Date()) {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 10);
 }
 
 function normalizeNutritionFacts(value: unknown): NutritionFacts | null {
@@ -2160,10 +2175,77 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [nutritionPanel, setNutritionPanel] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
+  const todayKey = localDateKey();
+
+  const persistDailyState = async (patch: { waterMl?: number; waterUnit?: WaterUnit; streak?: StoredStreak }) => {
+    const nextWaterMl = Math.round(clampNumber(patch.waterMl ?? waterMl, waterMl, 0, 20000));
+    const nextWaterUnit = patch.waterUnit ?? waterUnit;
+    const nextStreak = normalizeStreak(patch.streak ?? streak);
+
+    const { error } = await supabase
+      .from('user_daily_state')
+      .upsert(
+        {
+          user_id: session.user.id,
+          day: todayKey,
+          water_ml: nextWaterMl,
+          water_unit: nextWaterUnit,
+          streak_count: nextStreak.count,
+          streak_max_count: nextStreak.maxCount,
+          streak_last_logged_at: nextStreak.lastLoggedAt || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,day' },
+      );
+
+    if (error) {
+      console.warn('DigestSnap daily state persistence failed.', error.message);
+      return false;
+    }
+
+    return true;
+  };
 
   useEffect(() => {
     saveStoredLanguage(language, session.user.id);
   }, [language, session.user.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDailyState() {
+      const { data, error } = await supabase
+        .from('user_daily_state')
+        .select('user_id,day,water_ml,water_unit,streak_count,streak_max_count,streak_last_logged_at,updated_at')
+        .eq('user_id', session.user.id)
+        .eq('day', todayKey)
+        .maybeSingle();
+
+      if (!active || error || !data) {
+        return;
+      }
+
+      const row = data as UserDailyStateRow;
+      const nextWaterUnit: WaterUnit = row.water_unit === 'ml' ? 'ml' : 'oz';
+      const nextWaterMl = Math.round(clampNumber(row.water_ml, 0, 0, 20000));
+      const nextStreak = normalizeStreak({
+        count: row.streak_count,
+        maxCount: row.streak_max_count,
+        lastLoggedAt: row.streak_last_logged_at ?? '',
+      });
+
+      setWaterMl(nextWaterMl);
+      setWaterUnit(nextWaterUnit);
+      setStreak(nextStreak);
+      saveStoredStreak(nextStreak, session.user.id);
+    }
+
+    loadDailyState();
+
+    return () => {
+      active = false;
+    };
+  }, [session.user.id, todayKey]);
 
   useEffect(() => {
     let active = true;
@@ -2374,7 +2456,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   }, [cameraSheetOpen]);
 
   const touchUserStreak = () => {
-    setStreak((current) => touchStoredStreak(current, session.user.id));
+    setStreak((current) => {
+      const next = touchStoredStreak(current, session.user.id);
+      void persistDailyState({ streak: next });
+      return next;
+    });
   };
 
   const saveEntry = async (title: string) => {
@@ -5374,7 +5460,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             waterUnit === unit ? 'bg-zinc-950 text-white' : 'text-zinc-500',
                           )}
                           key={unit}
-                          onClick={() => setWaterUnit(unit)}
+                          onClick={() => {
+                            setWaterUnit(unit);
+                            void persistDailyState({ waterUnit: unit });
+                          }}
                           type="button"
                         >
                           {label}
@@ -5406,8 +5495,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   disabled={manualWaterMl <= 0}
                   onClick={() => {
                     if (manualWaterMl > 0) {
-                      setWaterMl((amount) => amount + manualWaterMl);
+                      const nextWaterMl = Math.round(clampNumber(waterMl + manualWaterMl, waterMl, 0, 20000));
+                      const nextStreak = touchStoredStreak(streak, session.user.id);
+                      setWaterMl(nextWaterMl);
+                      setStreak(nextStreak);
                       setManualWaterAmount('');
+                      void persistDailyState({ waterMl: nextWaterMl, streak: nextStreak });
                     }
                     setWaterSheetOpen(false);
                   }}
