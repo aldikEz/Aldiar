@@ -30,7 +30,8 @@ const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000
 const SCAN_CACHE_VERSION = 'label-v16-confidence-guard-20260627';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
-const OPEN_FOOD_FACTS_TIMEOUT_MS = 1_600;
+const OPEN_FOOD_FACTS_TIMEOUT_MS = 1_900;
+const OPEN_FOOD_FACTS_SEARCH_SIZE = 5;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const BLOCKED_PATTERNS = [
   /\b(kill|suicide|self[-\s]?harm|cut myself|end my life)\b/i,
@@ -2402,6 +2403,7 @@ function cleanDatabaseQueryFromText(value: string) {
   const query = value
     .replace(/\b(visual|estimate|product|food|scan|unreadable|image|check|error)\b/gi, ' ')
     .replace(/\b(likely|possible|generic|category)\b/gi, ' ')
+    .replace(/\b(plain|normal|serving|portion|rating|score|safe|caution|avoid)\b/gi, ' ')
     .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -2472,6 +2474,7 @@ function databaseMatchScore(query: string, productName: string, brand: string) {
   const productText = normalizeLookupText(`${brand} ${productName}`);
   const qTokens = queryTokens(query);
   const pTokens = new Set(queryTokens(`${brand} ${productName}`));
+  const brandTokens = new Set(queryTokens(brand));
 
   if (!queryText || !productText || qTokens.length === 0) {
     return 0;
@@ -2483,10 +2486,12 @@ function databaseMatchScore(query: string, productName: string, brand: string) {
 
   const overlap = qTokens.filter((token) => pTokens.has(token)).length;
   const overlapRatio = overlap / qTokens.length;
+  const brandMatched = qTokens.some((token) => brandTokens.has(token));
 
   if (overlapRatio >= 0.75) return 88;
   if (overlapRatio >= 0.5) return 82;
-  if (overlapRatio >= 0.34 && qTokens.length >= 2) return 76;
+  if (brandMatched && overlap >= 1 && qTokens.length >= 2) return 80;
+  if (overlapRatio >= 0.3 && qTokens.length >= 2) return 76;
 
   return 0;
 }
@@ -2499,7 +2504,7 @@ async function lookupOpenFoodFacts(query: string): Promise<ProductDatabaseMatch 
     search_simple: '1',
     action: 'process',
     json: '1',
-    page_size: '1',
+    page_size: String(OPEN_FOOD_FACTS_SEARCH_SIZE),
     fields: 'product_name,brands,categories,serving_quantity,nutriments,nutriscore_grade',
   });
   const url = `https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`;
@@ -2521,28 +2526,35 @@ async function lookupOpenFoodFacts(query: string): Promise<ProductDatabaseMatch 
     }
 
     const payload: unknown = await response.json();
-    if (!isRecord(payload) || !Array.isArray(payload.products) || !isRecord(payload.products[0])) {
+    if (!isRecord(payload) || !Array.isArray(payload.products)) {
       return null;
     }
 
-    const product = payload.products[0];
-    const productName = asBoundedString(product.product_name, '', 120);
-    if (!productName) {
-      return null;
-    }
-    const brand = asBoundedString(product.brands, '', 90).split(',')[0]?.trim() ?? '';
-    const confidenceScore = databaseMatchScore(query, productName, brand);
-    if (confidenceScore < 76) {
-      return null;
+    let bestMatch: ProductDatabaseMatch | null = null;
+    for (const product of payload.products.slice(0, OPEN_FOOD_FACTS_SEARCH_SIZE)) {
+      if (!isRecord(product)) continue;
+      const productName = asBoundedString(product.product_name, '', 120);
+      if (!productName) continue;
+      const brand = asBoundedString(product.brands, '', 90).split(',')[0]?.trim() ?? '';
+      const confidenceScore = databaseMatchScore(query, productName, brand);
+      if (confidenceScore < 76) continue;
+      const candidate: ProductDatabaseMatch = {
+        productName,
+        brand,
+        category: asBoundedString(product.categories, '', 120).split(',')[0]?.trim() ?? '',
+        confidenceScore,
+        nutrition: nutritionFromOpenFoodFacts(product),
+      };
+
+      if (
+        !bestMatch ||
+        candidate.confidenceScore + (candidate.nutrition ? 4 : 0) > bestMatch.confidenceScore + (bestMatch.nutrition ? 4 : 0)
+      ) {
+        bestMatch = candidate;
+      }
     }
 
-    return {
-      productName,
-      brand,
-      category: asBoundedString(product.categories, '', 120).split(',')[0]?.trim() ?? '',
-      confidenceScore,
-      nutrition: nutritionFromOpenFoodFacts(product),
-    };
+    return bestMatch;
   } catch {
     return null;
   }
@@ -2625,10 +2637,16 @@ function scanFromDatabaseMatch(match: ProductDatabaseMatch, targetLang: string):
 }
 
 function databaseLookupCandidates(scan: ScanPayload) {
+  const productName = scan.result.productName;
+  const productPieces = productName
+    .split(/[-–—|,:;()[\]{}]+/u)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 4);
   const candidates = [
-    scan.result.productName,
-    scan.result.productName.replace(/\b(likely|possible)\b/gi, ' '),
-    scan.result.productName.replace(/[^\p{L}\p{N}\s]/gu, ' '),
+    productName,
+    productName.replace(/\b(likely|possible)\b/gi, ' '),
+    productName.replace(/[^\p{L}\p{N}\s]/gu, ' '),
+    ...productPieces,
   ]
     .map(cleanDatabaseQueryFromText)
     .filter(Boolean);
