@@ -2992,6 +2992,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         : '';
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const patternInsight = buildPatternInsight(recentScans, language);
+  const weeklyScans = recentScans.filter((scan) => Date.now() - Date.parse(scan.createdAt) <= 7 * ONE_DAY_MS);
+  const weeklyCheckIns = weeklyScans.filter((scan) => scan.feeling).length;
+  const weeklyAvoids = weeklyScans.filter((scan) => scan.result.overallRating === 'Avoid').length;
+  const weeklyConcernCounts = new Map<string, number>();
+  weeklyScans.forEach((scan) => {
+    scan.result.flaggedChemicals.slice(0, 2).forEach((item) => {
+      const key = item.chemicalName.trim();
+      if (!key) return;
+      weeklyConcernCounts.set(key, (weeklyConcernCounts.get(key) ?? 0) + 1);
+    });
+  });
+  const weeklyTopConcern = Array.from(weeklyConcernCounts.entries()).sort((a, b) => b[1] - a[1])[0];
   const watchlistTerms = Array.from(new Set([
     ...(storedProfile?.triggers ?? []),
     ...(storedProfile?.allergies ?? []),
@@ -3131,6 +3143,25 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             </div>
             <h2 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">{patternInsight.title}</h2>
             <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>{patternInsight.body}</p>
+            <div className={cn('mt-4 grid grid-cols-3 gap-2 rounded-[18px] p-2 ring-1', theme.soft)}>
+              {[
+                [isRussian ? '7 дней' : '7 days', weeklyScans.length],
+                [isRussian ? 'Отметки' : 'Check-ins', weeklyCheckIns],
+                [isRussian ? 'Avoid' : 'Avoid', weeklyAvoids],
+              ].map(([label, value]) => (
+                <div className="rounded-[14px] bg-white px-2 py-2.5 text-center shadow-sm ring-1 ring-zinc-950/[0.04]" key={String(label)}>
+                  <p className="text-base font-black leading-none">{value}</p>
+                  <p className="mt-1 text-[10px] font-black uppercase text-zinc-400">{label}</p>
+                </div>
+              ))}
+            </div>
+            <p className={cn('mt-3 text-xs font-bold leading-5', theme.muted)}>
+              {weeklyTopConcern
+                ? isRussian
+                  ? `Главный сигнал недели: ${weeklyTopConcern[0]} (${weeklyTopConcern[1]}x)`
+                  : `Top weekly signal: ${weeklyTopConcern[0]} (${weeklyTopConcern[1]}x)`
+                : isRussian ? 'Неделя пока без повторяющихся сигналов' : 'No repeated weekly signal yet'}
+            </p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
               <div
                 className={cn(
