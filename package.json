@@ -14,6 +14,7 @@
     "ai:secret": "supabase secrets set",
     "backend:ai-config": "node scripts/check-ai-config.mjs",
     "backend:frontend-target": "node scripts/check-frontend-backend.mjs",
+    "backend:data-isolation": "node scripts/check-frontend-data-isolation.mjs",
     "backend:functions": "node scripts/check-supabase-functions.mjs",
     "backend:health": "node scripts/backend-health.mjs",
     "db:persistence-check": "node scripts/check-persistence-schema.mjs",
