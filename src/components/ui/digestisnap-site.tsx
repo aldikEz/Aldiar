@@ -2194,6 +2194,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   useEffect(() => {
     let active = true;
+    const loadStartedAt = Date.now();
 
     async function loadFoodEvents() {
       const { data, error } = await supabase
@@ -2203,18 +2204,28 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         .order('created_at', { ascending: false })
         .limit(MAX_STORED_SCANS);
 
-      if (!active || error || !data) return;
+      if (!active || error || !data) {
+        return;
+      }
 
       const remoteScans = (data as FoodEventRow[])
         .filter((row) => row.user_id === session.user.id)
         .map(foodEventRowToRecentScan)
         .filter((item): item is RecentScan => item !== null);
 
-      if (remoteScans.length === 0) return;
+      if (remoteScans.length === 0) {
+        const cachedScans = readRecentScans(session.user.id);
+        if (cachedScans.length > 0) {
+          void Promise.allSettled(cachedScans.map((scan) => persistFoodEvent(scan)));
+        }
+        return;
+      }
 
       setRecentScans((current) => {
         const byId = new Map<string, RecentScan>();
-        [...remoteScans, ...current].forEach((scan) => {
+        const remoteIds = new Set(remoteScans.map((scan) => scan.id));
+        const freshLocalScans = current.filter((scan) => !remoteIds.has(scan.id) && Date.parse(scan.createdAt) >= loadStartedAt);
+        [...freshLocalScans, ...remoteScans].forEach((scan) => {
           if (!byId.has(scan.id)) byId.set(scan.id, scan);
         });
         const next = Array.from(byId.values())
