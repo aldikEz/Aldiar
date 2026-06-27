@@ -17,6 +17,7 @@
     "backend:functions": "node scripts/check-supabase-functions.mjs",
     "backend:health": "node scripts/backend-health.mjs",
     "db:persistence-check": "node scripts/check-persistence-schema.mjs",
+    "db:rls-check": "node scripts/check-rls-security.mjs",
     "ai:deploy": "supabase functions deploy ai",
     "delete-account:deploy": "supabase functions deploy delete-account",
     "pitch:capture": "node scripts/capture-pitch-assets.mjs",

@@ -6,6 +6,7 @@ const checks = [
   { name: 'ai-config', command: 'npm', args: ['run', 'backend:ai-config'] },
   { name: 'frontend-target', command: 'npm', args: ['run', 'backend:frontend-target'] },
   { name: 'persistence-schema', command: 'npm', args: ['run', 'db:persistence-check'] },
+  { name: 'rls-security', command: 'npm', args: ['run', 'db:rls-check'] },
   { name: 'edge-typecheck', command: 'deno', args: ['check', 'supabase/functions/ai/index.ts'] },
 ];
 
