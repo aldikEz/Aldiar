@@ -552,48 +552,89 @@ function patternFoodKey(name: string) {
 function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
   const isRussian = language === 'Russian';
   const discomfortScans = scans.filter((scan) => scan.feeling && scan.feeling !== 'Fine');
-  const grouped = new Map<string, { count: number; displayName: string; feelings: Partial<Record<FeelingOption, number>> }>();
+  const grouped = new Map<string, {
+    count: number;
+    displayName: string;
+    feelings: Partial<Record<FeelingOption, number>>;
+    firstSeen: number;
+    lastSeen: number;
+  }>();
 
   discomfortScans.forEach((scan) => {
     const key = patternFoodKey(scan.result.productName);
     if (!key) return;
-    const current = grouped.get(key) ?? { count: 0, displayName: scan.result.productName, feelings: {} };
+    const createdAt = Date.parse(scan.consumedAt ?? scan.createdAt);
+    const scanTime = Number.isFinite(createdAt) ? createdAt : Date.now();
+    const current = grouped.get(key) ?? {
+      count: 0,
+      displayName: scan.result.productName,
+      feelings: {},
+      firstSeen: scanTime,
+      lastSeen: scanTime,
+    };
     current.count += 1;
     if (scan.feeling) current.feelings[scan.feeling] = (current.feelings[scan.feeling] ?? 0) + 1;
+    current.firstSeen = Math.min(current.firstSeen, scanTime);
+    current.lastSeen = Math.max(current.lastSeen, scanTime);
     grouped.set(key, current);
   });
 
-  const strongest = Array.from(grouped.values()).sort((a, b) => b.count - a.count)[0];
+  const strongest = Array.from(grouped.values()).sort((a, b) => {
+    const aTopFeelingCount = Math.max(...Object.values(a.feelings).map(Number), 0);
+    const bTopFeelingCount = Math.max(...Object.values(b.feelings).map(Number), 0);
+    return (b.count * 2 + bTopFeelingCount) - (a.count * 2 + aTopFeelingCount);
+  })[0];
+
   if (strongest && strongest.count >= 2) {
     const topFeeling = Object.entries(strongest.feelings).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] ?? 'Bloated';
+    const topFeelingCount = Number(strongest.feelings[topFeeling as FeelingOption] ?? 0);
+    const uniqueFeelings = Object.keys(strongest.feelings).length;
+    const spanDays = Math.max(1, Math.ceil((strongest.lastSeen - strongest.firstSeen) / ONE_DAY_MS) + 1);
+    const confidenceScore = Math.min(100, Math.round((strongest.count * 22) + (topFeelingCount * 12) + (uniqueFeelings > 1 ? 6 : 0) + (spanDays >= 2 ? 8 : 0)));
+    const strength = confidenceScore >= 82 ? 'strong' : confidenceScore >= 58 ? 'medium' : 'weak';
+    const confidenceLabel = isRussian
+      ? strength === 'strong' ? 'Сильный сигнал' : strength === 'medium' ? 'Средний сигнал' : 'Ранний сигнал'
+      : strength === 'strong' ? 'Strong signal' : strength === 'medium' ? 'Medium signal' : 'Early signal';
     return {
       state: 'active' as const,
+      strength,
+      confidenceScore,
+      confidenceLabel,
       title: isRussian ? 'Повтор уже виден' : 'Repeat signal found',
       body: isRussian
-        ? `${strongest.displayName} уже ${strongest.count} раза связано с ${topFeeling}. Проверьте это в следующих приемах пищи`
-        : `${strongest.displayName} has shown up with ${topFeeling} ${strongest.count} times. Watch the next few meals`,
+        ? `${strongest.displayName} связано с ${topFeeling} ${strongest.count} раза. Это не диагноз, но уже стоит проверить в следующих приемах пищи`
+        : `${strongest.displayName} has shown up with ${topFeeling} ${strongest.count} times. Not a diagnosis, but worth watching next`,
       count: strongest.count,
+      topFeeling,
     };
   }
 
   if (scans.length > 0 && scans.some((scan) => !scan.feeling)) {
     return {
       state: 'waiting' as const,
+      strength: 'none' as const,
+      confidenceScore: 25,
+      confidenceLabel: isRussian ? 'Ждем отметки' : 'Needs check-in',
       title: isRussian ? 'Нужны отметки самочувствия' : 'Waiting for check-ins',
       body: isRussian
         ? 'Сканы сохранены. Отметьте самочувствие позже, чтобы появились реальные паттерны'
         : 'Scans are saved. Add later feelings to turn them into real patterns',
       count: discomfortScans.length,
+      topFeeling: null,
     };
   }
 
   return {
     state: 'empty' as const,
+    strength: 'none' as const,
+    confidenceScore: 0,
+    confidenceLabel: isRussian ? 'Нет данных' : 'No signal yet',
     title: isRussian ? 'Паттернов пока нет' : 'No pattern yet',
     body: isRussian
       ? 'Сделайте пару сканов и отметьте самочувствие позже'
       : 'Scan a few meals and log how you feel later',
     count: 0,
+    topFeeling: null,
   };
 }
 
@@ -2897,8 +2938,30 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
             <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
               {isRussian ? 'Паттерн' : 'Pattern'}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={cn(
+                'rounded-full px-3 py-1 text-xs font-black',
+                patternInsight.strength === 'strong'
+                  ? 'bg-zinc-950 text-white'
+                  : patternInsight.strength === 'medium'
+                    ? 'bg-zinc-200 text-zinc-950'
+                    : 'bg-zinc-100 text-zinc-500',
+              )}>
+                {patternInsight.confidenceLabel}
+              </span>
+              <span className={cn('text-xs font-black', theme.faint)}>{patternInsight.confidenceScore}%</span>
+            </div>
             <h2 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">{patternInsight.title}</h2>
             <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>{patternInsight.body}</p>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-500',
+                  patternInsight.strength === 'strong' ? 'bg-zinc-950' : patternInsight.strength === 'medium' ? 'bg-zinc-500' : 'bg-zinc-300',
+                )}
+                style={{ width: `${Math.max(5, patternInsight.confidenceScore)}%` }}
+              />
+            </div>
           </div>
           <div className={cn('flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full ring-1', patternInsight.state === 'active' ? 'bg-zinc-950 text-white ring-zinc-950' : isDarkMode ? 'bg-white/[0.06] ring-white/10' : 'bg-zinc-100 text-zinc-950 ring-black/[0.03]')}>
             <span className="text-2xl font-black">{patternInsight.count}</span>
