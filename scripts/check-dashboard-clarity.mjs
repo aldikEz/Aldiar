@@ -25,6 +25,12 @@ const checks = [
     name: 'first-time dashboard empty state explains where the first scan appears',
     ok: /Timeline is empty/.test(app) && /Your first food or label photo will appear here/.test(app),
   },
+  {
+    name: 'nutrition analytics are hidden until a scan is marked eaten',
+    ok: /selectedDayEatenScans\.length === 0 \?/.test(app)
+      && /Nutrition is not counting yet/.test(app)
+      && /Calories and macros appear after you mark food as eaten/.test(app),
+  },
 ];
 
 const failed = checks.filter((check) => !check.ok);

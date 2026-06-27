@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Utensils,
   User,
   X,
 } from 'lucide-react';
@@ -4465,6 +4466,53 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           key="macro-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
+                          {selectedDayEatenScans.length === 0 ? (
+                            <>
+                              <div className="rounded-[22px] bg-white p-5 text-center shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-6">
+                                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-zinc-950">
+                                  <Utensils className="h-6 w-6" />
+                                </div>
+                                <p className="mt-4 text-[20px] font-black leading-tight sm:text-[24px]">
+                                  {isRussian ? 'Питание пока не считается' : 'Nutrition is not counting yet'}
+                                </p>
+                                <p className="mx-auto mt-2 max-w-[390px] text-sm font-semibold leading-6 text-zinc-500">
+                                  {isRussian
+                                    ? 'Скан может быть просто сохранен. Калории и БЖУ появятся только после отметки “съел”'
+                                    : 'A scan can stay saved only. Calories and macros appear after you mark food as eaten'}
+                                </p>
+                              </div>
+
+                              <div className="grid gap-2.5 min-[390px]:grid-cols-2 sm:gap-3">
+                                <button
+                                  className="rounded-[22px] bg-white p-4 text-left shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:rounded-[24px] sm:p-5"
+                                  onClick={() => setWaterSheetOpen(true)}
+                                  type="button"
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                      <p className="text-[15px] font-black text-zinc-500 sm:text-[18px]">{isRussian ? 'Вода' : 'Water intake'}</p>
+                                      <p className="mt-1 text-[24px] font-black leading-none sm:text-[30px]">{waterCardLabel}</p>
+                                    </div>
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-lg font-black text-white">+</span>
+                                  </div>
+                                </button>
+
+                                <div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <p className="text-[15px] font-black sm:text-[18px]">{isRussian ? 'Счет здоровья' : 'Health score'}</p>
+                                    <p className="text-[22px] font-black leading-none sm:text-[28px]">
+                                      {latestScore !== null ? `${gutScoreOutOfTen}/10` : isRussian ? 'Старт' : 'Start'}
+                                    </p>
+                                  </div>
+                                  <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#f4f2f8]">
+                                    <div className={cn('h-full rounded-full transition-all duration-500', healthScoreBarColor)} style={{ width: healthScoreBarWidth }} />
+                                  </div>
+                                  <p className="mt-2 text-[12px] font-semibold leading-5 text-zinc-500">{healthScoreExplanation}</p>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
                           <div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
                             <div className="flex items-end justify-between gap-4">
                               <div>
@@ -4541,6 +4589,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                               <p className="mt-2 text-[12px] font-semibold leading-5 text-zinc-500">{healthScoreExplanation}</p>
                             </div>
                           </div>
+                            </>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
