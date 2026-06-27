@@ -3532,8 +3532,42 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       ? isRussian ? 'Фото сохранено, но AI не уверен в еде' : 'Image saved, but AI is not confident about the food'
       : scanResult.result.productName
     : '';
+  const aiObservedDetail = scanResult
+    ? isResultImageCheckError
+      ? isRussian
+        ? 'Снимок сохранен, но визуальный сигнал слабый'
+        : 'Photo was saved, but the visual signal is weak'
+      : scanResult.result.confidence?.source === 'database_match'
+        ? isRussian
+          ? 'Название сверено с продуктовой базой'
+          : 'Name was matched against product data'
+        : scanResult.result.confidence?.source === 'label_read'
+          ? isRussian
+            ? 'AI использовал видимый текст на упаковке'
+            : 'AI used visible package text'
+          : scanResult.result.confidence?.source === 'manual_text'
+            ? isRussian
+              ? 'Основано на введенном названии или составе'
+              : 'Based on the typed name or label'
+            : isRussian
+              ? 'Основано на форме, упаковке и видимых деталях'
+              : 'Based on shape, package, and visible cues'
+    : '';
   const aiEstimatedText = scanResult
     ? scanResult.result.basis?.decisionBasis ?? scanConfidence?.detail ?? (isRussian ? 'Оценка основана на фото и категории' : 'Estimate based on the image and food category')
+    : '';
+  const aiEstimatedDetail = scanResult
+    ? isResultImageCheckError
+      ? isRussian
+        ? 'Оценка выключена, пока фото не станет надежнее'
+        : 'Scoring is held back until the photo is reliable'
+      : nutritionMeta?.confidence === 'high'
+        ? isRussian
+          ? 'Оценка сильнее, потому что есть база, этикетка или исправление'
+          : 'Estimate is stronger because database, label, or correction data is present'
+        : isRussian
+          ? 'Порция и питание могут быть примерными'
+          : 'Serving and nutrition may still be approximate'
     : '';
   const activeSavedScan = activeRecentScanId ? recentScans.find((scan) => scan.id === activeRecentScanId) : undefined;
   const activeScanNote = activeSavedScan?.note ?? '';
@@ -4984,12 +5018,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                 <div className={cn('mt-3 grid gap-2 rounded-[22px] p-3 ring-1 sm:grid-cols-2', theme.soft)}>
                   {[
-                    [isRussian ? 'AI увидел' : 'AI identified', aiIdentifiedText],
-                    [isRussian ? 'AI оценил' : 'AI estimated', aiEstimatedText],
-                  ].map(([label, value]) => (
+                    [isRussian ? 'Видно на фото' : 'Seen in photo', aiIdentifiedText, aiObservedDetail],
+                    [isRussian ? 'Оценено AI' : 'Estimated by AI', aiEstimatedText, aiEstimatedDetail],
+                  ].map(([label, value, detail]) => (
                     <div className="rounded-[18px] bg-white p-3 shadow-sm ring-1 ring-zinc-950/[0.05]" key={label}>
                       <p className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">{label}</p>
                       <p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-zinc-800">{value}</p>
+                      <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-4 text-zinc-500">{detail}</p>
                     </div>
                   ))}
                 </div>
