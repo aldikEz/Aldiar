@@ -9,6 +9,7 @@ const checks = [
   { name: 'data-isolation', command: 'npm', args: ['run', 'backend:data-isolation'] },
   { name: 'persistence-schema', command: 'npm', args: ['run', 'db:persistence-check'] },
   { name: 'rls-security', command: 'npm', args: ['run', 'db:rls-check'] },
+  { name: 'secret-exposure', command: 'npm', args: ['run', 'security:secret-check'] },
   { name: 'edge-typecheck', command: 'deno', args: ['check', 'supabase/functions/ai/index.ts'] },
 ];
 
