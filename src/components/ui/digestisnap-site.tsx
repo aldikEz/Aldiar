@@ -681,6 +681,8 @@ function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
     count: number;
     displayName: string;
     feelings: Partial<Record<FeelingOption, number>>;
+    categories: Record<string, number>;
+    delayMinutes: number[];
     firstSeen: number;
     lastSeen: number;
   }>();
@@ -694,11 +696,15 @@ function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
       count: 0,
       displayName: scan.result.productName,
       feelings: {},
+      categories: {},
+      delayMinutes: [],
       firstSeen: scanTime,
       lastSeen: scanTime,
     };
     current.count += 1;
     if (scan.feeling) current.feelings[scan.feeling] = (current.feelings[scan.feeling] ?? 0) + 1;
+    if (scan.foodCategory) current.categories[scan.foodCategory] = (current.categories[scan.foodCategory] ?? 0) + 1;
+    if (typeof scan.feelingDelayMinutes === 'number' && scan.feelingDelayMinutes > 0) current.delayMinutes.push(scan.feelingDelayMinutes);
     current.firstSeen = Math.min(current.firstSeen, scanTime);
     current.lastSeen = Math.max(current.lastSeen, scanTime);
     grouped.set(key, current);
@@ -715,11 +721,28 @@ function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
     const topFeelingCount = Number(strongest.feelings[topFeeling as FeelingOption] ?? 0);
     const uniqueFeelings = Object.keys(strongest.feelings).length;
     const spanDays = Math.max(1, Math.ceil((strongest.lastSeen - strongest.firstSeen) / ONE_DAY_MS) + 1);
+    const topCategory = Object.entries(strongest.categories).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+    const avgDelay = strongest.delayMinutes.length
+      ? Math.round(strongest.delayMinutes.reduce((sum, item) => sum + item, 0) / strongest.delayMinutes.length)
+      : 0;
+    const delayPhrase = avgDelay > 0
+      ? isRussian
+        ? ` примерно через ${avgDelay} мин`
+        : ` about ${avgDelay} min later`
+      : '';
+    const categoryPhrase = topCategory
+      ? isRussian
+        ? ` (${topCategory.toLowerCase()})`
+        : ` (${topCategory.toLowerCase()})`
+      : '';
     const confidenceScore = Math.min(100, Math.round((strongest.count * 22) + (topFeelingCount * 12) + (uniqueFeelings > 1 ? 6 : 0) + (spanDays >= 2 ? 8 : 0)));
     const strength = confidenceScore >= 82 ? 'strong' : confidenceScore >= 58 ? 'medium' : 'weak';
     const confidenceLabel = isRussian
       ? strength === 'strong' ? 'Сильный сигнал' : strength === 'medium' ? 'Средний сигнал' : 'Ранний сигнал'
       : strength === 'strong' ? 'Strong signal' : strength === 'medium' ? 'Medium signal' : 'Early signal';
+    const readableFeeling = isRussian
+      ? topFeeling === 'Fine' ? 'нормальное самочувствие' : topFeeling === 'Bloated' ? 'вздутие' : topFeeling === 'Pain' ? 'боль' : 'тошноту'
+      : topFeeling.toLowerCase();
     return {
       state: 'active' as const,
       strength,
@@ -727,8 +750,8 @@ function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
       confidenceLabel,
       title: isRussian ? 'Повтор уже виден' : 'Repeat signal found',
       body: isRussian
-        ? `${strongest.displayName} связано с ${topFeeling} ${strongest.count} раза. Это не диагноз, но уже стоит проверить в следующих приемах пищи`
-        : `${strongest.displayName} has shown up with ${topFeeling} ${strongest.count} times. Not a diagnosis, but worth watching next`,
+        ? `${strongest.displayName}${categoryPhrase} повторилось ${strongest.count} раза перед реакцией: ${readableFeeling}${delayPhrase}. В следующий раз проверьте, повторится ли это снова`
+        : `${strongest.displayName}${categoryPhrase} repeated ${strongest.count} times before you logged ${readableFeeling}${delayPhrase}. Watch the next meal to confirm it`,
       count: strongest.count,
       topFeeling,
     };

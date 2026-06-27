@@ -18,6 +18,12 @@ const checks = [
     ok: /const weeklyRepeatedConcern = weeklyTopConcern && weeklyTopConcern\[1\] >= 2 \? weeklyTopConcern : null/.test(app)
       && /No repeated weekly signal yet/.test(app),
   },
+  {
+    name: 'pattern copy explains repeat in human language',
+    ok: /Watch the next meal to confirm it/.test(app)
+      && /foodCategory/.test(app)
+      && /feelingDelayMinutes/.test(app),
+  },
 ];
 
 const failed = checks.filter((check) => !check.ok);
