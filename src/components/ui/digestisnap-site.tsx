@@ -5108,17 +5108,26 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                 {!isResultImageCheckError && scanNutrition && (
                   <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">
-                          {nutritionMeta?.label ?? (isRussian ? 'Оценка питания' : 'Estimated nutrition')}
-                        </p>
-                        <h3 className="mt-1.5 text-xl font-black leading-tight">{scanNutrition.calories} cal</h3>
-                      </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">
+                        {nutritionMeta?.label ?? (isRussian ? 'Оценка питания' : 'Estimated nutrition')}
+                      </p>
+                      <h3 className="mt-1.5 text-xl font-black leading-tight">{scanNutrition.calories} cal</h3>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
                       <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.06]">
                         {selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено сегодня' : 'Counted today') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Не в калориях' : 'Saved only') : isRussian ? 'Не учтено' : 'Not counted'}
                       </span>
+                      <button
+                        className="min-h-[34px] rounded-full bg-white px-3 text-[11px] font-black text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08] transition active:scale-[0.97]"
+                        onClick={openFixResultSheet}
+                        type="button"
+                      >
+                        {isRussian ? 'Исправить' : 'Fix food or serving'}
+                      </button>
                     </div>
+                  </div>
                     {scanResult.result.basis && (
                       <div className="mt-3 rounded-[18px] bg-white p-3 shadow-sm ring-1 ring-zinc-950/[0.05]">
                         <p className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Основа расчета' : 'Basis'}</p>
@@ -5382,6 +5391,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Исправить скан' : 'Fix result'}</p>
                     <h2 className="mt-2 text-2xl font-black leading-tight">{isRussian ? 'Сделайте результат точнее' : 'Make the result accurate'}</h2>
+                    <p className="mt-2 max-w-[21rem] text-sm font-bold leading-6 text-zinc-500">
+                      {isRussian
+                        ? 'Исправьте название, вердикт, порцию или питание. DigestSnap сохранит это как реальную правку'
+                        : 'Correct the food name, verdict, serving, or nutrition. DigestSnap saves it as real data'}
+                    </p>
                   </div>
                   <button
                     aria-label="Close fix result"
@@ -5416,7 +5430,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           onClick={() => setFixDraft((current) => ({ ...current, rating }))}
                           type="button"
                         >
-                          {rating}
+                          {ratingLabel(rating)}
                         </button>
                       ))}
                     </div>
