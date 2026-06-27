@@ -2,7 +2,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 function getAllowedOrigins() {
-  return (Deno.env.get('AI_ALLOWED_ORIGINS') ?? '')
+  return (Deno.env.get('DIGESTSNAP_ALLOWED_ORIGINS') ?? Deno.env.get('AI_ALLOWED_ORIGINS') ?? '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

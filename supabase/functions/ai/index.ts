@@ -2,7 +2,7 @@
 //
 // Required secrets before deployment:
 //   npm run ai:secret -- GEMINI_API_KEY=your_key
-//   npm run ai:secret -- AI_ALLOWED_ORIGINS=https://your-domain.com,http://localhost:5173
+//   npm run ai:secret -- DIGESTSNAP_ALLOWED_ORIGINS=https://your-domain.com,http://localhost:5173
 //
 // Optional:
 //   npm run ai:secret -- GEMINI_MODEL=gemini-2.5-flash
@@ -482,7 +482,7 @@ function getBoundedEnvNumber(name: string, fallback: number, min: number, max: n
 }
 
 function getAllowedOrigins() {
-  return (Deno.env.get('AI_ALLOWED_ORIGINS') ?? '')
+  return (Deno.env.get('DIGESTSNAP_ALLOWED_ORIGINS') ?? Deno.env.get('AI_ALLOWED_ORIGINS') ?? '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
