@@ -2949,6 +2949,27 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     : [];
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const patternInsight = buildPatternInsight(recentScans, language);
+  const watchlistTerms = Array.from(new Set([
+    ...(storedProfile?.triggers ?? []),
+    ...(storedProfile?.allergies ?? []),
+  ].filter((item) => item && item !== 'None'))).slice(0, 6);
+  const triggerWatchlist = watchlistTerms.map((term) => {
+    const normalizedTerm = term.toLowerCase();
+    const termTokens = normalizedTerm.split(/\s+/).filter((token) => token.length >= 3);
+    const matches = recentScans.filter((scan) => {
+      const text = [
+        scan.result.productName,
+        ...scan.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+      ].join(' ').toLowerCase();
+      return text.includes(normalizedTerm) || termTokens.some((token) => text.includes(token));
+    });
+
+    return {
+      term,
+      count: matches.length,
+      last: matches[0]?.createdAt,
+    };
+  });
   const historyFilters: Array<{ id: ScanHistoryFilter; label: string }> = [
     { id: 'all', label: isRussian ? 'Все' : 'All' },
     { id: 'eaten', label: isRussian ? 'Съедено' : 'Eaten' },
@@ -3083,6 +3104,41 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           </div>
         </div>
       </div>
+
+      {triggerWatchlist.length > 0 && (
+        <div className={cardClass}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className={cn('text-xs font-black uppercase tracking-[0.16em]', theme.faint)}>
+                {isRussian ? 'Список наблюдения' : 'Watchlist'}
+              </p>
+              <h2 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
+                {isRussian ? 'Ваши подозрительные продукты' : 'Your suspected foods'}
+              </h2>
+            </div>
+            <Target className={cn('h-6 w-6 shrink-0', theme.faint)} />
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {triggerWatchlist.map((item) => (
+              <div className={cn('rounded-[18px] p-3 ring-1', theme.soft)} key={item.term}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-black">{item.term}</p>
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05]">
+                    {item.count}
+                  </span>
+                </div>
+                <p className={cn('mt-1 text-xs font-semibold leading-5', theme.muted)}>
+                  {item.last
+                    ? isRussian
+                      ? `Последний сигнал: ${new Date(item.last).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
+                      : `Last signal: ${new Date(item.last).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}`
+                    : isRussian ? 'Пока не найдено в сканах' : 'Not found in scans yet'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {hasActivity && (
         <>
