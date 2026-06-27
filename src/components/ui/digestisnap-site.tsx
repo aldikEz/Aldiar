@@ -2826,7 +2826,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const selectedDayAverageScore = selectedDayScans.length
     ? Math.round(selectedDayScans.reduce((sum, item) => sum + item.result.score, 0) / selectedDayScans.length)
     : null;
-  const selectedDateIsToday = selectedHomeDate === new Date().toDateString();
   const inAppReminder = laterCheckInCandidate
     ? {
         kind: 'checkin' as const,
@@ -2834,14 +2833,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         body: `${laterCheckInCandidate.result.productName} · ${laterCheckInAge === null ? (isRussian ? 'позже' : 'later') : laterCheckInAge === 0 ? (isRussian ? 'только что' : 'just now') : `${laterCheckInAge}h ago`}`,
         action: () => openSavedScan(laterCheckInCandidate),
       }
-    : selectedDateIsToday && selectedDayScans.length === 0
-      ? {
-          kind: 'scan' as const,
-          title: isRussian ? 'Первый скан за сегодня' : 'First scan for today',
-          body: isRussian ? 'Один снимок создаст дневную историю' : 'One photo starts today’s timeline',
-          action: openCamera,
-        }
-      : null;
+    : null;
   const eatenNutrition = addNutritionValues(selectedDayEatenScans.map((item) => item.nutrition));
   const caloriesEaten = eatenNutrition.calories;
   const remainingCalories = Math.max(0, calorieTarget - caloriesEaten);
@@ -4034,9 +4026,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   >
                     <div className="flex w-full items-center justify-between gap-4">
                       <div>
-                        <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">{isRussian ? 'Мой прогресс' : 'My progress'}</p>
+                        <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">{isRussian ? 'Паттерны' : 'Patterns'}</p>
                         <p className="mt-1 text-[12px] font-semibold leading-4 text-zinc-500 sm:text-[13px] sm:leading-5 md:text-sm">
-                          {isRussian ? 'Паттерны, серия и базовые данные' : 'Patterns, streak, and body baseline'}
+                          {isRussian ? 'Серия, реакции и повторяющиеся продукты' : 'Streak, reactions, and repeat foods'}
                         </p>
                       </div>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 transition group-hover:scale-105 sm:h-11 sm:w-11">
@@ -4045,6 +4037,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     </div>
                   </button>
 
+                  {selectedDayScans.length > 0 && (
                   <div className="rounded-[22px] bg-white p-4 shadow-[0_7px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
                     <div className="flex items-center justify-between gap-4">
                       <div>
@@ -4072,6 +4065,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       ))}
                     </div>
                   </div>
+                  )}
 
                   <section className="pt-1 sm:pt-2">
                     <div className="flex items-center justify-between gap-4">
