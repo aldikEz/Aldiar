@@ -3578,7 +3578,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                                 {isImageCheckErrorResult(item.result) ? 'Needs retake · not scored' : `${item.result.overallRating} · ${item.result.score}/100`}
                               </p>
                               <p className="mt-1 line-clamp-1 text-xs font-semibold text-zinc-400">
-                                {item.eaten ? `${item.nutrition.calories} cal counted` : item.eaten === false ? 'Saved, not counted' : item.result.flaggedChemicals[0]?.reason ?? 'Saved with scan context'}
+                                {item.eaten
+                                  ? `${item.nutrition.calories} cal counted today`
+                                  : item.eaten === false
+                                    ? isRussian ? 'Сохранено без калорий' : 'Saved only, not counted'
+                                    : isRussian ? 'Выберите: съедено или нет' : 'Choose eaten or not eaten'}
                               </p>
                             </div>
                             <ChevronRight className="h-6 w-6 shrink-0 text-zinc-400" />
@@ -3946,9 +3950,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             {' · '}
                             {typeof item.eaten === 'boolean'
                               ? item.eaten
-                                ? isRussian ? 'съедено' : 'eaten'
-                                : isRussian ? 'не ел' : 'not eaten'
-                              : isRussian ? 'не отмечено' : 'not marked'}
+                                ? isRussian ? 'учтено в калориях' : 'counted in calories'
+                                : isRussian ? 'сохранено без калорий' : 'saved only'
+                              : isRussian ? 'нужно выбрать статус' : 'needs status'}
                             {item.feeling ? ` · ${item.feeling}` : ''}
                           </p>
                           <p className={cn('mt-1 line-clamp-1 text-xs font-semibold', theme.faint)}>
@@ -4067,7 +4071,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                 <div className={cn('mt-3 grid grid-cols-3 gap-2 rounded-[22px] p-3 ring-1 sm:mt-4 sm:rounded-[24px]', theme.soft)}>
                   {[
-                    [isRussian ? 'Статус' : 'Status', selectedMealStatus === 'eaten' ? (isRussian ? 'Eaten' : 'Eaten') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Skipped' : 'Skipped') : (isRussian ? 'Open' : 'Open')],
+                    [isRussian ? 'Питание' : 'Nutrition', selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено' : 'Counted') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Только сохранено' : 'Saved only') : (isRussian ? 'Выберите' : 'Choose')],
                     [isRussian ? 'Самочувствие' : 'Feeling', selectedFeeling ?? (isRussian ? 'Later' : 'Later')],
                     [
                       isRussian ? 'Сохранено' : 'Saved',
@@ -4091,7 +4095,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         <h3 className="mt-1.5 text-xl font-black leading-tight">{scanNutrition.calories} cal</h3>
                       </div>
                       <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.06]">
-                        {selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено' : 'Counted') : isRussian ? 'Не учтено' : 'Not counted'}
+                        {selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено сегодня' : 'Counted today') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Не в калориях' : 'Saved only') : isRussian ? 'Не учтено' : 'Not counted'}
                       </span>
                     </div>
                     {scanResult.result.basis && (
@@ -4293,7 +4297,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     }}
                     type="button"
                   >
-                    {selectedMealStatus ? (isRussian ? 'Готово' : 'Done') : (isRussian ? 'Выберите статус' : 'Choose eaten or not')}
+                    {selectedMealStatus === 'eaten'
+                      ? isRussian ? 'Сохранить и учесть' : 'Save and count'
+                      : selectedMealStatus === 'not_eaten'
+                        ? isRussian ? 'Сохранить без калорий' : 'Save without calories'
+                        : isRussian ? 'Выберите статус' : 'Choose eaten or not'}
                   </button>
                 </div>
                 )}
