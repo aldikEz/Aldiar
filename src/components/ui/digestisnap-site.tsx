@@ -53,6 +53,7 @@ type ProfileRow = {
   username: string;
 };
 type FoodEventRow = {
+  user_id: string;
   local_scan_id: string;
   result: unknown;
   nutrition: unknown;
@@ -1919,7 +1920,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         return;
       }
 
-      setLogs(data ?? []);
+      setLogs((data ?? []).filter((item) => item.user_id === session.user.id));
     }
 
     loadEntries();
@@ -1934,7 +1935,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     async function loadFoodEvents() {
       const { data, error } = await supabase
         .from('food_events')
-        .select('local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,note,created_at')
+        .select('user_id,local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,note,created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(MAX_STORED_SCANS);
@@ -1942,6 +1943,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       if (!active || error || !data) return;
 
       const remoteScans = (data as FoodEventRow[])
+        .filter((row) => row.user_id === session.user.id)
         .map(foodEventRowToRecentScan)
         .filter((item): item is RecentScan => item !== null);
 
@@ -1990,7 +1992,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
       if (!active) return;
 
-      if (data) {
+      if (data && data.user_id === session.user.id) {
         setProfileName(data.full_name);
         setProfileUsername(data.username);
         setProfileDraftName(data.full_name);
@@ -2016,7 +2018,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           .select('user_id,full_name,username')
           .single<ProfileRow>();
 
-        if (profile && !error) {
+        if (profile && !error && profile.user_id === session.user.id) {
           created = profile;
           break;
         }
@@ -2122,7 +2124,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       return false;
     }
 
-    if (data) {
+    if (data?.user_id === session.user.id) {
       setLogs((items) => items.map((item) => (item.id === optimisticEntry.id ? data : item)));
     }
 
