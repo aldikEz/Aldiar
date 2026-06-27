@@ -184,6 +184,11 @@ type EverydayFoodRule = {
   excludePatterns?: RegExp[];
   rating: Rating;
   score: number;
+  nutrition?: NutritionFacts;
+  portionBasis?: {
+    en: string;
+    ru: string;
+  };
   concern: {
     en: string;
     ru: string;
@@ -308,6 +313,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bsweet(?:ened)?\b/i, /\bflavou?r(?:ed)?\b/i, /\bjuice\b/i, /\bsoda\b/i, /сладк/i, /сок/i, /газировк/i],
     rating: 'Safe',
     score: 90,
+    nutrition: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sugarG: 0, sodiumMg: 0 },
+    portionBasis: { en: 'One bottle or glass', ru: 'Одна бутылка или стакан' },
     concern: { en: 'Hydration', ru: 'Гидратация' },
     reason: { en: 'Plain water is usually low-trigger.', ru: 'Обычно низкий риск реакции.' },
   },
@@ -317,6 +324,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bfried\b/i, /\bsauce\b/i, /\bdressing\b/i, /жарен/i, /соус/i],
     rating: 'Safe',
     score: 84,
+    nutrition: { calories: 240, proteinG: 3, carbsG: 13, fatG: 22, fiberG: 10, sugarG: 1, sodiumMg: 11 },
+    portionBasis: { en: 'One medium avocado', ru: 'Один средний авокадо' },
     concern: { en: 'Whole food', ru: 'Цельный продукт' },
     reason: { en: 'Fiber and fats can feel heavy.', ru: 'Клетчатка и жиры могут утяжелять.' },
   },
@@ -326,6 +335,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bfried\b/i, /\bmayonnaise\b/i, /жарен/i, /майонез/i],
     rating: 'Safe',
     score: 86,
+    nutrition: { calories: 78, proteinG: 6, carbsG: 1, fatG: 5, fiberG: 0, sugarG: 0, sodiumMg: 62 },
+    portionBasis: { en: 'One large egg', ru: 'Одно крупное яйцо' },
     concern: { en: 'Simple protein', ru: 'Простой белок' },
     reason: { en: 'Usually clear and easy to track.', ru: 'Обычно простой и понятный продукт.' },
   },
@@ -335,6 +346,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bsausage\b/i, /\bsalami\b/i, /\bprocessed\b/i, /\bfried\b/i, /колбас/i, /сосиск/i, /жарен/i],
     rating: 'Safe',
     score: 80,
+    nutrition: { calories: 250, proteinG: 26, carbsG: 0, fatG: 17, fiberG: 0, sugarG: 0, sodiumMg: 72 },
+    portionBasis: { en: 'One cooked serving', ru: 'Одна готовая порция' },
     concern: { en: 'Plain protein', ru: 'Простой белок' },
     reason: { en: 'Best read when sauce is separate.', ru: 'Лучше оценивать без соуса.' },
   },
@@ -344,6 +357,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bfried\b/i, /\bcrispy\b/i, /\bnuggets?\b/i, /\bburger\b/i, /жарен/i, /наггет/i],
     rating: 'Safe',
     score: 84,
+    nutrition: { calories: 180, proteinG: 32, carbsG: 0, fatG: 4, fiberG: 0, sugarG: 0, sodiumMg: 74 },
+    portionBasis: { en: 'One cooked serving', ru: 'Одна готовая порция' },
     concern: { en: 'Lean protein', ru: 'Нежирный белок' },
     reason: { en: 'Usually steady if not fried.', ru: 'Обычно спокойно, если не жареное.' },
   },
@@ -353,6 +368,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bfried\b/i, /\bbreaded\b/i, /жарен/i, /паниров/i],
     rating: 'Safe',
     score: 86,
+    nutrition: { calories: 230, proteinG: 25, carbsG: 0, fatG: 14, fiberG: 0, sugarG: 0, sodiumMg: 60 },
+    portionBasis: { en: 'One cooked serving', ru: 'Одна готовая порция' },
     concern: { en: 'Protein and fats', ru: 'Белок и жиры' },
     reason: { en: 'Usually clean when grilled or plain.', ru: 'Обычно чисто без панировки.' },
   },
@@ -362,6 +379,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bfried\s*rice\b/i, /\bsugar\b/i, /\bsyrup\b/i, /жарен\w*\s+рис/i, /сахар/i],
     rating: 'Safe',
     score: 82,
+    nutrition: { calories: 205, proteinG: 4, carbsG: 45, fatG: 0, fiberG: 1, sugarG: 0, sodiumMg: 2 },
+    portionBasis: { en: 'One cooked bowl', ru: 'Одна готовая миска' },
     concern: { en: 'Simple base food', ru: 'Простая база' },
     reason: { en: 'Easy baseline for pattern tracking.', ru: 'Удобная база для паттернов.' },
   },
@@ -371,6 +390,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\binstant\b/i, /\bramen\b/i, /\bcream\s*sauce\b/i, /быстрого\s+приготов/i, /сливочн\w*\s+соус/i],
     rating: 'Caution',
     score: 64,
+    nutrition: { calories: 360, proteinG: 12, carbsG: 72, fatG: 2, fiberG: 4, sugarG: 3, sodiumMg: 6 },
+    portionBasis: { en: 'One cooked bowl', ru: 'Одна готовая миска' },
     concern: { en: 'Wheat base', ru: 'Пшеничная база' },
     reason: { en: 'Fine for some, heavy for others.', ru: 'Кому-то нормально, кому-то тяжело.' },
   },
@@ -380,6 +401,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bcake\b/i, /\bcookie\b/i, /\bpastry\b/i, /\bsweet\b/i, /торт/i, /печень/i, /сладк/i],
     rating: 'Caution',
     score: 62,
+    nutrition: { calories: 160, proteinG: 6, carbsG: 30, fatG: 2, fiberG: 2, sugarG: 3, sodiumMg: 300 },
+    portionBasis: { en: 'Two slices or one wrap', ru: 'Два ломтика или один лаваш' },
     concern: { en: 'Wheat or flour', ru: 'Пшеница или мука' },
     reason: { en: 'Common repeat trigger for bloating.', ru: 'Частый повторный триггер вздутия.' },
   },
@@ -389,6 +412,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bfries\b/i, /\bfried\b/i, /\bchips?\b/i, /\bcrisps?\b/i, /жарен/i, /фри/i, /чипс/i],
     rating: 'Safe',
     score: 78,
+    nutrition: { calories: 160, proteinG: 4, carbsG: 37, fatG: 0, fiberG: 4, sugarG: 2, sodiumMg: 17 },
+    portionBasis: { en: 'One medium potato', ru: 'Одна средняя картофелина' },
     concern: { en: 'Simple starch', ru: 'Простой крахмал' },
     reason: { en: 'Usually clear unless fried.', ru: 'Обычно понятно, если не жареное.' },
   },
@@ -397,6 +422,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     patterns: [/\bbeans?\b/i, /\blentils?\b/i, /\bchickpeas?\b/i, /\bpeas?\b/i, /фасол/i, /чечевиц/i, /нут/i, /горох/i],
     rating: 'Caution',
     score: 58,
+    nutrition: { calories: 230, proteinG: 15, carbsG: 40, fatG: 1, fiberG: 15, sugarG: 1, sodiumMg: 5 },
+    portionBasis: { en: 'One cooked bowl', ru: 'Одна готовая миска' },
     concern: { en: 'High-fiber legumes', ru: 'Бобовые с клетчаткой' },
     reason: { en: 'Can bloat sensitive stomachs.', ru: 'Может вздувать чувствительный желудок.' },
   },
@@ -406,6 +433,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bsugar\b/i, /\bsweet(?:ened)?\b/i, /\bice\s*cream\b/i, /сахар/i, /сладк/i, /морожен/i],
     rating: 'Caution',
     score: 60,
+    nutrition: { calories: 150, proteinG: 8, carbsG: 12, fatG: 8, fiberG: 0, sugarG: 12, sodiumMg: 105 },
+    portionBasis: { en: 'One cup or small serving', ru: 'Один стакан или небольшая порция' },
     concern: { en: 'Dairy', ru: 'Молочные продукты' },
     reason: { en: 'Common trigger if lactose-sensitive.', ru: 'Частый триггер при лактозе.' },
   },
@@ -415,6 +444,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bjuice\b/i, /\bsmoothie\b/i, /\bsyrup\b/i, /\bcandy\b/i, /сок/i, /смузи/i, /сироп/i],
     rating: 'Safe',
     score: 90,
+    nutrition: { calories: 95, proteinG: 1, carbsG: 25, fatG: 0, fiberG: 4, sugarG: 19, sodiumMg: 2 },
+    portionBasis: { en: 'One medium fruit', ru: 'Один средний фрукт' },
     concern: { en: 'Whole fruit', ru: 'Цельный фрукт' },
     reason: { en: 'Simple whole food with fiber.', ru: 'Простой цельный продукт с клетчаткой.' },
   },
@@ -424,6 +455,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     excludePatterns: [/\bfried\b/i, /\bdeep[-\s]?fried\b/i, /\bmayonnaise\b/i, /жарен/i, /майонез/i],
     rating: 'Safe',
     score: 86,
+    nutrition: { calories: 60, proteinG: 3, carbsG: 12, fatG: 0, fiberG: 4, sugarG: 5, sodiumMg: 40 },
+    portionBasis: { en: 'One bowl or plate', ru: 'Одна миска или тарелка' },
     concern: { en: 'Whole vegetable', ru: 'Цельный овощ' },
     reason: { en: 'Usually a strong baseline food.', ru: 'Обычно хорошая базовая еда.' },
   },
@@ -432,6 +465,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     patterns: [/\bonion\b/i, /\bgarlic\b/i, /лук/i, /чеснок/i],
     rating: 'Caution',
     score: 50,
+    nutrition: { calories: 45, proteinG: 1, carbsG: 10, fatG: 0, fiberG: 2, sugarG: 4, sodiumMg: 4 },
+    portionBasis: { en: 'One small portion', ru: 'Одна небольшая порция' },
     concern: { en: 'FODMAP aromatics', ru: 'FODMAP ароматические продукты' },
     reason: { en: 'Often bothers sensitive digestion.', ru: 'Часто беспокоит чувствительный ЖКТ.' },
   },
@@ -440,6 +475,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     patterns: [/\bnuts?\b/i, /\balmonds?\b/i, /\bpeanuts?\b/i, /\bcashews?\b/i, /\bseeds?\b/i, /орех/i, /миндаль/i, /арахис/i, /кешью/i, /семеч/i],
     rating: 'Caution',
     score: 68,
+    nutrition: { calories: 170, proteinG: 6, carbsG: 6, fatG: 15, fiberG: 3, sugarG: 1, sodiumMg: 0 },
+    portionBasis: { en: 'One small handful', ru: 'Одна небольшая горсть' },
     concern: { en: 'Dense fats', ru: 'Плотные жиры' },
     reason: { en: 'Healthy, but easy to overdo.', ru: 'Полезно, но легко переборщить.' },
   },
@@ -448,6 +485,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     patterns: [/\bcoffee\b/i, /\bespresso\b/i, /\blatte\b/i, /\bamericano\b/i, /кофе/i, /эспрессо/i, /латте/i],
     rating: 'Caution',
     score: 56,
+    nutrition: { calories: 5, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sugarG: 0, sodiumMg: 5 },
+    portionBasis: { en: 'One plain cup', ru: 'Одна чашка без сахара' },
     concern: { en: 'Caffeine', ru: 'Кофеин' },
     reason: { en: 'Can irritate sensitive stomachs.', ru: 'Может раздражать чувствительный желудок.' },
   },
@@ -456,6 +495,8 @@ const EVERYDAY_FOOD_RULES: EverydayFoodRule[] = [
     patterns: [/\bjuice\b/i, /\bsmoothie\b/i, /сок/i, /смузи/i],
     rating: 'Caution',
     score: 54,
+    nutrition: { calories: 120, proteinG: 1, carbsG: 28, fatG: 0, fiberG: 1, sugarG: 24, sodiumMg: 10 },
+    portionBasis: { en: 'One glass', ru: 'Один стакан' },
     concern: { en: 'Liquid sugar', ru: 'Жидкий сахар' },
     reason: { en: 'Less filling than whole fruit.', ru: 'Менее сытно, чем цельный фрукт.' },
   },
@@ -1456,6 +1497,43 @@ function matchesEverydayRule(text: string, rule: EverydayFoodRule) {
   return true;
 }
 
+function findEverydayFoodRule(scan: ScanPayload) {
+  return EVERYDAY_FOOD_RULES.find((rule) => matchesEverydayRule(getScanText(scan), rule));
+}
+
+function enrichWithEverydayNutrition(scan: ScanPayload, targetLang: string): ScanPayload {
+  if (isUnusableVisualScan(scan) || scan.result.confidence?.source === 'database_match') {
+    return scan;
+  }
+
+  const rule = findEverydayFoodRule(scan);
+  if (!rule?.nutrition) {
+    return scan;
+  }
+
+  const decisionBasis =
+    targetLang === 'Russian'
+      ? 'Оценка по обычной порции из справочника базовых продуктов'
+      : 'Estimated from a standard serving in the everyday foods reference';
+
+  const enrichedScan = enforceFoodRiskRules(
+    {
+      result: {
+        ...scan.result,
+        nutrition: rule.nutrition,
+        basis: {
+          ...scan.result.basis,
+          portionBasis: targetLang === 'Russian' ? rule.portionBasis?.ru : rule.portionBasis?.en,
+          decisionBasis: scan.result.basis?.decisionBasis ?? decisionBasis,
+        },
+      },
+    },
+    targetLang,
+  );
+
+  return withScanConfidence(enrichedScan, targetLang, scan.result.confidence?.source ?? 'visual_estimate', scan.result.confidence?.score);
+}
+
 function makeConcern(chemicalName: string, reason: string, severity: Rating): ChemicalReport {
   return {
     chemicalName,
@@ -2256,7 +2334,7 @@ async function enrichWithProductDatabase(scan: ScanPayload, targetLang: string):
   if (isUnusableVisualScan(scan)) return scan;
 
   const match = await lookupBestOpenFoodFactsMatch(scan);
-  if (!match) return scan;
+  if (!match) return enrichWithEverydayNutrition(scan, targetLang);
 
   const productName = [match.brand, match.productName]
     .filter(Boolean)
