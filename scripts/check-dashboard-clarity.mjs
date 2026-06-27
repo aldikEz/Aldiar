@@ -31,6 +31,12 @@ const checks = [
       && /Nutrition is not counting yet/.test(app)
       && /Calories and macros appear after you mark food as eaten/.test(app),
   },
+  {
+    name: 'secondary nutrition panel is labeled instead of hidden behind anonymous dots',
+    ok: /isRussian \? 'Счет' : 'Score'/.test(app)
+      && /isRussian \? 'Питание' : 'Nutrition'/.test(app)
+      && /aria-pressed=\{nutritionPanel === index\}/.test(app),
+  },
 ];
 
 const failed = checks.filter((check) => !check.ok);

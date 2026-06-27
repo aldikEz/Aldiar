@@ -4595,16 +4595,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       )}
                     </AnimatePresence>
 
-                    <div className="mt-2.5 flex justify-center gap-1.5 sm:mt-3">
-                      {[0, 1].map((index) => (
+                    <div className="mx-auto mt-3 grid max-w-[300px] grid-cols-2 rounded-full bg-white p-1 shadow-[0_8px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:mt-4">
+                      {[
+                        isRussian ? 'Счет' : 'Score',
+                        isRussian ? 'Питание' : 'Nutrition',
+                      ].map((label, index) => (
                         <button
-                          aria-label={`Show dashboard panel ${index + 1}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/70 active:scale-90"
-                          key={index}
+                          aria-pressed={nutritionPanel === index}
+                          className={cn(
+                            'h-10 rounded-full text-xs font-black transition active:scale-[0.98] sm:text-sm',
+                            nutritionPanel === index ? 'bg-zinc-950 text-white shadow-sm' : 'text-zinc-500 hover:bg-zinc-50',
+                          )}
+                          key={label}
                           onClick={() => setNutritionPanel(index)}
                           type="button"
                         >
-                          <span className={cn('h-2.5 w-2.5 rounded-full ring-2 transition-all duration-200', nutritionPanel === index ? 'scale-110 bg-black ring-black' : 'bg-white ring-zinc-300')} />
+                          {label}
                         </button>
                       ))}
                     </div>
