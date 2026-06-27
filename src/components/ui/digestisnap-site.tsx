@@ -3199,6 +3199,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const scanNutrition = baseScanNutrition ? scaleNutritionFacts(baseScanNutrition, selectedPortion) : null;
   const scanConfidence = scanResult ? getScanConfidence(scanResult.result) : null;
   const portionConfidence = scanResult ? getPortionConfidence(scanResult.result) : null;
+  const aiIdentifiedText = scanResult
+    ? isResultImageCheckError
+      ? isRussian ? 'Фото сохранено, но AI не уверен в еде' : 'Image saved, but AI is not confident about the food'
+      : scanResult.result.productName
+    : '';
+  const aiEstimatedText = scanResult
+    ? scanResult.result.basis?.decisionBasis ?? scanConfidence?.detail ?? (isRussian ? 'Оценка основана на фото и категории' : 'Estimate based on the image and food category')
+    : '';
   const activeSavedScan = activeRecentScanId ? recentScans.find((scan) => scan.id === activeRecentScanId) : undefined;
   const activeScanNote = activeSavedScan?.note ?? '';
   const nutritionDraftFromFacts = (nutrition: NutritionFacts) => ({
@@ -4615,6 +4623,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   />
                 )}
 
+                <div className={cn('mt-3 grid gap-2 rounded-[22px] p-3 ring-1 sm:grid-cols-2', theme.soft)}>
+                  {[
+                    [isRussian ? 'AI увидел' : 'AI identified', aiIdentifiedText],
+                    [isRussian ? 'AI оценил' : 'AI estimated', aiEstimatedText],
+                  ].map(([label, value]) => (
+                    <div className="rounded-[18px] bg-white p-3 shadow-sm ring-1 ring-zinc-950/[0.05]" key={label}>
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">{label}</p>
+                      <p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-zinc-800">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
                 <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[28px] sm:p-5', resultTone.block)}>
                   <div className="grid grid-cols-[1fr_auto] items-start gap-4">
                     <div>
@@ -4809,8 +4829,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Статус еды' : 'Meal status'}</p>
-                      <h3 className="mt-2 text-xl font-black leading-tight sm:text-2xl">{isRussian ? 'Вы это съели?' : 'Did you eat this?'}</h3>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Учет еды' : 'Meal count'}</p>
+                      <h3 className="mt-2 text-xl font-black leading-tight sm:text-2xl">{isRussian ? 'Учесть этот скан?' : 'Count this meal?'}</h3>
                     </div>
                     {selectedMealStatus && (
                       <span className={cn('rounded-full px-3 py-1 text-xs font-black', isDarkMode ? 'bg-white text-zinc-950' : 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/[0.08]')}>
@@ -4820,8 +4840,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     {([
-                      ['eaten', isRussian ? 'Съел' : 'Eaten'],
-                      ['not_eaten', isRussian ? 'Не ел' : 'Not eaten'],
+                      ['eaten', isRussian ? 'Съел' : 'I ate it'],
+                      ['not_eaten', isRussian ? 'Просто проверил' : 'Just checking'],
                     ] as Array<['eaten' | 'not_eaten', string]>).map(([status, label]) => {
                       const active = selectedMealStatus === status;
                       return (
