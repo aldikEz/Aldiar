@@ -2093,6 +2093,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     };
   }, [cameraSheetOpen]);
 
+  const touchUserStreak = () => {
+    setStreak((current) => touchStoredStreak(current, session.user.id));
+  };
+
   const saveEntry = async (title: string) => {
     const optimisticEntry: DashboardEntry = {
       id: crypto.randomUUID(),
@@ -2119,7 +2123,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       setLogs((items) => items.map((item) => (item.id === optimisticEntry.id ? data : item)));
     }
 
-    setStreak((current) => touchStoredStreak(current, session.user.id));
     return true;
   };
 
@@ -2314,6 +2317,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         saveRecentScans(next, session.user.id);
         return next;
       });
+      touchUserStreak();
       void persistFoodEvent(recentScan);
       window.setTimeout(() => setResultSheetOpen(true), 450);
     } catch (error) {
@@ -4436,6 +4440,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       if (!selectedMealStatus) return;
                       if (selectedFeeling) {
                         await saveEntry(`${selectedFeeling} check-in saved: ${scanResult.result.productName}`);
+                        touchUserStreak();
                       }
                       setResultSheetOpen(false);
                     }}
