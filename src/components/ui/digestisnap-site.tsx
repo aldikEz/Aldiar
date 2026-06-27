@@ -3833,6 +3833,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     });
   });
   const weeklyTopConcern = Array.from(weeklyConcernCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+  const weeklyRepeatedConcern = weeklyTopConcern && weeklyTopConcern[1] >= 2 ? weeklyTopConcern : null;
   const watchlistTerms = Array.from(new Set([
     ...(storedProfile?.triggers ?? []),
     ...(storedProfile?.allergies ?? []),
@@ -4005,10 +4006,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               ))}
             </div>
             <p className={cn('mt-3 text-xs font-bold leading-5', theme.muted)}>
-              {weeklyTopConcern
+              {weeklyRepeatedConcern
                 ? isRussian
-                  ? `Главный сигнал недели: ${weeklyTopConcern[0]} (${weeklyTopConcern[1]}x)`
-                  : `Top weekly signal: ${weeklyTopConcern[0]} (${weeklyTopConcern[1]}x)`
+                  ? `Главный сигнал недели: ${weeklyRepeatedConcern[0]} (${weeklyRepeatedConcern[1]}x)`
+                  : `Top weekly signal: ${weeklyRepeatedConcern[0]} (${weeklyRepeatedConcern[1]}x)`
                 : isRussian ? 'Неделя пока без повторяющихся сигналов' : 'No repeated weekly signal yet'}
             </p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
