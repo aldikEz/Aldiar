@@ -27,7 +27,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v15-basis-20260627';
+const SCAN_CACHE_VERSION = 'label-v16-confidence-guard-20260627';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const OPEN_FOOD_FACTS_TIMEOUT_MS = 1_600;
@@ -1497,18 +1497,136 @@ function normalizeConfidence(value: unknown, targetLang: string, fallback: ScanC
   };
 }
 
+function capConfidenceComponents(
+  components: NonNullable<ScanConfidence['components']> | undefined,
+  fallback: NonNullable<ScanConfidence['components']>,
+  caps: Partial<NonNullable<ScanConfidence['components']>>,
+) {
+  const source = components ?? fallback;
+  return {
+    identity: Math.min(source.identity, caps.identity ?? source.identity),
+    ocr: Math.min(source.ocr, caps.ocr ?? source.ocr),
+    nutrition: Math.min(source.nutrition, caps.nutrition ?? source.nutrition),
+    portion: Math.min(source.portion, caps.portion ?? source.portion),
+  };
+}
+
+function capScanConfidence(
+  confidence: ScanConfidence,
+  targetLang: string,
+  maxScore: number,
+  caps: Partial<NonNullable<ScanConfidence['components']>>,
+): ScanConfidence {
+  const score = Math.min(confidence.score, maxScore);
+  const base = makeScanConfidence(confidence.source, targetLang, score);
+
+  return {
+    ...confidence,
+    score,
+    level: confidenceLevelFromScore(score),
+    components: capConfidenceComponents(confidence.components, base.components ?? makeConfidenceComponents(confidence.source, score), caps),
+  };
+}
+
+function hasUncertainScanLanguage(scan: ScanPayload) {
+  const text = [
+    scan.result.productName,
+    scan.result.confidence?.label,
+    scan.result.confidence?.detail,
+    scan.result.basis?.decisionBasis,
+    scan.result.basis?.portionBasis,
+    ...scan.result.flaggedChemicals.flatMap((item) => [item.chemicalName, item.reason]),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return hasAny(text, [
+    /\blikely\b/i,
+    /\bpossible\b/i,
+    /\bestimat(?:e|ed|ion)\b/i,
+    /\bnot\s+(?:verified|confirmed|clear|checked|readable)\b/i,
+    /\blabel\s+not\s+(?:verified|confirmed|readable)\b/i,
+    /\bvisual\s+(?:estimate|recognition)\b/i,
+    /\bcategory\s+estimate\b/i,
+    /\bportion\s+(?:is\s+)?estimated\b/i,
+    /\bunclear\b/i,
+    /\bunreadable\b/i,
+    /похож/i,
+    /возможн/i,
+    /примерн/i,
+    /визуальн/i,
+    /оценк/i,
+    /не\s+(?:подтвержден|проверен|прочитан|четк|ясн)/i,
+    /состав\s+не\s+подтверж/i,
+    /этикетк\w*\s+не\s+подтверж/i,
+    /нечита/i,
+  ]);
+}
+
+function applyUncertaintyGuardrails(scan: ScanPayload, targetLang: string): ScanPayload {
+  const confidence = scan.result.confidence;
+  if (!confidence) {
+    return scan;
+  }
+
+  if (confidence.source === 'user_corrected' || confidence.source === 'database_match') {
+    return scan;
+  }
+
+  const unusable = isUnusableVisualScan(scan) || confidence.source === 'fallback';
+  const uncertainVisual = confidence.source === 'visual_estimate' && hasUncertainScanLanguage(scan);
+
+  if (!unusable && !uncertainVisual) {
+    return scan;
+  }
+
+  if (unusable) {
+    const fallbackConfidence = makeScanConfidence('fallback', targetLang, Math.min(confidence.score, 44));
+    return {
+      result: {
+        ...scan.result,
+        overallRating: scan.result.overallRating === 'Avoid' ? 'Avoid' : 'Caution',
+        score: Math.min(scan.result.score, 55),
+        confidence: {
+          ...fallbackConfidence,
+          components: capConfidenceComponents(fallbackConfidence.components, makeConfidenceComponents('fallback', fallbackConfidence.score), {
+            identity: 42,
+            ocr: 18,
+            nutrition: 26,
+            portion: 24,
+          }),
+        },
+        basis: normalizeScanBasis(scan.result.basis, targetLang, 'fallback'),
+      },
+    };
+  }
+
+  return {
+    result: {
+      ...scan.result,
+      confidence: capScanConfidence(confidence, targetLang, 72, {
+        identity: 72,
+        ocr: 35,
+        nutrition: 55,
+        portion: 50,
+      }),
+    },
+  };
+}
+
 function withScanConfidence(scan: ScanPayload, targetLang: string, source?: ScanConfidenceSource, scoreOverride?: number): ScanPayload {
   const fallbackSource = source ?? scan.result.confidence?.source ?? (isUnusableVisualScan(scan) ? 'fallback' : 'label_read');
   const fallback = makeScanConfidence(fallbackSource, targetLang, scoreOverride ?? (source ? undefined : scan.result.confidence?.score));
   const confidence = normalizeConfidence(source ? null : scan.result.confidence, targetLang, fallback);
 
-  return {
+  return applyUncertaintyGuardrails({
     result: {
       ...scan.result,
       confidence,
       basis: normalizeScanBasis(scan.result.basis, targetLang, confidence.source),
     },
-  };
+  }, targetLang);
 }
 
 function normalizeScanPayload(value: unknown, targetLang: string, fallback: ScanPayload = fallbackScanPayload(targetLang)): ScanPayload {
