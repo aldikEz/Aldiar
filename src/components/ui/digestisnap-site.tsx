@@ -1823,7 +1823,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [scanResult, setScanResult] = useState<ImageScanPayload | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScan[]>(() => readRecentScans(session.user.id));
   const [logs, setLogs] = useState<DashboardEntry[]>([]);
-  const [, setDashboardError] = useState('');
+  const [profileFormMessage, setProfileFormMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [profileName, setProfileName] = useState(initialName);
@@ -1884,6 +1884,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [cameraCapturing, setCameraCapturing] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [waterSheetOpen, setWaterSheetOpen] = useState(false);
   const [waterUnit, setWaterUnit] = useState<WaterUnit>('oz');
   const [waterMl, setWaterMl] = useState(0);
@@ -1893,7 +1894,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [nutritionPanel, setNutritionPanel] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
-  const syncErrorMessage = language === 'Russian' ? 'Не удалось синхронизировать записи. Проверьте подключение.' : 'Unable to sync entries. Please check your connection.';
 
   useEffect(() => {
     saveStoredLanguage(language, session.user.id);
@@ -2117,7 +2117,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
     if (error) {
       setLogs((items) => items.filter((item) => item.id !== optimisticEntry.id));
-      setDashboardError(syncErrorMessage);
       return false;
     }
 
@@ -2220,7 +2219,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setScanState('scanning');
     setScanProgress(4);
     setScanProgressText(copy.analyzingImage);
-    setDashboardError('');
     setSelectedFeeling(null);
     setSelectedMealStatus(null);
     setSelectedPortion('medium');
@@ -2381,17 +2379,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const nextUsername = normalizeUsername(profileDraftUsername);
 
     if (!nextName) {
-      setDashboardError('Name cannot be empty.');
+      setProfileFormMessage({ tone: 'error', text: copy.profileNameRequired });
       return;
     }
 
     if (nextUsername.length < 3) {
-      setDashboardError('Username must be at least 3 characters.');
+      setProfileFormMessage({ tone: 'error', text: copy.profileUsernameShort });
       return;
     }
 
     setProfileSaving(true);
-    setDashboardError('');
+    setProfileFormMessage(null);
 
     const { data, error } = await supabase
       .from('profiles')
@@ -2410,7 +2408,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setProfileSaving(false);
 
     if (error || !data) {
-      setDashboardError(error?.message?.includes('profiles_username_unique') ? 'That username is already taken.' : 'Unable to save profile.');
+      setProfileFormMessage({
+        tone: 'error',
+        text: error?.message?.includes('profiles_username_unique') ? copy.profileUsernameTaken : copy.profileSaveError,
+      });
       return;
     }
 
@@ -2419,7 +2420,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setProfileDraftName(data.full_name);
     setProfileDraftUsername(data.username);
     setProfileSheetOpen(false);
-    setDashboardError('Profile saved.');
+    setProfileFormMessage({ tone: 'success', text: copy.profileSaved });
   };
 
   const signOut = async () => {
@@ -2429,7 +2430,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
   const deleteAccount = async () => {
     setDeleteLoading(true);
-    setDashboardError('');
+    setDeleteError('');
 
     try {
       const { error } = await supabase.functions.invoke('delete-account', { body: {} });
@@ -2437,9 +2438,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       await supabase.auth.signOut();
       navigate('/');
     } catch {
-      setDashboardError(copy.deleteError);
+      setDeleteError(copy.deleteError);
       setDeleteLoading(false);
-      setDeleteSheetOpen(false);
     }
   };
 
@@ -2587,6 +2587,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     name: isRussian ? 'Имя' : 'Name',
     username: isRussian ? 'Username' : 'Username',
     saveProfile: isRussian ? 'Сохранить профиль' : 'Save profile',
+    profileNameRequired: isRussian ? 'Введите имя для профиля' : 'Add a profile name',
+    profileUsernameShort: isRussian ? 'Username должен быть минимум 3 символа' : 'Username must be at least 3 characters',
+    profileUsernameTaken: isRussian ? 'Этот username уже занят' : 'That username is already taken',
+    profileSaveError: isRussian ? 'Не удалось сохранить профиль. Попробуйте еще раз' : 'Could not save profile. Try again',
+    profileSaved: isRussian ? 'Профиль сохранен' : 'Profile saved',
     language: isRussian ? 'Язык' : 'Language',
     english: isRussian ? 'Английский' : 'English',
     russian: isRussian ? 'Русский' : 'Russian',
@@ -3086,6 +3091,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const openProfileEditor = () => {
     setProfileDraftName(profileName);
     setProfileDraftUsername(profileUsername);
+    setProfileFormMessage(null);
     setProfileSheetOpen(true);
   };
   const openGoalsEditor = () => {
@@ -3943,6 +3949,19 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   />
                   <span className={cn('mt-2 block text-xs font-semibold', theme.muted)}>Unique. 3-24 characters. Letters, numbers, underscore.</span>
                 </label>
+                {profileFormMessage && (
+                  <div
+                    className={cn(
+                      'mt-4 rounded-[18px] px-4 py-3 text-sm font-bold leading-5 ring-1',
+                      profileFormMessage.tone === 'error'
+                        ? 'bg-red-50 text-red-700 ring-red-100'
+                        : 'bg-zinc-50 text-zinc-700 ring-zinc-950/[0.06]',
+                    )}
+                    role={profileFormMessage.tone === 'error' ? 'alert' : 'status'}
+                  >
+                    {profileFormMessage.text}
+                  </div>
+                )}
                 <button
                   className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-white text-base font-black text-zinc-950 shadow-[0_14px_30px_rgba(15,15,15,0.10)] ring-1 ring-zinc-950/10 transition active:scale-[0.98] disabled:opacity-50"
                   disabled={profileSaving}
@@ -4846,6 +4865,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 </div>
                 <h2 className="mt-5 text-3xl font-black">{copy.deleteTitle}</h2>
                 <p className={cn('mt-3 text-sm font-semibold leading-6', theme.muted)}>{copy.deleteBody}</p>
+                {deleteError && (
+                  <div className="mt-4 rounded-[18px] bg-red-50 px-4 py-3 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100" role="alert">
+                    {deleteError}
+                  </div>
+                )}
                 <div className="mt-6 grid grid-cols-2 gap-3">
                   <button
                     className={cn('h-14 rounded-full text-sm font-black transition active:scale-[0.98] disabled:opacity-50', theme.soft)}
@@ -5021,8 +5045,8 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
       });
 
       if (error) throw error;
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Google sign in failed.');
+    } catch {
+      setAuthError('Could not open Google sign-in. Please try again.');
       setAuthLoading(false);
     }
   };
