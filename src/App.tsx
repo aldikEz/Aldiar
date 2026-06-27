@@ -70,8 +70,8 @@ export default function App() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-white text-zinc-950">
         <div className="text-center">
-          <p className="text-lg font-black">DigestSnap AI</p>
-          <p className="mt-2 text-sm font-bold text-zinc-500">Loading your session...</p>
+          <p className="text-lg font-black">DigestSnap</p>
+          <p className="mt-2 text-sm font-bold text-zinc-500">Loading your session</p>
         </div>
       </main>
     );

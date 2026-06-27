@@ -101,20 +101,20 @@ type OnboardingStep = {
 const genderOptions: GenderOption[] = ['Male', 'Female', 'Other'];
 const goalOptions: SensiGoal[] = ['Lose weight', 'Maintain weight', 'Gain weight', 'Find triggers', 'Reduce bloating', 'Build consistency'];
 const isSensiGoal = (value: unknown): value is SensiGoal => typeof value === 'string' && goalOptions.includes(value as SensiGoal);
-const processingInsights = ['Calculating digestive thresholds...', 'Mapping symptom timing...', 'Building your trigger baseline...', 'Preparing your DigestSnap profile...'];
+const processingInsights = ['Reading your scan context', 'Mapping symptom timing', 'Building your trigger baseline', 'Preparing DigestSnap'];
 const onboardingSteps: OnboardingStep[] = [
   {
     id: 'welcome',
     kind: 'intro',
-    title: 'You are closer than you think.',
-    subtitle: 'Answer a few fast questions. DigestSnap will make every scan feel more personal from the start.',
+    title: 'Set up your food memory',
+    subtitle: 'Answer a few quick questions so every scan starts with your goals, symptoms, and habits in mind.',
   },
   {
     id: 'goal',
     kind: 'single',
     field: 'goal',
     title: 'What should DigestSnap help with first?',
-    subtitle: 'Good choice already: you are turning confusion into a system.',
+    subtitle: 'Pick the outcome that should shape your first scans.',
     options: goalOptions,
   },
   {
@@ -129,7 +129,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'symptomTime',
     title: 'When does it usually hit?',
-    subtitle: 'This timing helps DigestSnap connect the right meal later.',
+    subtitle: 'Timing helps DigestSnap connect a reaction to the right meal later.',
     options: ['Right after eating', '1-2 hours later', 'At night', 'Next morning'],
   },
   {
@@ -137,7 +137,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'trackingStyle',
     title: 'What usually stops tracking?',
-    subtitle: 'Honest answer. This is exactly what the app is designed around.',
+    subtitle: 'This helps the app match how you actually behave after eating.',
     options: ['I forget', 'Too much typing', 'No clear pattern', 'I never tried'],
   },
   {
@@ -145,7 +145,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'multi',
     field: 'triggers',
     title: 'Which foods feel suspicious?',
-    subtitle: 'Nice. These become your first watchlist.',
+    subtitle: 'These become your first watchlist.',
     options: ['Fried food', 'Bread', 'Dairy', 'Soda', 'Late meals', 'Spicy food'],
   },
   {
@@ -153,7 +153,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'multi',
     field: 'allergies',
     title: 'Any hard avoids?',
-    subtitle: 'If none, tap None. Keeping this clean is better than overthinking it.',
+    subtitle: 'If none, tap None. Keep this list clean and specific.',
     options: ['Dairy', 'Gluten', 'Peanuts', 'Tree nuts', 'Eggs', 'Soy', 'None'],
   },
   {
@@ -161,7 +161,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'dietType',
     title: 'What eating style fits you best?',
-    subtitle: 'Solid. This helps DigestSnap avoid generic advice.',
+    subtitle: 'This helps DigestSnap avoid generic scan advice.',
     options: ['No specific diet', 'High protein', 'Vegetarian', 'Vegan', 'Low carb', 'Halal', 'Low FODMAP'],
   },
   {
@@ -169,7 +169,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'mealRhythm',
     title: 'What does a normal day look like?',
-    subtitle: 'This tells the AI whether timing might matter.',
+    subtitle: 'This tells the AI when timing might matter.',
     options: ['Regular meals', 'I snack a lot', 'I skip meals', 'Late meals often'],
   },
   {
@@ -177,7 +177,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'restaurantFrequency',
     title: 'How often do you eat out?',
-    subtitle: 'Good to know. Restaurant food often hides sauces, oils, and timing patterns.',
+    subtitle: 'Restaurant meals can change portions, oils, sauces, and timing.',
     options: ['Rarely', '1-2 times weekly', '3-5 times weekly', 'Almost daily'],
   },
   {
@@ -185,7 +185,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'lateFood',
     title: 'How often do late meals happen?',
-    subtitle: 'Good detail. Late food can change what patterns mean.',
+    subtitle: 'Late food can change what patterns mean.',
     options: ['Rarely', 'Sometimes', 'Often', 'Almost every night'],
   },
   {
@@ -193,7 +193,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'stressImpact',
     title: 'Does stress affect your stomach?',
-    subtitle: 'This helps separate food patterns from stressful-day noise.',
+    subtitle: 'This helps separate food signals from stressful-day noise.',
     options: ['Not really', 'Sometimes', 'Clearly yes', 'I am not sure'],
   },
   {
@@ -201,7 +201,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'sleepImpact',
     title: 'Does poor sleep change your digestion?',
-    subtitle: 'Nice detail. Sleep can change how the same meal feels.',
+    subtitle: 'Sleep can change how the same meal feels.',
     options: ['No', 'A little', 'A lot', 'I never noticed'],
   },
   {
@@ -209,7 +209,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'hydration',
     title: 'How is your water intake?',
-    subtitle: 'Simple context, but useful for reading patterns later.',
+    subtitle: 'Simple context that helps read patterns later.',
     options: ['Low', 'Average', 'Good', 'Very high'],
   },
   {
@@ -217,7 +217,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'caffeine',
     title: 'How much caffeine do you drink?',
-    subtitle: 'This can matter for stomach sensitivity and energy drinks.',
+    subtitle: 'This can matter for sensitivity and energy drinks.',
     options: ['None', '1 cup', '2-3 cups', 'Energy drinks'],
   },
   {
@@ -225,7 +225,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'carbonation',
     title: 'How often do fizzy drinks show up?',
-    subtitle: 'Great signal. Soda and carbonation are common pattern noise.',
+    subtitle: 'Soda, sweet tea, and carbonation can create pattern noise.',
     options: ['Rarely', 'Sometimes', 'Often', 'Daily'],
   },
   {
@@ -233,7 +233,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'spiceTolerance',
     title: 'How do spicy foods treat you?',
-    subtitle: 'This gives DigestSnap a personal sensitivity baseline.',
+    subtitle: 'This gives DigestSnap a sensitivity baseline.',
     options: ['Fine', 'Sometimes bad', 'Usually bad', 'I avoid them'],
   },
   {
@@ -241,7 +241,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'dairyPattern',
     title: 'How does dairy usually go?',
-    subtitle: 'You are giving the AI useful personal context.',
+    subtitle: 'This gives the AI useful personal context.',
     options: ['Usually fine', 'Sometimes bloated', 'Often bloated', 'I avoid dairy'],
   },
   {
@@ -249,7 +249,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'breadPattern',
     title: 'How do bread or floury foods feel?',
-    subtitle: 'This is one of the highest-signal questions.',
+    subtitle: 'This is a high-signal question for many users.',
     options: ['Usually fine', 'Heavy stomach', 'Bloating', 'I avoid it'],
   },
   {
@@ -257,7 +257,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'friedPattern',
     title: 'How does fried food usually feel?',
-    subtitle: 'Useful. This helps the scanner judge junk food harder for you.',
+    subtitle: 'This helps the scanner read heavier meals with your context.',
     options: ['Usually fine', 'Sometimes bad', 'Often bad', 'I avoid it'],
   },
   {
@@ -265,7 +265,7 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'consistency',
     title: 'Why do trackers usually fail?',
-    subtitle: 'Honest answers make the app easier to stick with.',
+    subtitle: 'Your answer helps keep DigestSnap lightweight.',
     options: ['I forget', 'Too much typing', 'No useful result', 'I never tried'],
   },
   {
@@ -273,27 +273,27 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'motivation',
     title: 'What would keep you coming back?',
-    subtitle: 'Perfect. The dashboard should match what feels useful to you.',
+    subtitle: 'The dashboard should match what feels useful to you.',
     options: ['Fast check-ins', 'Pattern callouts', 'Streaks', 'Clear food ratings'],
   },
   {
     id: 'timeline',
     kind: 'timeline',
     title: 'How patient should DigestSnap be?',
-    subtitle: 'Patterns need repeat signals. Choose a pace you will actually keep.',
+    subtitle: 'Patterns need repeat signals. Choose a pace you can keep.',
   },
   {
     id: 'basics',
     kind: 'basics',
-    title: 'Last basics. You are doing great.',
-    subtitle: 'One screen. This helps personalize the baseline without making tracking heavy.',
+    title: 'Last basics',
+    subtitle: 'This personalizes the baseline without making tracking heavy.',
   },
   {
     id: 'checkins',
     kind: 'single',
     field: 'checkInsPerDay',
     title: 'How light should check-ins feel?',
-    subtitle: 'The best system is the one you will actually keep using.',
+    subtitle: 'The best system is the one you can keep using.',
     options: ['1x daily', '2x daily', 'Only after meals'],
   },
   {
@@ -301,21 +301,21 @@ const onboardingSteps: OnboardingStep[] = [
     kind: 'single',
     field: 'dataPriority',
     title: 'What should the app show first?',
-    subtitle: 'Nice. This keeps your dashboard focused instead of noisy.',
+    subtitle: 'This keeps your dashboard focused instead of noisy.',
     options: ['Symptoms', 'Likely triggers', 'Scan ratings', 'Consistency'],
   },
   {
     id: 'investment',
     kind: 'insight',
-    title: 'You are not building a diary',
-    subtitle: 'You are building a memory system for your stomach.',
-    insight: 'Your first profile already includes symptoms, timing, suspected foods, and consistency style.',
+    title: 'Your profile has signal',
+    subtitle: 'DigestSnap now has enough context to make scans less generic.',
+    insight: 'Your starting profile includes symptoms, timing, suspected foods, and tracking style.',
   },
   {
     id: 'processing',
     kind: 'processing',
-    title: 'AI Analytics Engine Processing...',
-    subtitle: 'DigestSnap is building your initial digestive profile.',
+    title: 'Building your scan profile',
+    subtitle: 'DigestSnap is preparing your first personalized scan context.',
   },
 ];
 const personalizationStepIds = new Set([
@@ -1278,7 +1278,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             Find the food pattern faster.
           </h1>
           <p className="mx-auto mt-4 max-w-[660px] text-[15px] font-semibold leading-6 text-[#5f574d] md:mt-6 md:text-[23px] md:leading-[1.42] xl:mx-0">
-            Take a photo what you eat. Log how you feel. See what keeps bothering you.
+            Take a photo of what you eat. Log how you feel. See what keeps bothering you.
           </p>
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center md:mt-8 md:gap-4 xl:justify-start">
             <button
@@ -5485,11 +5485,11 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
                 DigestSnap
               </h1>
               <p className="mx-auto mt-4 text-base font-semibold leading-7 text-zinc-500">
-                Sign in to keep your scans, check-ins, and personal food patterns in one private place.
+                Sign in to keep scans, check-ins, nutrition, and food patterns tied to your account.
               </p>
 
               <div className="mt-7 grid gap-2 text-left">
-                {['Clear label scans', 'Personal trigger context', 'Private pattern timeline'].map((item) => (
+                {['Food score and nutrition', 'Personal trigger context', 'Later check-ins'].map((item) => (
                   <div className="flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)] ring-1 ring-zinc-950/[0.04]" key={item}>
                     <Check className="h-4 w-4 stroke-[3]" />
                     <span className="text-sm font-black text-zinc-800">{item}</span>
@@ -5506,7 +5506,7 @@ export function AuthPage({ navigate, startAtLogin = false }: { navigate: Navigat
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg font-black text-zinc-950">
                   {authLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : 'G'}
                 </span>
-                {authLoading ? 'Opening Google...' : 'Continue with Google'}
+                {authLoading ? 'Opening Google' : 'Continue with Google'}
               </button>
 
               {authError && (
