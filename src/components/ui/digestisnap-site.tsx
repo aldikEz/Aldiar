@@ -3170,8 +3170,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
       <div className={cn(cardClass, 'flex items-center justify-between gap-5')}>
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-[26px] shadow-inner sm:h-16 sm:w-16 sm:text-[30px]">
-            🔥
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 shadow-inner ring-1 ring-zinc-950/[0.04] sm:h-16 sm:w-16">
+            <Flame className="h-7 w-7 sm:h-8 sm:w-8" />
           </div>
           <div>
             <p className="text-xl font-black sm:text-2xl">{activeStreak}</p>
@@ -3642,12 +3642,14 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 onClick={(event) => event.stopPropagation()}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
-                <p className="text-[22px] font-black sm:text-2xl">Edit goals</p>
-                <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>Update the setup data DigestSnap uses for scans</p>
+                <p className="text-[22px] font-black sm:text-2xl">{isRussian ? 'Изменить профиль' : 'Edit goals'}</p>
+                <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>
+                  {isRussian ? 'Обновите данные, которые DigestSnap использует для сканов' : 'Update the setup data DigestSnap uses for scans'}
+                </p>
 
                 <div className="mt-5 grid gap-4">
                   <label className="block">
-                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Main goal</span>
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Главная цель' : 'Main goal'}</span>
                     <select
                       className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
                       onChange={(event) => setGoalDraft((current) => ({ ...current, goal: event.target.value as SensiGoal }))}
@@ -3660,7 +3662,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </label>
 
                   <label className="block">
-                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Diet type</span>
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Тип питания' : 'Diet type'}</span>
                     <input
                       className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
                       onChange={(event) => setGoalDraft((current) => ({ ...current, dietType: event.target.value }))}
@@ -3670,7 +3672,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <label className="block">
-                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Age</span>
+                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Возраст' : 'Age'}</span>
                       <input
                         className={cn('mt-2 h-[52px] w-full rounded-[16px] border px-2.5 text-base font-bold outline-none transition focus:ring-2 sm:h-14 sm:rounded-[18px] sm:px-3', theme.input)}
                         inputMode="numeric"
@@ -3680,7 +3682,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       />
                     </label>
                     <label className="block">
-                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Height</span>
+                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Рост' : 'Height'}</span>
                       <input
                         className={cn('mt-2 h-[52px] w-full rounded-[16px] border px-2.5 text-base font-bold outline-none transition focus:ring-2 sm:h-14 sm:rounded-[18px] sm:px-3', theme.input)}
                         inputMode="numeric"
@@ -3690,7 +3692,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       />
                     </label>
                     <label className="block">
-                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Weight</span>
+                      <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Вес' : 'Weight'}</span>
                       <input
                         className={cn('mt-2 h-[52px] w-full rounded-[16px] border px-2.5 text-base font-bold outline-none transition focus:ring-2 sm:h-14 sm:rounded-[18px] sm:px-3', theme.input)}
                         inputMode="decimal"
@@ -3702,7 +3704,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </div>
 
                   <label className="block">
-                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Symptoms</span>
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Симптомы' : 'Symptoms'}</span>
                     <input
                       className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
                       onChange={(event) => updateGoalDraftList('symptoms', event.target.value)}
@@ -3712,7 +3714,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </label>
 
                   <label className="block">
-                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Suspected foods</span>
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Подозрительные продукты' : 'Suspected foods'}</span>
                     <input
                       className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
                       onChange={(event) => updateGoalDraftList('triggers', event.target.value)}
@@ -3722,7 +3724,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </label>
 
                   <label className="block">
-                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Allergies / avoids</span>
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Аллергии / избегать' : 'Allergies / avoids'}</span>
                     <input
                       className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
                       onChange={(event) => updateGoalDraftList('allergies', event.target.value)}
@@ -3732,7 +3734,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </label>
 
                   <label className="block">
-                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>Daily check-ins</span>
+                    <span className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Отметок в день' : 'Daily check-ins'}</span>
                     <input
                       className={cn('mt-2 h-14 w-full rounded-[18px] border px-4 text-base font-bold outline-none transition focus:ring-2', theme.input)}
                       inputMode="numeric"
@@ -3750,7 +3752,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   onClick={saveGoalDetails}
                   type="button"
                 >
-                  Save goals
+                  {isRussian ? 'Сохранить профиль' : 'Save goals'}
                 </button>
               </motion.div>
             </motion.div>
