@@ -15,6 +15,7 @@
     "backend:ai-config": "node scripts/check-ai-config.mjs",
     "backend:frontend-target": "node scripts/check-frontend-backend.mjs",
     "backend:functions": "node scripts/check-supabase-functions.mjs",
+    "backend:health": "node scripts/backend-health.mjs",
     "ai:deploy": "supabase functions deploy ai",
     "delete-account:deploy": "supabase functions deploy delete-account",
     "pitch:capture": "node scripts/capture-pitch-assets.mjs"
