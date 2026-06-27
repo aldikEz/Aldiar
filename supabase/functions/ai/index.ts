@@ -73,6 +73,7 @@ type RequestBody = {
 type Rating = 'Safe' | 'Caution' | 'Avoid';
 type ScanConfidenceLevel = 'high' | 'medium' | 'low';
 type ScanConfidenceSource = 'label_read' | 'visual_estimate' | 'database_match' | 'manual_text' | 'fallback' | 'user_corrected';
+type NutritionSource = 'database' | 'label_estimate' | 'visual_estimate' | 'manual_estimate' | 'user_corrected' | 'unknown';
 
 type NutritionFacts = {
   calories: number;
@@ -104,12 +105,20 @@ type ScanConfidence = {
   };
 };
 
+type NutritionMeta = {
+  source: NutritionSource;
+  confidence: ScanConfidenceLevel;
+  label: string;
+  detail: string;
+};
+
 type ScanPayload = {
   result: {
     productName: string;
     overallRating: Rating;
     score: number;
     nutrition?: NutritionFacts;
+    nutritionMeta?: NutritionMeta;
     confidence?: ScanConfidence;
     basis?: {
       portionBasis?: string;
@@ -1284,6 +1293,96 @@ function normalizeNutrition(value: unknown): NutritionFacts | undefined {
   };
 }
 
+function asNutritionSource(value: unknown, fallback: NutritionSource): NutritionSource {
+  return value === 'database' ||
+    value === 'label_estimate' ||
+    value === 'visual_estimate' ||
+    value === 'manual_estimate' ||
+    value === 'user_corrected' ||
+    value === 'unknown'
+    ? value
+    : fallback;
+}
+
+function nutritionSourceFromConfidence(source: ScanConfidenceSource): NutritionSource {
+  const bySource: Record<ScanConfidenceSource, NutritionSource> = {
+    label_read: 'label_estimate',
+    database_match: 'database',
+    visual_estimate: 'visual_estimate',
+    manual_text: 'manual_estimate',
+    fallback: 'unknown',
+    user_corrected: 'user_corrected',
+  };
+
+  return bySource[source];
+}
+
+function makeNutritionMeta(source: NutritionSource, targetLang: string, confidence: ScanConfidenceLevel): NutritionMeta {
+  const russian = targetLang === 'Russian';
+  const copy: Record<NutritionSource, { label: string; detail: string; ruLabel: string; ruDetail: string }> = {
+    database: {
+      label: 'Database nutrition',
+      detail: 'Calories and macros came from product database data when available',
+      ruLabel: 'Питание из базы',
+      ruDetail: 'Калории и макросы взяты из продуктовой базы, если доступны',
+    },
+    label_estimate: {
+      label: 'Label-based estimate',
+      detail: 'Nutrition was estimated from visible label, packaging, or product category',
+      ruLabel: 'Оценка по этикетке',
+      ruDetail: 'Питание оценено по видимой этикетке, упаковке или категории',
+    },
+    visual_estimate: {
+      label: 'Visual nutrition estimate',
+      detail: 'Nutrition is an approximate serving estimate from the image',
+      ruLabel: 'Визуальная оценка питания',
+      ruDetail: 'Питание примерно оценено по фото и обычной порции',
+    },
+    manual_estimate: {
+      label: 'Text-based estimate',
+      detail: 'Nutrition was estimated from the typed food or label text',
+      ruLabel: 'Оценка по тексту',
+      ruDetail: 'Питание оценено по введенному названию или составу',
+    },
+    user_corrected: {
+      label: 'User corrected nutrition',
+      detail: 'Calories and macros were edited by the user',
+      ruLabel: 'Питание исправлено',
+      ruDetail: 'Калории и макросы были исправлены пользователем',
+    },
+    unknown: {
+      label: 'Nutrition not confirmed',
+      detail: 'Nutrition should be checked before counting it',
+      ruLabel: 'Питание не подтверждено',
+      ruDetail: 'Питание стоит проверить перед учетом',
+    },
+  };
+  const selected = copy[source];
+
+  return {
+    source,
+    confidence,
+    label: russian ? selected.ruLabel : selected.label,
+    detail: russian ? selected.ruDetail : selected.detail,
+  };
+}
+
+function normalizeNutritionMeta(value: unknown, targetLang: string, fallback: NutritionMeta): NutritionMeta {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const source = asNutritionSource(value.source, fallback.source);
+  const base = makeNutritionMeta(source, targetLang, fallback.confidence);
+
+  return {
+    source,
+    confidence: asConfidenceLevel(value.confidence, base.confidence),
+    label: asBoundedString(value.label, base.label, 70),
+    detail: asBoundedString(value.detail, base.detail, 160),
+  };
+}
+
 function normalizeChemical(value: unknown): ChemicalReport | null {
   if (!isRecord(value)) {
     return null;
@@ -1588,6 +1687,7 @@ function applyUncertaintyGuardrails(scan: ScanPayload, targetLang: string): Scan
         ...scan.result,
         overallRating: scan.result.overallRating === 'Avoid' ? 'Avoid' : 'Caution',
         score: Math.min(scan.result.score, 55),
+        nutritionMeta: scan.result.nutrition ? makeNutritionMeta('unknown', targetLang, 'low') : undefined,
         confidence: {
           ...fallbackConfidence,
           components: capConfidenceComponents(fallbackConfidence.components, makeConfidenceComponents('fallback', fallbackConfidence.score), {
@@ -1619,10 +1719,19 @@ function withScanConfidence(scan: ScanPayload, targetLang: string, source?: Scan
   const fallbackSource = source ?? scan.result.confidence?.source ?? (isUnusableVisualScan(scan) ? 'fallback' : 'label_read');
   const fallback = makeScanConfidence(fallbackSource, targetLang, scoreOverride ?? (source ? undefined : scan.result.confidence?.score));
   const confidence = normalizeConfidence(source ? null : scan.result.confidence, targetLang, fallback);
+  const nutritionSource = nutritionSourceFromConfidence(confidence.source);
+  const nutritionMeta = scan.result.nutrition
+    ? normalizeNutritionMeta(
+        source ? undefined : scan.result.nutritionMeta,
+        targetLang,
+        makeNutritionMeta(nutritionSource, targetLang, confidence.components?.nutrition ? confidenceLevelFromScore(confidence.components.nutrition) : confidence.level),
+      )
+    : undefined;
 
   return applyUncertaintyGuardrails({
     result: {
       ...scan.result,
+      nutritionMeta,
       confidence,
       basis: normalizeScanBasis(scan.result.basis, targetLang, confidence.source),
     },
@@ -1645,6 +1754,9 @@ function normalizeScanPayload(value: unknown, targetLang: string, fallback: Scan
       overallRating: asRating(value.result.overallRating, flaggedChemicals.length > 0 ? 'Caution' : 'Safe'),
       score: asScore(value.result.score),
       nutrition: normalizeNutrition(value.result.nutrition),
+      nutritionMeta: isRecord(value.result.nutritionMeta)
+        ? normalizeNutritionMeta(value.result.nutritionMeta, targetLang, makeNutritionMeta('label_estimate', targetLang, 'medium'))
+        : undefined,
       confidence: normalizeConfidence(value.result.confidence, targetLang, makeScanConfidence('label_read', targetLang)),
       basis: normalizeScanBasis(value.result.basis, targetLang, asConfidenceSource(rawConfidenceSource, 'label_read')),
       flaggedChemicals,

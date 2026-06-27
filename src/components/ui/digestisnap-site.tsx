@@ -3084,6 +3084,55 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       className: 'bg-white text-zinc-700 ring-zinc-200',
     };
   };
+  const getNutritionMeta = (result: ImageScanPayload['result']) => {
+    if (result.nutritionMeta) {
+      return result.nutritionMeta;
+    }
+
+    const source = result.confidence?.source;
+    if (source === 'database_match') {
+      return {
+        source: 'database' as const,
+        confidence: 'high' as const,
+        label: isRussian ? 'Питание из базы' : 'Database nutrition',
+        detail: isRussian ? 'Калории и макросы взяты из продуктовой базы' : 'Calories and macros use product database data',
+      };
+    }
+
+    if (source === 'visual_estimate') {
+      return {
+        source: 'visual_estimate' as const,
+        confidence: 'medium' as const,
+        label: isRussian ? 'Визуальная оценка питания' : 'Visual nutrition estimate',
+        detail: isRussian ? 'Питание примерно оценено по фото и обычной порции' : 'Nutrition is estimated from the photo and a normal serving',
+      };
+    }
+
+    if (source === 'manual_text') {
+      return {
+        source: 'manual_estimate' as const,
+        confidence: 'medium' as const,
+        label: isRussian ? 'Оценка по тексту' : 'Text-based estimate',
+        detail: isRussian ? 'Питание оценено по введенному названию или составу' : 'Nutrition is estimated from typed food or label text',
+      };
+    }
+
+    if (source === 'user_corrected') {
+      return {
+        source: 'user_corrected' as const,
+        confidence: 'high' as const,
+        label: isRussian ? 'Питание исправлено' : 'User corrected nutrition',
+        detail: isRussian ? 'Калории и макросы исправлены вручную' : 'Calories and macros were edited manually',
+      };
+    }
+
+    return {
+      source: 'label_estimate' as const,
+      confidence: 'medium' as const,
+      label: isRussian ? 'Оценка по этикетке' : 'Label-based estimate',
+      detail: isRussian ? 'Питание оценено по этикетке, упаковке или категории' : 'Nutrition is estimated from label, packaging, or product category',
+    };
+  };
   const getPortionConfidence = (result: ImageScanPayload['result']) => {
     const source = result.confidence?.source;
     const basisText = `${result.basis?.portionBasis ?? ''} ${result.basis?.decisionBasis ?? ''}`.toLowerCase();
@@ -3214,6 +3263,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const resultTone = scanResult ? ratingTone(scanResult.result.overallRating) : ratingTone('Caution');
   const baseScanNutrition = scanResult ? nutritionForResult(scanResult.result) : null;
   const scanNutrition = baseScanNutrition ? scaleNutritionFacts(baseScanNutrition, selectedPortion) : null;
+  const nutritionMeta = scanResult ? getNutritionMeta(scanResult.result) : null;
   const scanConfidence = scanResult ? getScanConfidence(scanResult.result) : null;
   const portionConfidence = scanResult ? getPortionConfidence(scanResult.result) : null;
   const aiIdentifiedText = scanResult
@@ -3282,6 +3332,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       score: fixedScore,
       overallRating: fixDraft.rating,
       nutrition: fixedNutrition,
+      nutritionMeta: {
+        source: 'user_corrected',
+        confidence: 'high',
+        label: isRussian ? 'Питание исправлено' : 'User corrected nutrition',
+        detail: correctedReason,
+      },
       confidence: {
         level: 'high',
         source: 'user_corrected',
@@ -4762,7 +4818,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   <div className={cn('mt-4 rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px] sm:p-5', theme.soft)}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Оценка питания' : 'Estimated nutrition'}</p>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">
+                          {nutritionMeta?.label ?? (isRussian ? 'Оценка питания' : 'Estimated nutrition')}
+                        </p>
                         <h3 className="mt-1.5 text-xl font-black leading-tight">{scanNutrition.calories} cal</h3>
                       </div>
                       <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.06]">
@@ -4772,6 +4830,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     {scanResult.result.basis && (
                       <div className="mt-3 rounded-[18px] bg-white p-3 shadow-sm ring-1 ring-zinc-950/[0.05]">
                         <p className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Основа расчета' : 'Basis'}</p>
+                        {nutritionMeta?.detail && <p className="mt-1 text-xs font-black leading-5 text-zinc-950">{nutritionMeta.detail}</p>}
                         <p className="mt-1 text-xs font-bold leading-5 text-zinc-600">{scanResult.result.basis.portionBasis}</p>
                         <p className="mt-0.5 text-xs font-semibold leading-5 text-zinc-400">{scanResult.result.basis.decisionBasis}</p>
                       </div>

@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 export type Rating = 'Safe' | 'Caution' | 'Avoid';
 export type ScanConfidenceLevel = 'high' | 'medium' | 'low';
 export type ScanConfidenceSource = 'label_read' | 'visual_estimate' | 'database_match' | 'manual_text' | 'fallback' | 'user_corrected';
+export type NutritionSource = 'database' | 'label_estimate' | 'visual_estimate' | 'manual_estimate' | 'user_corrected' | 'unknown';
 
 export type NutritionFacts = {
   calories: number;
@@ -35,12 +36,20 @@ export type ScanBasis = {
   decisionBasis?: string;
 };
 
+export type NutritionMeta = {
+  source: NutritionSource;
+  confidence: ScanConfidenceLevel;
+  label: string;
+  detail: string;
+};
+
 export type ImageScanPayload = {
   result: {
     productName: string;
     overallRating: Rating;
     score: number;
     nutrition?: NutritionFacts;
+    nutritionMeta?: NutritionMeta;
     confidence?: ScanConfidence;
     basis?: ScanBasis;
     flaggedChemicals: Array<{
@@ -241,6 +250,12 @@ function makeInstantScan(fileName: string): ImageScanPayload {
       basis: {
         portionBasis: 'One normal serving',
         decisionBasis: 'Temporary client estimate while the scan finishes',
+      },
+      nutritionMeta: {
+        source: 'unknown',
+        confidence: 'low',
+        label: 'Nutrition not confirmed',
+        detail: 'AI is still checking nutrition in the background',
       },
       flaggedChemicals: [
         {
