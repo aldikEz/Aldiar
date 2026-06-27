@@ -2461,7 +2461,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     const date = new Date(today);
     date.setDate(today.getDate() - today.getDay() + index);
     return {
-      day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      day: date.toLocaleDateString(isRussian ? 'ru-RU' : 'en-US', { weekday: 'short' }),
       date: String(date.getDate()),
       key: date.toDateString(),
       selected: date.toDateString() === selectedHomeDate,
@@ -2548,15 +2548,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const fatTarget = Math.round((calorieTarget * 0.27) / 9);
   const carbsTarget = Math.max(90, Math.round((calorieTarget - proteinTarget * 4 - fatTarget * 9) / 4));
   const macroCards = [
-    { label: 'Calories', value: caloriesEaten, target: calorieTarget, unit: '', icon: 'Cal', color: 'text-zinc-950' },
-    { label: 'Protein', value: eatenNutrition.proteinG, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
-    { label: 'Carbs', value: eatenNutrition.carbsG, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
-    { label: 'Fat', value: eatenNutrition.fatG, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
+    { label: isRussian ? 'Калории' : 'Calories', value: caloriesEaten, target: calorieTarget, unit: '', icon: 'Cal', color: 'text-zinc-950' },
+    { label: isRussian ? 'Белок' : 'Protein', value: eatenNutrition.proteinG, target: proteinTarget, unit: 'g', icon: 'P', color: 'text-red-500' },
+    { label: isRussian ? 'Углеводы' : 'Carbs', value: eatenNutrition.carbsG, target: carbsTarget, unit: 'g', icon: 'C', color: 'text-amber-500' },
+    { label: isRussian ? 'Жиры' : 'Fat', value: eatenNutrition.fatG, target: fatTarget, unit: 'g', icon: 'F', color: 'text-blue-500' },
   ];
   const nutritionDetailCards = [
-    { label: 'Fiber', value: eatenNutrition.fiberG ?? 0, target: 30, unit: 'g' },
-    { label: 'Sugar', value: eatenNutrition.sugarG ?? 0, target: 50, unit: 'g' },
-    { label: 'Sodium', value: eatenNutrition.sodiumMg ?? 0, target: 2300, unit: 'mg' },
+    { label: isRussian ? 'Клетчатка' : 'Fiber', value: eatenNutrition.fiberG ?? 0, target: 30, unit: 'g' },
+    { label: isRussian ? 'Сахар' : 'Sugar', value: eatenNutrition.sugarG ?? 0, target: 50, unit: 'g' },
+    { label: isRussian ? 'Натрий' : 'Sodium', value: eatenNutrition.sodiumMg ?? 0, target: 2300, unit: 'mg' },
   ];
   const manualWaterNumber = Number(manualWaterAmount);
   const manualWaterMl =
@@ -3057,9 +3057,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     { id: 'all', label: isRussian ? 'Все' : 'All' },
     { id: 'eaten', label: isRussian ? 'Съедено' : 'Eaten' },
     { id: 'not_eaten', label: isRussian ? 'Не ел' : 'Not eaten' },
-    { id: 'safe', label: isRussian ? 'Safe' : 'Safe' },
-    { id: 'caution', label: isRussian ? 'Caution' : 'Caution' },
-    { id: 'avoid', label: isRussian ? 'Avoid' : 'Avoid' },
+    { id: 'safe', label: isRussian ? 'Можно' : 'Safe' },
+    { id: 'caution', label: isRussian ? 'Осторожно' : 'Caution' },
+    { id: 'avoid', label: isRussian ? 'Избегать' : 'Avoid' },
     { id: 'with_feeling', label: isRussian ? 'С ощущением' : 'With feeling' },
   ];
   const filteredHistoryScans = recentScans
@@ -3131,10 +3131,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {[
-          ['Current streak', String(activeStreak), 'days', Flame],
-          ['Best streak', String(maxStreak), 'max', Target],
-          ['Scans', String(scanCount), 'saved', ScanLine],
-          ['Last log', normalizedStreak.lastLoggedAt ? (daysSinceLastLog === 0 ? 'Today' : `${daysSinceLastLog}d ago`) : 'No logs', 'activity', Activity],
+          [isRussian ? 'Текущая серия' : 'Current streak', String(activeStreak), isRussian ? 'дней' : 'days', Flame],
+          [isRussian ? 'Лучшая серия' : 'Best streak', String(maxStreak), isRussian ? 'макс' : 'max', Target],
+          [isRussian ? 'Сканы' : 'Scans', String(scanCount), isRussian ? 'сохранено' : 'saved', ScanLine],
+          [
+            isRussian ? 'Последняя запись' : 'Last log',
+            normalizedStreak.lastLoggedAt
+              ? (daysSinceLastLog === 0 ? (isRussian ? 'Сегодня' : 'Today') : `${daysSinceLastLog}d ago`)
+              : isRussian ? 'Нет записей' : 'No logs',
+            isRussian ? 'активность' : 'activity',
+            Activity,
+          ],
         ].map(([label, value, helper, Icon]) => (
           <div
             className={cn(
@@ -3176,7 +3183,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               {[
                 [isRussian ? '7 дней' : '7 days', weeklyScans.length],
                 [isRussian ? 'Отметки' : 'Check-ins', weeklyCheckIns],
-                [isRussian ? 'Avoid' : 'Avoid', weeklyAvoids],
+                [isRussian ? 'Избегать' : 'Avoid', weeklyAvoids],
               ].map(([label, value]) => (
                 <div className="rounded-[14px] bg-white px-2 py-2.5 text-center shadow-sm ring-1 ring-zinc-950/[0.04]" key={String(label)}>
                   <p className="text-base font-black leading-none">{value}</p>
@@ -3565,7 +3572,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                               </div>
                             </div>
                             <div className="mt-4 flex items-end justify-center gap-1 sm:mt-5">
-                              <span className="text-[42px] font-black leading-none tracking-normal sm:text-[52px] md:text-[60px]">{latestScore ?? 'Ready'}</span>
+                              <span className="text-[42px] font-black leading-none tracking-normal sm:text-[52px] md:text-[60px]">{latestScore ?? (isRussian ? 'Готово' : 'Ready')}</span>
                               {latestScore !== null && <span className="pb-1.5 text-[22px] font-black text-zinc-400 sm:text-[26px]">/100</span>}
                             </div>
                             <p className="mx-auto mt-2 max-w-[520px] text-[13px] font-black leading-5 text-zinc-500 sm:mt-3 sm:text-[15px] sm:leading-6">
@@ -3640,7 +3647,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <div>
-                                  <p className="text-[15px] font-black text-zinc-500 sm:text-[18px]">Water intake</p>
+                                  <p className="text-[15px] font-black text-zinc-500 sm:text-[18px]">{isRussian ? 'Вода' : 'Water intake'}</p>
                                   <p className="mt-1 text-[24px] font-black leading-none sm:text-[30px]">{waterCardLabel}</p>
                                 </div>
                                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-lg font-black text-white">+</span>
@@ -3649,7 +3656,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                             <div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
                               <div className="flex items-start justify-between gap-3">
-                                <p className="text-[15px] font-black sm:text-[18px]">Health score</p>
+                                <p className="text-[15px] font-black sm:text-[18px]">{isRussian ? 'Счет здоровья' : 'Health score'}</p>
                                 <p className="text-[22px] font-black leading-none sm:text-[28px]">
                                   {latestScore !== null ? `${gutScoreOutOfTen}/10` : 'N/A'}
                                 </p>
@@ -3707,8 +3714,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   >
                     <div className="flex w-full items-center justify-between gap-4">
                       <div>
-                        <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">My progress</p>
-                        <p className="mt-1 text-[12px] font-semibold leading-4 text-zinc-500 sm:text-[13px] sm:leading-5 md:text-sm">Patterns, streak, and body baseline</p>
+                        <p className="text-[18px] font-black sm:text-[22px] md:text-[26px]">{isRussian ? 'Мой прогресс' : 'My progress'}</p>
+                        <p className="mt-1 text-[12px] font-semibold leading-4 text-zinc-500 sm:text-[13px] sm:leading-5 md:text-sm">
+                          {isRussian ? 'Паттерны, серия и базовые данные' : 'Patterns, streak, and body baseline'}
+                        </p>
                       </div>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 transition group-hover:scale-105 sm:h-11 sm:w-11">
                         {hasActivity ? <BarChart3 className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
@@ -3746,7 +3755,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 
                   <section className="pt-1 sm:pt-2">
                     <div className="flex items-center justify-between gap-4">
-                      <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">Recent scans</h2>
+                      <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">{isRussian ? 'Последние сканы' : 'Recent scans'}</h2>
                       {recentScans.length > 0 && (
                         <button
                           className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 shadow-[0_8px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.06] transition active:scale-95 sm:text-sm"
@@ -4775,17 +4784,17 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
                 <div className="mx-auto h-1.5 w-12 rounded-full bg-zinc-200" />
-                <h2 className="mt-6 text-center text-[22px] font-black">Log Water</h2>
+                <h2 className="mt-6 text-center text-[22px] font-black">{isRussian ? 'Добавить воду' : 'Log Water'}</h2>
 
                 <div className="mt-6 rounded-[24px] bg-zinc-50 p-4 text-center ring-1 ring-zinc-950/[0.06]">
-                  <p className="text-sm font-black text-zinc-500">Water logged</p>
+                  <p className="text-sm font-black text-zinc-500">{isRussian ? 'Воды добавлено' : 'Water logged'}</p>
                   <p className="mt-2 text-[38px] font-black leading-none">{waterCardLabel}</p>
                 </div>
 
                 <div className="mt-4 rounded-[22px] bg-zinc-50 p-3.5 ring-1 ring-zinc-950/[0.06] sm:rounded-[24px] sm:p-4">
                   <div className="flex items-center justify-between gap-3">
                     <label className="text-sm font-black text-zinc-500" htmlFor="manual-water-amount">
-                      Amount
+                      {isRussian ? 'Количество' : 'Amount'}
                     </label>
                     <div className="grid grid-cols-2 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-950/[0.06]">
                       {([
@@ -4838,7 +4847,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   }}
                   type="button"
                 >
-                  Log
+                  {isRussian ? 'Сохранить' : 'Log'}
                 </button>
               </motion.div>
             </motion.div>
