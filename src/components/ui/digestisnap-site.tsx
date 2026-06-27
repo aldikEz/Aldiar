@@ -2246,6 +2246,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [cameraCapturing, setCameraCapturing] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [menuDishInput, setMenuDishInput] = useState('');
   const [menuDishScanning, setMenuDishScanning] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
@@ -2531,11 +2532,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     if (!cameraSheetOpen) {
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
       cameraStreamRef.current = null;
+      setCameraReady(false);
       return;
     }
 
     let cancelled = false;
     setCameraError('');
+    setCameraReady(false);
 
     async function startCamera() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -2548,8 +2551,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           audio: false,
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 1280 },
+            width: { ideal: 1024 },
+            height: { ideal: 1024 },
           },
         });
 
@@ -2562,8 +2565,10 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => undefined);
+          if (!cancelled) setCameraReady(true);
         }
       } catch {
+        setCameraReady(false);
         setCameraError(copy.cameraPermissionBlocked);
       }
     }
@@ -2574,6 +2579,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       cancelled = true;
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
       cameraStreamRef.current = null;
+      setCameraReady(false);
     };
   }, [cameraSheetOpen]);
 
@@ -2964,7 +2970,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const captureCameraFrame = async () => {
     if (cameraCapturing) return;
     const video = videoRef.current;
-    if (!video || video.readyState < 2) {
+    if (!cameraReady || !video || video.readyState < 2) {
       setCameraError(copy.cameraLoading);
       return;
     }
@@ -2981,7 +2987,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
     if (!blob) {
       setCameraCapturing(false);
       setCameraError(copy.cameraCaptureError);
@@ -4862,13 +4868,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
               <div className="shrink-0 bg-black px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-5">
                 <div className="mx-auto flex max-w-[420px] items-center justify-center">
                   <button
-                    className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_0_0_8px_rgba(255,255,255,0.16)] transition active:scale-95"
-                    disabled={cameraCapturing}
+                    className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_0_0_8px_rgba(255,255,255,0.16)] transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-65"
+                    disabled={cameraCapturing || !cameraReady}
                     onClick={captureCameraFrame}
                     type="button"
                     aria-label="Capture food photo"
                   >
-                    {cameraCapturing ? <LoaderCircle className="h-9 w-9 animate-spin stroke-[2.8]" /> : <Camera className="h-9 w-9 stroke-[2.8]" />}
+                    {cameraCapturing || !cameraReady ? <LoaderCircle className="h-9 w-9 animate-spin stroke-[2.8]" /> : <Camera className="h-9 w-9 stroke-[2.8]" />}
                   </button>
                 </div>
                 <form

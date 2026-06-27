@@ -12,9 +12,11 @@ const checks = [
       && app.includes('width: `${scanProgress}%`'),
   },
   {
-    name: 'camera capture disables duplicate taps and spins',
-    ok: /disabled=\{cameraCapturing\}/.test(app)
-      && /cameraCapturing \? <LoaderCircle/.test(app),
+    name: 'camera capture waits for stream readiness and disables duplicate taps',
+    ok: /const \[cameraReady, setCameraReady\] = useState\(false\)/.test(app)
+      && /disabled=\{cameraCapturing \|\| !cameraReady\}/.test(app)
+      && /cameraCapturing \|\| !cameraReady \? <LoaderCircle/.test(app)
+      && /if \(!cameraReady \|\| !video \|\| video\.readyState < 2\)/.test(app),
   },
   {
     name: 'manual dish scan disables duplicate submits and spins',
