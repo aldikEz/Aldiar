@@ -2503,7 +2503,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : calorieMode === 'lose'
         ? isRussian ? 'Профиль ставит умеренный дефицит от поддержки веса' : 'Your profile sets a moderate deficit from maintenance'
         : isRussian ? 'Профиль держит цель около поддержки веса' : 'Your profile keeps the target near maintenance';
-  const selectedDayEatenScans = recentScans.filter((item) => item.eaten && isSameLocalDay(item.consumedAt ?? item.createdAt, selectedHomeDate));
+  const selectedDayScans = recentScans.filter((item) => isSameLocalDay(item.createdAt, selectedHomeDate));
+  const selectedDayEatenScans = selectedDayScans.filter((item) => item.eaten);
+  const selectedDayFeelingCount = selectedDayScans.filter((item) => item.feeling).length;
+  const selectedDayAverageScore = selectedDayScans.length
+    ? Math.round(selectedDayScans.reduce((sum, item) => sum + item.result.score, 0) / selectedDayScans.length)
+    : null;
   const eatenNutrition = addNutritionValues(selectedDayEatenScans.map((item) => item.nutrition));
   const caloriesEaten = eatenNutrition.calories;
   const remainingCalories = Math.max(0, calorieTarget - caloriesEaten);
@@ -3650,6 +3655,34 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       </span>
                     </div>
                   </button>
+
+                  <div className="rounded-[22px] bg-white p-4 shadow-[0_7px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-[17px] font-black sm:text-[20px]">{isRussian ? 'Итог дня' : 'Day recap'}</p>
+                        <p className="mt-1 text-xs font-bold text-zinc-500 sm:text-sm">
+                          {selectedDayScans.length > 0
+                            ? isRussian ? 'Сводка по выбранной дате' : 'Summary for the selected date'
+                            : isRussian ? 'Пока нет сканов за этот день' : 'No scans for this day yet'}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-black text-zinc-500">
+                        {selectedDayAverageScore === null ? 'N/A' : `${selectedDayAverageScore}/100`}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {[
+                        [isRussian ? 'Сканы' : 'Scans', selectedDayScans.length],
+                        [isRussian ? 'Учтено' : 'Counted', selectedDayEatenScans.length],
+                        [isRussian ? 'Ощущения' : 'Check-ins', selectedDayFeelingCount],
+                      ].map(([label, value]) => (
+                        <div className="rounded-[16px] bg-zinc-50 px-2.5 py-3 text-center ring-1 ring-zinc-950/[0.04]" key={String(label)}>
+                          <p className="text-lg font-black leading-none">{value}</p>
+                          <p className="mt-1.5 text-[10px] font-black uppercase text-zinc-400">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
                   <section className="pt-1 sm:pt-2">
                     <div className="flex items-center justify-between gap-4">
