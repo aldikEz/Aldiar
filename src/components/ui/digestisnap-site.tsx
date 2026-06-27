@@ -60,6 +60,9 @@ type FoodEventRow = {
   image_data_url: string | null;
   eaten: boolean | null;
   feeling: string | null;
+  feeling_logged_at: string | null;
+  feeling_delay_minutes: number | null;
+  food_category: string | null;
   consumed_at: string | null;
   note: string | null;
   created_at: string;
@@ -394,6 +397,9 @@ type RecentScan = {
   portion?: PortionOption;
   eaten?: boolean;
   feeling?: FeelingOption;
+  feelingLoggedAt?: string;
+  feelingDelayMinutes?: number;
+  foodCategory?: string;
   consumedAt?: string;
   note?: string;
   createdAt: string;
@@ -648,6 +654,25 @@ function patternFoodKey(name: string) {
     .slice(0, 48);
 }
 
+function deriveFoodCategory(result: ImageScanPayload['result']) {
+  const text = nutritionSearchText(result);
+  if (/\b(water|mineral water|cola|soda|fanta|sprite|pepsi|fuse|iced?\s*tea|juice|energy|drink)\b|вода|кола|газиров|сок|чай|энергет/i.test(text)) return 'Drink';
+  if (/\b(chips|crisps|snack|candy|chocolate|bar|cookie|biscuit|kinder|lays?|doritos|pringles)\b|чипс|снек|конфет|шоколад|батончик|печен|киндер/i.test(text)) return 'Snack';
+  if (/\b(apple|banana|orange|berries|grapes|kiwi|avocado|fruit)\b|яблок|банан|апельсин|ягод|виноград|киви|авокад|фрукт/i.test(text)) return 'Fruit';
+  if (/\b(cucumber|tomato|carrot|broccoli|spinach|salad|vegetable)\b|огур|помидор|морков|брокколи|салат|овощ/i.test(text)) return 'Vegetable';
+  if (/\b(egg|chicken|turkey|beef|steak|meat|fish|salmon|tuna)\b|яйц|куриц|индейк|говядин|мясо|рыб|лосос|тунец/i.test(text)) return 'Protein';
+  if (/\b(rice|buckwheat|oats|oatmeal|pasta|macaroni|spaghetti|noodles|bread|toast|wrap|bun|potato)\b|рис|гречк|овсян|паста|макарон|лапша|хлеб|тост|лаваш|картоф/i.test(text)) return 'Carb';
+  if (/\b(burger|shawarma|kebab|fried chicken|meal|plate|bowl|takeout|restaurant)\b|бургер|шаурм|кебаб|жарен|тарелк|миска|ресторан/i.test(text)) return 'Meal';
+  return 'Food';
+}
+
+function feelingDelayMinutes(consumedAt?: string, feelingLoggedAt = new Date().toISOString()) {
+  const consumedMs = consumedAt ? Date.parse(consumedAt) : NaN;
+  const loggedMs = Date.parse(feelingLoggedAt);
+  if (!Number.isFinite(consumedMs) || !Number.isFinite(loggedMs)) return 0;
+  return Math.max(0, Math.round((loggedMs - consumedMs) / 60000));
+}
+
 function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
   const isRussian = language === 'Russian';
   const eatenScans = scans.filter((scan) => scan.eaten === true);
@@ -802,6 +827,9 @@ function readRecentScans(userId?: string): RecentScan[] {
           portion,
           eaten: typeof item.eaten === 'boolean' ? item.eaten : undefined,
           feeling: item.feeling === 'Fine' || item.feeling === 'Bloated' || item.feeling === 'Pain' || item.feeling === 'Nausea' ? item.feeling : undefined,
+          feelingLoggedAt: typeof item.feelingLoggedAt === 'string' ? item.feelingLoggedAt : undefined,
+          feelingDelayMinutes: typeof item.feelingDelayMinutes === 'number' ? item.feelingDelayMinutes : undefined,
+          foodCategory: typeof item.foodCategory === 'string' ? item.foodCategory : deriveFoodCategory(item.result),
           consumedAt: typeof item.consumedAt === 'string' ? item.consumedAt : undefined,
           note: typeof item.note === 'string' ? item.note : undefined,
           createdAt: item.createdAt,
@@ -846,6 +874,9 @@ function foodEventRowToRecentScan(row: FoodEventRow): RecentScan | null {
     portion: 'medium',
     eaten: typeof row.eaten === 'boolean' ? row.eaten : undefined,
     feeling: row.feeling === 'Fine' || row.feeling === 'Bloated' || row.feeling === 'Pain' || row.feeling === 'Nausea' ? row.feeling : undefined,
+    feelingLoggedAt: row.feeling_logged_at ?? undefined,
+    feelingDelayMinutes: typeof row.feeling_delay_minutes === 'number' ? row.feeling_delay_minutes : undefined,
+    foodCategory: row.food_category ?? deriveFoodCategory(result),
     consumedAt: row.consumed_at ?? undefined,
     note: row.note ?? undefined,
     createdAt: row.created_at,
@@ -2333,7 +2364,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     async function loadFoodEvents() {
       const { data, error } = await supabase
         .from('food_events')
-        .select('user_id,local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,note,created_at')
+        .select('user_id,local_scan_id,result,nutrition,image_data_url,eaten,feeling,feeling_logged_at,feeling_delay_minutes,food_category,consumed_at,note,created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(MAX_STORED_SCANS);
@@ -2646,6 +2677,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           image_data_url: scan.imageDataUrl,
           eaten: typeof scan.eaten === 'boolean' ? scan.eaten : null,
           feeling: scan.feeling ?? null,
+          feeling_logged_at: scan.feelingLoggedAt ?? null,
+          feeling_delay_minutes: typeof scan.feelingDelayMinutes === 'number' ? scan.feelingDelayMinutes : null,
+          food_category: scan.foodCategory ?? deriveFoodCategory(scan.result),
           consumed_at: scan.consumedAt ?? null,
           note: scan.note ?? null,
           created_at: scan.createdAt,
@@ -2662,7 +2696,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return true;
   };
 
-  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'baseNutrition' | 'portion' | 'result' | 'note'>>) => {
+  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'feelingLoggedAt' | 'feelingDelayMinutes' | 'foodCategory' | 'consumedAt' | 'nutrition' | 'baseNutrition' | 'portion' | 'result' | 'note'>>) => {
     if (!id) return;
     setRecentScans((items) => {
       let updatedScan: RecentScan | null = null;
@@ -2726,6 +2760,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         baseNutrition: errorNutrition,
         nutrition: errorNutrition,
         portion: 'medium',
+        foodCategory: deriveFoodCategory(errorResult),
         createdAt: new Date().toISOString(),
       };
       window.clearInterval(progressTimer);
@@ -2791,6 +2826,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         baseNutrition: nutrition,
         nutrition,
         portion: 'medium',
+        foodCategory: deriveFoodCategory(normalizedScan.result),
         createdAt: new Date().toISOString(),
       };
       setActiveRecentScanId(recentId);
@@ -2858,6 +2894,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         baseNutrition: nutrition,
         nutrition,
         portion: 'medium',
+        foodCategory: deriveFoodCategory(normalizedScan.result),
         createdAt: new Date().toISOString(),
       };
 
@@ -5333,6 +5370,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 	                              eaten: status === 'eaten',
 	                              consumedAt: status === 'eaten' ? new Date().toISOString() : undefined,
 	                              feeling: status === 'eaten' ? selectedFeeling ?? undefined : undefined,
+                                feelingLoggedAt: status === 'eaten' && selectedFeeling ? new Date().toISOString() : undefined,
+                                feelingDelayMinutes: undefined,
+                                foodCategory: deriveFoodCategory(scanResult.result),
                                 baseNutrition: baseNutritionForPortion,
 	                              nutrition: scanNutrition ?? undefined,
                                 portion: selectedPortion,
@@ -5362,10 +5402,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
 	                              )}
 	                              key={feeling}
 	                              onClick={() => {
+                                  const loggedAt = new Date().toISOString();
+                                  const consumedAt = activeSavedScan?.consumedAt ?? new Date().toISOString();
 	                                setSelectedFeeling(feeling);
 	                                updateRecentScan(activeRecentScanId, {
 	                                  feeling,
-	                                  consumedAt: activeSavedScan?.consumedAt ?? new Date().toISOString(),
+                                    feelingLoggedAt: loggedAt,
+                                    feelingDelayMinutes: feelingDelayMinutes(consumedAt, loggedAt),
+	                                  consumedAt,
+                                    foodCategory: deriveFoodCategory(scanResult.result),
 	                                });
 	                              }}
 	                              type="button"

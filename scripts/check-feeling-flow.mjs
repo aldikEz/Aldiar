@@ -19,7 +19,13 @@ const checks = [
   },
   {
     name: 'saved scan check-in timestamps are tied to consumed scan',
-    ok: /consumedAt:\s*activeSavedScan\?\.consumedAt \?\? new Date\(\)\.toISOString\(\)/.test(app),
+    ok: /const consumedAt = activeSavedScan\?\.consumedAt \?\? new Date\(\)\.toISOString\(\)/.test(app)
+      && /feelingDelayMinutes:\s*feelingDelayMinutes\(consumedAt, loggedAt\)/.test(app),
+  },
+  {
+    name: 'feeling check-ins store delay and food category',
+    ok: /feelingDelayMinutes:\s*feelingDelayMinutes\(consumedAt, loggedAt\)/.test(app)
+      && /foodCategory:\s*deriveFoodCategory\(scanResult\.result\)/.test(app),
   },
 ];
 

@@ -38,6 +38,12 @@ const checks = [
     ok: /\bnote\s+text\b/.test(migrations),
   },
   {
+    name: 'food_events stores feeling context',
+    ok: /\bfeeling_logged_at\s+timestamptz\b/.test(migrations)
+      && /\bfeeling_delay_minutes\s+integer\b/.test(migrations)
+      && /\bfood_category\s+text\b/.test(migrations),
+  },
+  {
     name: 'food_events has user/local scan uniqueness',
     ok: /unique\s*\(\s*user_id\s*,\s*local_scan_id\s*\)/.test(migrations),
   },
@@ -113,8 +119,15 @@ const checks = [
     ok: /feeling:\s*scan\.feeling \?\? null/.test(app),
   },
   {
+    name: 'frontend persists feeling context',
+    ok: /feeling_logged_at:\s*scan\.feelingLoggedAt \?\? null/.test(app)
+      && /feeling_delay_minutes:\s*typeof scan\.feelingDelayMinutes === 'number'/.test(app)
+      && /food_category:\s*scan\.foodCategory \?\? deriveFoodCategory\(scan\.result\)/.test(app),
+  },
+  {
     name: 'frontend timestamps direct feeling check-ins',
-    ok: /consumedAt:\s*activeSavedScan\?\.consumedAt \?\? new Date\(\)\.toISOString\(\)/.test(app),
+    ok: /const consumedAt = activeSavedScan\?\.consumedAt \?\? new Date\(\)\.toISOString\(\)/.test(app)
+      && /consumedAt,\s*\n\s*foodCategory: deriveFoodCategory\(scanResult\.result\)/.test(app),
   },
   {
     name: 'frontend restores remote rows into recent scans',
