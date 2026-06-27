@@ -59,6 +59,7 @@ type FoodEventRow = {
   eaten: boolean | null;
   feeling: string | null;
   consumed_at: string | null;
+  note: string | null;
   created_at: string;
 };
 type GenderOption = 'Male' | 'Female' | 'Other';
@@ -374,6 +375,7 @@ type RecentScan = {
   eaten?: boolean;
   feeling?: FeelingOption;
   consumedAt?: string;
+  note?: string;
   createdAt: string;
 };
 
@@ -679,6 +681,7 @@ function readRecentScans(userId?: string): RecentScan[] {
         eaten: typeof item.eaten === 'boolean' ? item.eaten : undefined,
         feeling: item.feeling === 'Fine' || item.feeling === 'Bloated' || item.feeling === 'Pain' || item.feeling === 'Nausea' ? item.feeling : undefined,
         consumedAt: typeof item.consumedAt === 'string' ? item.consumedAt : undefined,
+        note: typeof item.note === 'string' ? item.note : undefined,
         createdAt: item.createdAt,
       }))
       .slice(0, MAX_STORED_SCANS);
@@ -713,6 +716,7 @@ function foodEventRowToRecentScan(row: FoodEventRow): RecentScan | null {
     eaten: typeof row.eaten === 'boolean' ? row.eaten : undefined,
     feeling: row.feeling === 'Fine' || row.feeling === 'Bloated' || row.feeling === 'Pain' || row.feeling === 'Nausea' ? row.feeling : undefined,
     consumedAt: row.consumed_at ?? undefined,
+    note: row.note ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -1921,7 +1925,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     async function loadFoodEvents() {
       const { data, error } = await supabase
         .from('food_events')
-        .select('local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,created_at')
+        .select('local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,note,created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(MAX_STORED_SCANS);
@@ -2160,6 +2164,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           eaten: typeof scan.eaten === 'boolean' ? scan.eaten : null,
           feeling: scan.feeling ?? null,
           consumed_at: scan.consumedAt ?? null,
+          note: scan.note ?? null,
           created_at: scan.createdAt,
           updated_at: new Date().toISOString(),
         },
@@ -2174,7 +2179,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     return true;
   };
 
-  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'result'>>) => {
+  const updateRecentScan = (id: string | null, patch: Partial<Pick<RecentScan, 'eaten' | 'feeling' | 'consumedAt' | 'nutrition' | 'result' | 'note'>>) => {
     if (!id) return;
     setRecentScans((items) => {
       let updatedScan: RecentScan | null = null;
@@ -2759,6 +2764,8 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const baseScanNutrition = scanResult ? nutritionForResult(scanResult.result) : null;
   const scanNutrition = baseScanNutrition ? scaleNutritionFacts(baseScanNutrition, selectedPortion) : null;
   const scanConfidence = scanResult ? getScanConfidence(scanResult.result) : null;
+  const activeSavedScan = activeRecentScanId ? recentScans.find((scan) => scan.id === activeRecentScanId) : undefined;
+  const activeScanNote = activeSavedScan?.note ?? '';
   const openFixResultSheet = () => {
     if (!scanResult) return;
     const nutrition = scanNutrition ?? nutritionForResult(scanResult.result);
@@ -3886,6 +3893,24 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   />
                 )}
 
+                <div className={cn('mt-4 grid grid-cols-3 gap-2 rounded-[22px] p-3 ring-1 sm:mt-5 sm:rounded-[24px]', theme.soft)}>
+                  {[
+                    [isRussian ? 'Статус' : 'Status', selectedMealStatus === 'eaten' ? (isRussian ? 'Eaten' : 'Eaten') : selectedMealStatus === 'not_eaten' ? (isRussian ? 'Skipped' : 'Skipped') : (isRussian ? 'Open' : 'Open')],
+                    [isRussian ? 'Самочувствие' : 'Feeling', selectedFeeling ?? (isRussian ? 'Later' : 'Later')],
+                    [
+                      isRussian ? 'Сохранено' : 'Saved',
+                      activeSavedScan
+                        ? new Date(activeSavedScan.createdAt).toLocaleDateString(language === 'Russian' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })
+                        : isRussian ? 'Сейчас' : 'Now',
+                    ],
+                  ].map(([label, value]) => (
+                    <div className="min-w-0 rounded-[18px] bg-white px-3 py-3 text-center shadow-sm ring-1 ring-zinc-950/[0.05]" key={label}>
+                      <p className="truncate text-sm font-black">{value}</p>
+                      <p className="mt-1 truncate text-[10px] font-black uppercase text-zinc-400">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
                 {scanConfidence && (
                   <div className={cn('mt-4 rounded-[20px] p-3.5 ring-1 sm:mt-5', scanConfidence.className)}>
                     <div className="flex items-start justify-between gap-3">
@@ -4113,6 +4138,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       : copy.feelingConnectEmpty}
                   </p>
                 </div>
+                )}
+
+                {!isResultImageCheckError && (
+                  <label className={cn('mt-4 block rounded-[24px] p-4 ring-1 sm:mt-5 sm:rounded-[26px]', theme.soft)}>
+                    <span className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{isRussian ? 'Заметка' : 'Private note'}</span>
+                    <textarea
+                      className="mt-3 min-h-[82px] w-full resize-none rounded-[18px] bg-white px-4 py-3 text-sm font-bold leading-6 outline-none ring-1 ring-zinc-950/[0.05] transition focus:ring-2 focus:ring-zinc-950/15"
+                      onChange={(event) => updateRecentScan(activeRecentScanId, { note: event.target.value })}
+                      placeholder={isRussian ? 'Например: съел вечером, было тяжело' : 'Example: late dinner, felt heavy'}
+                      value={activeScanNote}
+                    />
+                  </label>
                 )}
 
                 {!isResultImageCheckError && (
