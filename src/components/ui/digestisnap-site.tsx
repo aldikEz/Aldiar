@@ -18,10 +18,12 @@ import {
   Mail,
   Plus,
   ScanLine,
+  Search,
   ShieldCheck,
   Sparkles,
   Target,
   User,
+  X,
 } from 'lucide-react';
 import { scanImageWithClientTimeout, type ImageScanPayload, type NutritionFacts } from '../../lib/imageScanClient';
 import { supabase } from '../../lib/supabase';
@@ -31,6 +33,7 @@ import IPhoneMockup from './iphone-mockup';
 type Navigate = (path: string, options?: { replace?: boolean }) => void;
 type AppLanguage = 'English' | 'Russian';
 type DashboardTab = 'home' | 'progress' | 'profile';
+type ScanHistoryFilter = 'all' | 'eaten' | 'not_eaten' | 'safe' | 'caution' | 'avoid' | 'with_feeling';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
 type LandingPhoneVariant = 'score' | 'macros' | 'water';
 type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
@@ -349,6 +352,8 @@ const SENSIBITE_STREAK_STORAGE_KEY = 'digestisnap-streak-v1';
 const SENSIBITE_RECENT_SCANS_STORAGE_KEY = 'digestisnap-recent-scans-v2';
 const DIGESTSNAP_LANGUAGE_STORAGE_KEY = 'digestisnap-language-v1';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_STORED_SCANS = 50;
+const MAX_RECENT_UPLOADS = 10;
 
 type StoredSensiProfile = Pick<
   SetupProfile,
@@ -635,7 +640,7 @@ function readRecentScans(userId?: string): RecentScan[] {
         consumedAt: typeof item.consumedAt === 'string' ? item.consumedAt : undefined,
         createdAt: item.createdAt,
       }))
-      .slice(0, 10);
+      .slice(0, MAX_STORED_SCANS);
   } catch {
     return [];
   }
@@ -643,7 +648,7 @@ function readRecentScans(userId?: string): RecentScan[] {
 
 function saveRecentScans(scans: RecentScan[], userId?: string) {
   try {
-    window.localStorage.setItem(recentScansStorageKey(userId), JSON.stringify(scans.slice(0, 10)));
+    window.localStorage.setItem(recentScansStorageKey(userId), JSON.stringify(scans.slice(0, MAX_STORED_SCANS)));
   } catch {
     // Recent scan thumbnails are a convenience cache; scanning still works without it.
   }
@@ -1814,6 +1819,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     fatG: '',
   });
   const [activeRecentScanId, setActiveRecentScanId] = useState<string | null>(null);
+  const [historySheetOpen, setHistorySheetOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historyFilter, setHistoryFilter] = useState<ScanHistoryFilter>('all');
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
@@ -1869,7 +1877,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         .select('local_scan_id,result,nutrition,image_data_url,eaten,feeling,consumed_at,created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(MAX_STORED_SCANS);
 
       if (!active || error || !data) return;
 
@@ -1886,7 +1894,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         });
         const next = Array.from(byId.values())
           .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-          .slice(0, 10);
+          .slice(0, MAX_STORED_SCANS);
         saveRecentScans(next, session.user.id);
         return next;
       });
@@ -2134,6 +2142,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     });
   };
 
+  const openSavedScan = (item: RecentScan) => {
+    setScanResult({ result: { ...item.result, nutrition: item.nutrition } });
+    setScanPreviewUrl(item.imageDataUrl);
+    setActiveRecentScanId(item.id);
+    setSelectedMealStatus(typeof item.eaten === 'boolean' ? (item.eaten ? 'eaten' : 'not_eaten') : null);
+    setSelectedFeeling(item.feeling ?? null);
+    setHistorySheetOpen(false);
+    setResultSheetOpen(true);
+  };
+
   const runImageScan = async (file: File | undefined) => {
     if (!file) return;
     setActiveTab('home');
@@ -2180,7 +2198,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       setScanPreviewUrl((current) => current || normalizeImageDataUrl(imageDataUrl));
       setActiveRecentScanId(errorRecentScan.id);
       setRecentScans((items) => {
-        const next = [errorRecentScan, ...items].slice(0, 10);
+        const next = [errorRecentScan, ...items].slice(0, MAX_STORED_SCANS);
         saveRecentScans(next, session.user.id);
         return next;
       });
@@ -2234,7 +2252,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       };
       setActiveRecentScanId(recentId);
       setRecentScans((items) => {
-        const next = [recentScan, ...items].slice(0, 10);
+        const next = [recentScan, ...items].slice(0, MAX_STORED_SCANS);
         saveRecentScans(next, session.user.id);
         return next;
       });
@@ -2763,6 +2781,31 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     : [];
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const patternInsight = buildPatternInsight(recentScans, language);
+  const historyFilters: Array<{ id: ScanHistoryFilter; label: string }> = [
+    { id: 'all', label: isRussian ? 'Все' : 'All' },
+    { id: 'eaten', label: isRussian ? 'Съедено' : 'Eaten' },
+    { id: 'not_eaten', label: isRussian ? 'Не ел' : 'Not eaten' },
+    { id: 'safe', label: isRussian ? 'Safe' : 'Safe' },
+    { id: 'caution', label: isRussian ? 'Caution' : 'Caution' },
+    { id: 'avoid', label: isRussian ? 'Avoid' : 'Avoid' },
+    { id: 'with_feeling', label: isRussian ? 'С ощущением' : 'With feeling' },
+  ];
+  const filteredHistoryScans = recentScans
+    .filter((scan) => {
+      const rating = scan.result.overallRating.toLowerCase();
+      if (historyFilter === 'eaten' && scan.eaten !== true) return false;
+      if (historyFilter === 'not_eaten' && scan.eaten !== false) return false;
+      if (historyFilter === 'with_feeling' && !scan.feeling) return false;
+      if ((historyFilter === 'safe' || historyFilter === 'caution' || historyFilter === 'avoid') && rating !== historyFilter) return false;
+      const query = historyQuery.trim().toLowerCase();
+      if (!query) return true;
+      return [
+        scan.result.productName,
+        scan.result.overallRating,
+        scan.result.flaggedChemicals.map((item) => `${item.chemicalName} ${item.reason}`).join(' '),
+      ].join(' ').toLowerCase().includes(query);
+    })
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   const normalizedStreak = normalizeStreak(streak);
   const activeStreak = normalizedStreak.count;
   const maxStreak = normalizedStreak.maxCount;
@@ -3268,7 +3311,18 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                   </button>
 
                   <section className="pt-1 sm:pt-2">
-                    <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">Recently uploaded</h2>
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="text-[23px] font-black leading-none sm:text-[28px] md:text-[34px]">Recently uploaded</h2>
+                      {recentScans.length > 0 && (
+                        <button
+                          className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 shadow-[0_8px_20px_rgba(15,15,15,0.045)] ring-1 ring-black/[0.06] transition active:scale-95 sm:text-sm"
+                          onClick={() => setHistorySheetOpen(true)}
+                          type="button"
+                        >
+                          {isRussian ? 'История' : 'View all'}
+                        </button>
+                      )}
+                    </div>
 
                     {scanState === 'scanning' && scanPreviewUrl ? (
                       <div className="mt-3 rounded-[24px] bg-white p-4 shadow-[0_10px_28px_rgba(15,15,15,0.06)] ring-1 ring-black/[0.05] sm:mt-5 sm:rounded-[28px] sm:p-5">
@@ -3294,18 +3348,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                       </div>
                     ) : recentScans.length > 0 ? (
                       <div className="mt-3 space-y-2.5 sm:mt-5 sm:space-y-3">
-                        {recentScans.slice(0, 10).map((item) => (
+                        {recentScans.slice(0, MAX_RECENT_UPLOADS).map((item) => (
                           <button
                             className="flex w-full items-center gap-3 rounded-[24px] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(15,15,15,0.055)] ring-1 ring-black/[0.05] transition hover:-translate-y-0.5 active:scale-[0.99] sm:gap-4 sm:rounded-[28px] sm:p-4"
                             key={item.id}
-                            onClick={() => {
-                              setScanResult({ result: { ...item.result, nutrition: item.nutrition } });
-                              setScanPreviewUrl(item.imageDataUrl);
-                              setActiveRecentScanId(item.id);
-                              setSelectedMealStatus(typeof item.eaten === 'boolean' ? (item.eaten ? 'eaten' : 'not_eaten') : null);
-                              setSelectedFeeling(item.feeling ?? null);
-                              setResultSheetOpen(true);
-                            }}
+                            onClick={() => openSavedScan(item)}
                             type="button"
                           >
                           <img
@@ -3605,6 +3652,117 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                 >
                   Save goals
                 </button>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {historySheetOpen && (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-50 flex items-end justify-center bg-black/45 px-[clamp(10px,4vw,18px)] pb-[max(14px,env(safe-area-inset-bottom))] sm:pb-[max(18px,env(safe-area-inset-bottom))]"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onClick={() => setHistorySheetOpen(false)}
+            >
+              <motion.div
+                animate={{ y: 0 }}
+                className={cn('max-h-[88vh] w-full max-w-[430px] overflow-hidden rounded-[30px] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] ring-1 sm:max-w-[640px] sm:rounded-[34px] sm:p-5', theme.card)}
+                exit={{ y: 28 }}
+                initial={{ y: 28 }}
+                onClick={(event) => event.stopPropagation()}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className={cn('text-xs font-black uppercase tracking-[0.14em]', theme.faint)}>{isRussian ? 'Сканы' : 'Scans'}</p>
+                    <h2 className="mt-1 text-[28px] font-black leading-none sm:text-[34px]">{isRussian ? 'История еды' : 'Food history'}</h2>
+                  </div>
+                  <button
+                    aria-label="Close scan history"
+                    className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95', theme.soft)}
+                    onClick={() => setHistorySheetOpen(false)}
+                    type="button"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <label className={cn('mt-5 flex h-[52px] items-center gap-3 rounded-[18px] border px-4 transition focus-within:ring-2', theme.input)}>
+                  <Search className="h-5 w-5 shrink-0 opacity-45" />
+                  <span className="sr-only">{isRussian ? 'Поиск по истории' : 'Search scan history'}</span>
+                  <input
+                    className="h-full min-w-0 flex-1 bg-transparent text-base font-bold outline-none placeholder:text-zinc-400"
+                    onChange={(event) => setHistoryQuery(event.target.value)}
+                    placeholder={isRussian ? 'Найти продукт, бренд или причину' : 'Search food, brand, or reason'}
+                    value={historyQuery}
+                  />
+                </label>
+
+                <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {historyFilters.map((filter) => (
+                    <button
+                      className={cn(
+                        'h-10 shrink-0 rounded-full px-4 text-sm font-black transition active:scale-95',
+                        historyFilter === filter.id
+                          ? 'bg-zinc-950 text-white shadow-[0_10px_24px_rgba(15,15,15,0.18)]'
+                          : cn('ring-1', theme.soft),
+                      )}
+                      key={filter.id}
+                      onClick={() => setHistoryFilter(filter.id)}
+                      type="button"
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 max-h-[56vh] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {filteredHistoryScans.length > 0 ? (
+                    filteredHistoryScans.map((item) => (
+                      <button
+                        className={cn('flex w-full items-center gap-3 rounded-[22px] p-3 text-left ring-1 transition hover:-translate-y-0.5 active:scale-[0.99]', theme.soft)}
+                        key={item.id}
+                        onClick={() => openSavedScan(item)}
+                        type="button"
+                      >
+                        <img
+                          alt={item.result.productName}
+                          className="h-16 w-16 shrink-0 rounded-[18px] object-cover"
+                          src={item.imageDataUrl}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-base font-black sm:text-lg">{item.result.productName}</p>
+                            <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase', ratingTone(item.result.overallRating).badge)}>
+                              {item.result.overallRating}
+                            </span>
+                          </div>
+                          <p className={cn('mt-1 text-xs font-bold leading-4', theme.muted)}>
+                            {new Date(item.createdAt).toLocaleDateString(language === 'Russian' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })}
+                            {' · '}
+                            {typeof item.eaten === 'boolean'
+                              ? item.eaten
+                                ? isRussian ? 'съедено' : 'eaten'
+                                : isRussian ? 'не ел' : 'not eaten'
+                              : isRussian ? 'не отмечено' : 'not marked'}
+                            {item.feeling ? ` · ${item.feeling}` : ''}
+                          </p>
+                          <p className={cn('mt-1 line-clamp-1 text-xs font-semibold', theme.faint)}>
+                            {item.result.flaggedChemicals[0]?.reason ?? `${item.nutrition.calories} cal · ${item.result.score}/100`}
+                          </p>
+                        </div>
+                        <ChevronRight className={cn('h-5 w-5 shrink-0', theme.faint)} />
+                      </button>
+                    ))
+                  ) : (
+                    <div className={cn('rounded-[24px] p-6 text-center ring-1', theme.soft)}>
+                      <p className="text-lg font-black">{isRussian ? 'Ничего не найдено' : 'No scans found'}</p>
+                      <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>
+                        {isRussian ? 'Попробуйте другой фильтр или поиск' : 'Try another filter or search term'}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             </motion.div>
           )}
