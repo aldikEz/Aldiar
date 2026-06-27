@@ -634,11 +634,11 @@ function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
     state: 'empty' as const,
     strength: 'none' as const,
     confidenceScore: 0,
-    confidenceLabel: isRussian ? 'Нет данных' : 'No signal yet',
-    title: isRussian ? 'Паттернов пока нет' : 'No pattern yet',
+    confidenceLabel: isRussian ? 'Пока пусто' : 'Empty for now',
+    title: isRussian ? 'Сначала нужен скан' : 'Scan first',
     body: isRussian
-      ? 'Сделайте пару сканов и отметьте самочувствие позже'
-      : 'Scan a few meals and log how you feel later',
+      ? 'Сохраните еду и отметьте самочувствие позже. Тогда здесь появятся повторяющиеся сигналы'
+      : 'Save food and check in later. Repeat signals will appear here when there is enough history',
     count: 0,
     topFeeling: null,
   };
@@ -3121,7 +3121,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           ['Current streak', String(activeStreak), 'days', Flame],
           ['Best streak', String(maxStreak), 'max', Target],
           ['Scans', String(scanCount), 'saved', ScanLine],
-          ['Last log', normalizedStreak.lastLoggedAt ? (daysSinceLastLog === 0 ? 'Today' : `${daysSinceLastLog}d ago`) : 'None', 'activity', Activity],
+          ['Last log', normalizedStreak.lastLoggedAt ? (daysSinceLastLog === 0 ? 'Today' : `${daysSinceLastLog}d ago`) : 'No logs', 'activity', Activity],
         ].map(([label, value, helper, Icon]) => (
           <div
             className={cn(
@@ -3310,9 +3310,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
           )) : (
             <div className={cn('rounded-[24px] p-5 text-center', theme.soft)}>
               <ScanLine className={cn('mx-auto h-8 w-8', theme.muted)} />
-              <p className="mt-3 text-base font-black">{isRussian ? 'История появится после первого скана' : 'History appears after your first scan'}</p>
+              <p className="mt-3 text-base font-black">{isRussian ? 'Пока нет сохраненных сканов' : 'No saved scans yet'}</p>
               <p className={cn('mx-auto mt-2 max-w-[320px] text-sm font-semibold leading-6', theme.muted)}>
-                {isRussian ? 'Здесь будут только сохраненные продукты и реальные отметки' : 'Only saved foods and real check-ins show up here'}
+                {isRussian ? 'Первый четкий снимок создаст вашу историю' : 'Your first clear photo starts this timeline'}
               </p>
             </div>
           )}
@@ -3710,7 +3710,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         <p className="mt-1 text-xs font-bold text-zinc-500 sm:text-sm">
                           {selectedDayScans.length > 0
                             ? isRussian ? 'Сводка по выбранной дате' : 'Summary for the selected date'
-                            : isRussian ? 'Пока нет сканов за этот день' : 'No scans for this day yet'}
+                            : isRussian ? 'В этот день пока ничего не сохранено' : 'Nothing saved on this date'}
                         </p>
                       </div>
                       <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-black text-zinc-500">
@@ -3803,9 +3803,9 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-zinc-950 shadow-inner ring-1 ring-zinc-950/[0.04]">
                           <Camera className="h-7 w-7" />
                         </div>
-                        <p className="mt-4 text-[17px] font-black text-zinc-950 sm:mt-5 sm:text-[22px]">{isRussian ? 'Первый результат появится здесь' : 'Your first result appears here'}</p>
+                        <p className="mt-4 text-[17px] font-black text-zinc-950 sm:mt-5 sm:text-[22px]">{isRussian ? 'Сканов пока нет' : 'No scans yet'}</p>
                         <p className="mx-auto mt-2 max-w-[420px] text-sm font-semibold leading-6 text-zinc-500">
-                          {isRussian ? 'Фото, оценка, питание и самочувствие останутся связанными с одним продуктом' : 'Photo, score, nutrition, and feeling stay attached to one item'}
+                          {isRussian ? 'Сделайте фото еды или состава, чтобы сохранить первый результат' : 'Take a food or label photo to save the first result'}
                         </p>
                       </div>
                     )}
@@ -4173,9 +4173,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     ))
                   ) : (
                     <div className={cn('rounded-[24px] p-6 text-center ring-1', theme.soft)}>
-                      <p className="text-lg font-black">{isRussian ? 'Ничего не найдено' : 'No scans found'}</p>
+                      <p className="text-lg font-black">
+                        {recentScans.length === 0
+                          ? isRussian ? 'Сканов пока нет' : 'No scans yet'
+                          : isRussian ? 'По этому фильтру пусто' : 'No matches for this filter'}
+                      </p>
                       <p className={cn('mt-2 text-sm font-semibold leading-6', theme.muted)}>
-                        {isRussian ? 'Попробуйте другой фильтр или поиск' : 'Try another filter or search term'}
+                        {recentScans.length === 0
+                          ? isRussian ? 'Сохраненные продукты появятся здесь' : 'Saved food results will appear here'
+                          : isRussian ? 'Очистите поиск или выберите другой фильтр' : 'Clear search or choose another filter'}
                       </p>
                     </div>
                   )}
