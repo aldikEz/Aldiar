@@ -27,6 +27,19 @@ const checks = [
       && /pointer-events-none absolute inset-x-0 bottom-0/.test(app),
   },
   {
+    name: 'mobile app shell uses clamp padding instead of desktop fixed gutters',
+    ok: /px-\[clamp\(12px,4vw,24px\)\]/.test(app),
+  },
+  {
+    name: 'dashboard secondary switch is compact on mobile',
+    ok: /max-w-\[300px\] grid-cols-2/.test(app)
+      && /h-10 rounded-full text-xs/.test(app),
+  },
+  {
+    name: 'nutrition cards fit mobile before expanding on larger screens',
+    ok: /grid grid-cols-2 gap-2 sm:grid-cols-4/.test(app),
+  },
+  {
     name: 'camera sheet uses full viewport without fixed crop',
     ok: /absolute inset-0 z-50 flex flex-col bg-black text-white/.test(app)
       && /className="h-full w-full object-cover"/.test(app),
