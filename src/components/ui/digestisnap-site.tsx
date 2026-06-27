@@ -2692,6 +2692,60 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       className: 'bg-white text-zinc-700 ring-zinc-200',
     };
   };
+  const getPortionConfidence = (result: ImageScanPayload['result']) => {
+    const source = result.confidence?.source;
+    const basisText = `${result.basis?.portionBasis ?? ''} ${result.basis?.decisionBasis ?? ''}`.toLowerCase();
+    const hasPackageBasis =
+      /\b(package|pack|serving|portion|bottle|can|bar|slice|piece|ml|g|gram|oz|cup)\b|упаков|порци|бутыл|банка|батончик|кусок|мл|г\b/i.test(basisText);
+
+    if (isImageCheckErrorResult(result) || isAiCoolingDownResult(result)) {
+      return {
+        label: isRussian ? 'Порция не подтверждена' : 'Portion not confirmed',
+        detail: isRussian ? 'Фото сохранено, но порцию лучше проверить вручную' : 'Saved, but confirm the serving before counting it',
+        score: 30,
+        bar: 'bg-amber-500',
+        className: 'bg-amber-50 text-amber-950 ring-amber-200',
+      };
+    }
+
+    if (source === 'user_corrected') {
+      return {
+        label: isRussian ? 'Порция исправлена' : 'Serving corrected',
+        detail: isRussian ? 'Эта оценка основана на вашем исправлении' : 'This estimate uses your saved correction',
+        score: 100,
+        bar: 'bg-emerald-600',
+        className: 'bg-emerald-50 text-emerald-950 ring-emerald-200',
+      };
+    }
+
+    if ((source === 'database_match' || source === 'label_read' || source === 'manual_text') && hasPackageBasis) {
+      return {
+        label: isRussian ? 'Сильная основа порции' : 'Strong serving basis',
+        detail: isRussian ? 'Оценка опирается на упаковку, базу продукта или явную порцию' : 'Uses package, product data, or a visible serving cue',
+        score: 86,
+        bar: 'bg-emerald-600',
+        className: 'bg-emerald-50 text-emerald-950 ring-emerald-200',
+      };
+    }
+
+    if (source === 'visual_estimate' || /visual|estimate|normal serving|category|визуальн|оценк|обычн/i.test(basisText)) {
+      return {
+        label: isRussian ? 'Визуальная порция' : 'Visual serving estimate',
+        detail: isRussian ? 'Подходит для быстрого лога, но порцию стоит уточнить' : 'Good for a quick log, but adjust if the serving looks off',
+        score: 62,
+        bar: 'bg-zinc-900',
+        className: 'bg-white text-zinc-800 ring-zinc-200',
+      };
+    }
+
+    return {
+      label: isRussian ? 'Средняя уверенность' : 'Medium serving confidence',
+      detail: isRussian ? 'Перед учетом калорий проверьте размер порции' : 'Check serving size before counting calories',
+      score: 55,
+      bar: 'bg-zinc-900',
+      className: 'bg-white text-zinc-800 ring-zinc-200',
+    };
+  };
   const getBetterAlternative = (result: ImageScanPayload['result']) => {
     if (isImageCheckErrorResult(result)) return null;
     if (result.overallRating === 'Safe' && result.score >= 75) return null;
@@ -2769,6 +2823,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const baseScanNutrition = scanResult ? nutritionForResult(scanResult.result) : null;
   const scanNutrition = baseScanNutrition ? scaleNutritionFacts(baseScanNutrition, selectedPortion) : null;
   const scanConfidence = scanResult ? getScanConfidence(scanResult.result) : null;
+  const portionConfidence = scanResult ? getPortionConfidence(scanResult.result) : null;
   const activeSavedScan = activeRecentScanId ? recentScans.find((scan) => scan.id === activeRecentScanId) : undefined;
   const activeScanNote = activeSavedScan?.note ?? '';
   const openFixResultSheet = () => {
@@ -3997,6 +4052,21 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         <p className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Основа расчета' : 'Basis'}</p>
                         <p className="mt-1 text-xs font-bold leading-5 text-zinc-600">{scanResult.result.basis.portionBasis}</p>
                         <p className="mt-0.5 text-xs font-semibold leading-5 text-zinc-400">{scanResult.result.basis.decisionBasis}</p>
+                      </div>
+                    )}
+                    {portionConfidence && (
+                      <div className={cn('mt-3 rounded-[18px] p-3 shadow-sm ring-1', portionConfidence.className)}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-[0.12em] opacity-60">{isRussian ? 'Уверенность порции' : 'Portion confidence'}</p>
+                            <p className="mt-1 text-sm font-black leading-tight">{portionConfidence.label}</p>
+                          </div>
+                          <p className="text-lg font-black">{portionConfidence.score}%</p>
+                        </div>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-950/[0.06]">
+                          <div className={cn('h-full rounded-full transition-all duration-500', portionConfidence.bar)} style={{ width: `${portionConfidence.score}%` }} />
+                        </div>
+                        <p className="mt-2 text-xs font-bold leading-5 opacity-70">{portionConfidence.detail}</p>
                       </div>
                     )}
                     <div className="mt-4 grid grid-cols-4 gap-1.5 rounded-[18px] bg-white p-1.5 shadow-sm ring-1 ring-zinc-950/[0.05]">
