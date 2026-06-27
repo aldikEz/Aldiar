@@ -36,7 +36,7 @@ type AppLanguage = 'English' | 'Russian';
 type DashboardTab = 'home' | 'progress' | 'profile';
 type ScanHistoryFilter = 'all' | 'eaten' | 'not_eaten' | 'safe' | 'caution' | 'avoid' | 'with_feeling';
 type IncludePreview = 'scan' | 'symptoms' | 'timeline' | 'speed';
-type LandingPhoneVariant = 'score' | 'macros' | 'water';
+type LandingPhoneVariant = 'score' | 'macros' | 'water' | 'feeling';
 type FeelingOption = 'Fine' | 'Bloated' | 'Pain' | 'Nausea';
 type WaterUnit = 'oz' | 'ml';
 type PortionOption = 'small' | 'medium' | 'large' | 'package';
@@ -1181,11 +1181,56 @@ function LandingPhoneMockup({ className = '', scale = 0.66, variant = 'score' }:
             </div>
           )}
 
+          {variant === 'feeling' && (
+            <div className="mt-5 grid gap-3">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  ['8/10', 'Meal'],
+                  ['2h', 'Later'],
+                  ['Bloated', 'Feel'],
+                ].map(([value, label]) => (
+                  <div className={cn('rounded-[20px] p-3 ring-1', card)} key={label}>
+                    <p className="truncate text-xl font-black leading-none">{value}</p>
+                    <p className="mt-2 text-[10px] font-black uppercase text-zinc-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className={cn('rounded-[26px] p-4 ring-1', card)}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-black">How do you feel?</p>
+                    <p className="mt-1 text-xs font-bold text-zinc-500">One tap after eating</p>
+                  </div>
+                  <Activity className="h-5 w-5" />
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {['Fine', 'Bloated', 'Pain', 'Nausea'].map((label) => (
+                    <div
+                      className={cn(
+                        'flex h-10 items-center justify-center rounded-[14px] text-xs font-black',
+                        label === 'Bloated' ? 'bg-zinc-950 text-white' : 'bg-[#f7f6f2] text-zinc-950',
+                      )}
+                      key={label}
+                    >
+                      {label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={cn('rounded-[24px] p-4 ring-1', card)}>
+                <p className="text-base font-black">Saved reaction</p>
+                <p className="mt-1 text-xs font-bold text-zinc-500">Connected to the scanned meal</p>
+              </div>
+            </div>
+          )}
+
           <div className={cn('mt-4 rounded-[24px] p-4 ring-1', card)}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-base font-black">My progress</p>
-                <p className="mt-1 text-xs font-bold text-zinc-500">Timeline, streak, and weight</p>
+                <p className="mt-1 text-xs font-bold text-zinc-500">Patterns, streak, and check-ins</p>
               </div>
               <ChevronRight className="h-5 w-5" />
             </div>
@@ -1298,7 +1343,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             Find what keeps bothering you.
           </h1>
           <p className="mx-auto mt-4 max-w-[660px] text-[15px] font-semibold leading-6 text-[#5f574d] md:mt-6 md:text-[23px] md:leading-[1.42] xl:mx-0">
-            Take a photo of what you eat. Log how you feel. See what keeps bothering you.
+            Take a photo of your food. Log how you feel later. See what keeps bothering you.
           </p>
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center md:mt-8 md:gap-4 xl:justify-start">
             <button
@@ -1346,12 +1391,12 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                   <LandingPhoneMockup
                     className="md:hidden"
                     scale={0.43}
-                    variant={activeIncludeIndex === 0 ? 'score' : activeIncludeIndex === 1 ? 'water' : activeIncludeIndex === 2 ? 'score' : 'macros'}
+                    variant={activeIncludeIndex === 0 ? 'score' : activeIncludeIndex === 1 ? 'score' : activeIncludeIndex === 2 ? 'feeling' : 'macros'}
                   />
                   <LandingPhoneMockup
                     className="hidden md:block"
                     scale={0.66}
-                    variant={activeIncludeIndex === 0 ? 'score' : activeIncludeIndex === 1 ? 'water' : activeIncludeIndex === 2 ? 'score' : 'macros'}
+                    variant={activeIncludeIndex === 0 ? 'score' : activeIncludeIndex === 1 ? 'score' : activeIncludeIndex === 2 ? 'feeling' : 'macros'}
                   />
                 </div>
               </div>
