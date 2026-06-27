@@ -27,7 +27,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const IMAGE_RATE_LIMIT_MAX_REQUESTS = 8;
 const CHAT_MAX_LENGTH = 500;
 const GEMINI_TIMEOUT_MS = getBoundedEnvNumber('GEMINI_TIMEOUT_MS', 18_000, 8_000, 25_000);
-const SCAN_CACHE_VERSION = 'label-v14-confidence-20260627';
+const SCAN_CACHE_VERSION = 'label-v15-basis-20260627';
 const CACHE_READ_TIMEOUT_MS = 900;
 const CACHE_WRITE_TIMEOUT_MS = 1_200;
 const OPEN_FOOD_FACTS_TIMEOUT_MS = 1_600;
@@ -104,6 +104,10 @@ type ScanPayload = {
     score: number;
     nutrition?: NutritionFacts;
     confidence?: ScanConfidence;
+    basis?: {
+      portionBasis?: string;
+      decisionBasis?: string;
+    };
     flaggedChemicals: ChemicalReport[];
   };
 };
@@ -819,6 +823,7 @@ Rules:
 - For flaggedChemicals, return 2 to 4 ingredients/additives/category concerns.
 - Estimate nutrition for one normal serving or one visible package when possible. Use nutrition facts if visible; otherwise make a conservative category estimate.
 - nutrition numbers must be realistic non-negative numbers. calories are kcal, proteinG/carbsG/fatG/fiberG/sugarG are grams, sodiumMg is milligrams.
+- Always include basis.portionBasis and basis.decisionBasis. portionBasis must say the serving assumption in plain words. decisionBasis must say what evidence was used: visible label, database/product identity, visual estimate, or category estimate.
 - If a visible or strongly inferable ingredient overlaps with user possible triggers, prioritize it as a concern.
 - Sugary tea, iced tea, soda, cola, energy drink, sweetened juice, and carbonated soft drinks are never "Safe"; they are at least "Caution".
 - If visible sugar is high, or the product is a sweetened beverage, score must be 0-45.
@@ -847,6 +852,10 @@ Return this exact shape:
       "fiberG": 2,
       "sugarG": 12,
       "sodiumMg": 240
+    },
+    "basis": {
+      "portionBasis": "One visible package or normal serving",
+      "decisionBasis": "Visible label and product category"
     },
     "flaggedChemicals": [
       {
@@ -883,9 +892,10 @@ Scoring:
 - Soda/sweet tea/energy drinks/chips/candy/fried fast food: Avoid 0-45.
 - If uncertain but a category is visible, use Caution 45-60.
 - Estimate nutrition for one normal serving or one visible package. Return calories, proteinG, carbsG, fatG, and optionally fiberG, sugarG, sodiumMg.
+- Always include basis.portionBasis and basis.decisionBasis.
 
 Return JSON only:
-{"result":{"productName":"Specific visual estimate","overallRating":"Caution","score":55,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified"},{"chemicalName":"Category risk","severity":"Caution","reason":"Based on visible product type"}]}}`;
+{"result":{"productName":"Specific visual estimate","overallRating":"Caution","score":55,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"basis":{"portionBasis":"One normal serving","decisionBasis":"Visual food recognition and category estimate"},"flaggedChemicals":[{"chemicalName":"Visual estimate","severity":"Caution","reason":"Label not verified"},{"chemicalName":"Category risk","severity":"Caution","reason":"Based on visible product type"}]}}`;
 }
 
 function makeVisualIdentityPrompt(targetLang: string) {
@@ -924,10 +934,11 @@ Rules:
 - Candy/chocolate bars/sweet dairy snacks/sugary drinks/chips/fried fast food: Avoid 0-45.
 - If a user trigger overlaps with the identity, lower the score.
 - Estimate nutrition for one normal serving or one visible package. Return calories, proteinG, carbsG, fatG, and optionally fiberG, sugarG, sodiumMg.
+- Always include basis.portionBasis and basis.decisionBasis.
 - Reasons under 12 words.
 
 Return exactly:
-{"result":{"productName":"Specific name","overallRating":"Caution","score":55,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"flaggedChemicals":[{"chemicalName":"Concern","severity":"Caution","reason":"Short reason"}]}}`;
+{"result":{"productName":"Specific name","overallRating":"Caution","score":55,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"basis":{"portionBasis":"One normal serving","decisionBasis":"Visual identity and category risk rules"},"flaggedChemicals":[{"chemicalName":"Concern","severity":"Caution","reason":"Short reason"}]}}`;
 }
 
 function makeFoodTextPrompt(payload: FoodTextPayload, targetLang: string) {
@@ -953,11 +964,12 @@ Rules:
 - Do not diagnose, guarantee safety, or give medical advice.
 - Return 2 to 4 flaggedChemicals.
 - Estimate nutrition for one normal serving or one package from the input/category. Return calories, proteinG, carbsG, fatG, and optionally fiberG, sugarG, sodiumMg.
+- Always include basis.portionBasis and basis.decisionBasis.
 - Each reason must be under 12 words.
 - Prefer common trigger groups: dairy, wheat/flour, fried food, soda, caffeine, onion, garlic, spicy food.
 
 Required JSON shape:
-{"result":{"productName":"Food name","overallRating":"Caution","score":45,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"flaggedChemicals":[{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."},{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."}]}}`;
+{"result":{"productName":"Food name","overallRating":"Caution","score":45,"nutrition":{"calories":220,"proteinG":6,"carbsG":28,"fatG":9,"fiberG":2,"sugarG":12,"sodiumMg":240},"basis":{"portionBasis":"One normal serving or package","decisionBasis":"Typed food or label text"},"flaggedChemicals":[{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."},{"chemicalName":"Trigger","severity":"Caution","reason":"Short reason."}]}}`;
 }
 
 async function handleFoodTextScanRequest(req: Request, body: RequestBody) {
@@ -1206,6 +1218,66 @@ function normalizeChemical(value: unknown): ChemicalReport | null {
   };
 }
 
+function makeScanBasis(source: ScanConfidenceSource, targetLang: string) {
+  const russian = targetLang === 'Russian';
+  const basis: Record<ScanConfidenceSource, { portionBasis: string; decisionBasis: string; ruPortionBasis: string; ruDecisionBasis: string }> = {
+    label_read: {
+      portionBasis: 'One visible package or normal serving',
+      decisionBasis: 'Visible label, packaging, and product category',
+      ruPortionBasis: 'Одна видимая упаковка или обычная порция',
+      ruDecisionBasis: 'Видимый состав, упаковка и категория продукта',
+    },
+    database_match: {
+      portionBasis: 'One database serving when available',
+      decisionBasis: 'Product database nutrition plus DigestSnap risk rules',
+      ruPortionBasis: 'Одна порция из базы, если доступна',
+      ruDecisionBasis: 'Пищевая база продукта и правила DigestSnap',
+    },
+    visual_estimate: {
+      portionBasis: 'One normal visual serving',
+      decisionBasis: 'Visual food recognition and category estimate',
+      ruPortionBasis: 'Одна обычная порция по фото',
+      ruDecisionBasis: 'Визуальное распознавание и оценка категории',
+    },
+    manual_text: {
+      portionBasis: 'One normal serving or package',
+      decisionBasis: 'Typed food or label text',
+      ruPortionBasis: 'Одна обычная порция или упаковка',
+      ruDecisionBasis: 'Введенное название или текст состава',
+    },
+    fallback: {
+      portionBasis: 'Not counted until confirmed',
+      decisionBasis: 'Scan was not clear enough to trust',
+      ruPortionBasis: 'Не учитывается без подтверждения',
+      ruDecisionBasis: 'Скан недостаточно четкий для доверия',
+    },
+    user_corrected: {
+      portionBasis: 'User confirmed serving',
+      decisionBasis: 'User-edited scan result',
+      ruPortionBasis: 'Порция подтверждена пользователем',
+      ruDecisionBasis: 'Результат исправлен пользователем',
+    },
+  };
+  const selected = basis[source];
+
+  return {
+    portionBasis: russian ? selected.ruPortionBasis : selected.portionBasis,
+    decisionBasis: russian ? selected.ruDecisionBasis : selected.decisionBasis,
+  };
+}
+
+function normalizeScanBasis(value: unknown, targetLang: string, source: ScanConfidenceSource) {
+  const fallback = makeScanBasis(source, targetLang);
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  return {
+    portionBasis: asBoundedString(value.portionBasis, fallback.portionBasis, 110),
+    decisionBasis: asBoundedString(value.decisionBasis, fallback.decisionBasis, 140),
+  };
+}
+
 function asConfidenceLevel(value: unknown, fallback: ScanConfidenceLevel): ScanConfidenceLevel {
   return value === 'high' || value === 'medium' || value === 'low' ? value : fallback;
 }
@@ -1309,11 +1381,13 @@ function normalizeConfidence(value: unknown, targetLang: string, fallback: ScanC
 function withScanConfidence(scan: ScanPayload, targetLang: string, source?: ScanConfidenceSource, scoreOverride?: number): ScanPayload {
   const fallbackSource = source ?? scan.result.confidence?.source ?? (isUnusableVisualScan(scan) ? 'fallback' : 'label_read');
   const fallback = makeScanConfidence(fallbackSource, targetLang, scoreOverride ?? (source ? undefined : scan.result.confidence?.score));
+  const confidence = normalizeConfidence(source ? null : scan.result.confidence, targetLang, fallback);
 
   return {
     result: {
       ...scan.result,
-      confidence: normalizeConfidence(source ? null : scan.result.confidence, targetLang, fallback),
+      confidence,
+      basis: normalizeScanBasis(scan.result.basis, targetLang, confidence.source),
     },
   };
 }
@@ -1326,6 +1400,7 @@ function normalizeScanPayload(value: unknown, targetLang: string, fallback: Scan
   const flaggedChemicals = Array.isArray(value.result.flaggedChemicals)
     ? value.result.flaggedChemicals.map(normalizeChemical).filter((item): item is ChemicalReport => item !== null).slice(0, 12)
     : [];
+  const rawConfidenceSource = isRecord(value.result.confidence) ? value.result.confidence.source : undefined;
 
   return withScanConfidence(enforceFoodRiskRules({
     result: {
@@ -1334,6 +1409,7 @@ function normalizeScanPayload(value: unknown, targetLang: string, fallback: Scan
       score: asScore(value.result.score),
       nutrition: normalizeNutrition(value.result.nutrition),
       confidence: normalizeConfidence(value.result.confidence, targetLang, makeScanConfidence('label_read', targetLang)),
+      basis: normalizeScanBasis(value.result.basis, targetLang, asConfidenceSource(rawConfidenceSource, 'label_read')),
       flaggedChemicals,
     },
   }, targetLang), targetLang);
@@ -1439,6 +1515,22 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
     /сладк\w*\s+чай/i,
     /энергет/i,
   ]);
+  const isPlainWholeFruit = hasAny(text, [
+    /\bbanana\b/i,
+    /\bapple\b/i,
+    /\borange\b/i,
+    /\bberries?\b/i,
+    /\bstrawberries?\b/i,
+    /\bgrapes?\b/i,
+    /\bkiwi\b/i,
+    /банан/i,
+    /яблок/i,
+    /апельсин/i,
+    /ягод/i,
+    /клубник/i,
+    /виноград/i,
+    /киви/i,
+  ]) && !hasAny(text, [/\bjuice\b/i, /\bsmoothie\b/i, /\bsyrup\b/i, /\bcandy\b/i, /\bcake\b/i, /\bpie\b/i, /\bsweetened\b/i, /сок/i, /смузи/i, /сироп/i, /конфет/i, /торт/i]);
   const hasSugarSignal = hasAny(text, [
     /\bsugar\b/i,
     /\bglucose\b/i,
@@ -1466,7 +1558,7 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
     );
   }
 
-  if (hasSugarSignal) {
+  if (hasSugarSignal && !isPlainWholeFruit) {
     score = Math.min(score, 55);
     if (rating === 'Safe') rating = 'Caution';
     concerns.unshift(
@@ -1500,7 +1592,7 @@ function enforceFoodRiskRules(scan: ScanPayload, targetLang: string): ScanPayloa
 
   if (score >= 75 && rating === 'Safe' && concerns.length > 0) {
     const concernText = concerns.map((item) => `${item.chemicalName} ${item.reason}`).join(' ').toLowerCase();
-    if (hasAny(concernText, [/\bsugar\b/i, /\bcaffeine\b/i, /\bacid\b/i, /\bsweet/i, /\bpreservative/i])) {
+    if (!isPlainWholeFruit && hasAny(concernText, [/\bsugar\b/i, /\bcaffeine\b/i, /\bacid\b/i, /\bsweet/i, /\bpreservative/i])) {
       rating = 'Caution';
       score = Math.min(score, 60);
     }

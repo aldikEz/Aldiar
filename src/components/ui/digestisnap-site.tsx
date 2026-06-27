@@ -3502,6 +3502,13 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                         {selectedMealStatus === 'eaten' ? (isRussian ? 'Учтено' : 'Counted') : isRussian ? 'Не учтено' : 'Not counted'}
                       </span>
                     </div>
+                    {scanResult.result.basis && (
+                      <div className="mt-3 rounded-[18px] bg-white p-3 shadow-sm ring-1 ring-zinc-950/[0.05]">
+                        <p className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-400">{isRussian ? 'Основа расчета' : 'Basis'}</p>
+                        <p className="mt-1 text-xs font-bold leading-5 text-zinc-600">{scanResult.result.basis.portionBasis}</p>
+                        <p className="mt-0.5 text-xs font-semibold leading-5 text-zinc-400">{scanResult.result.basis.decisionBasis}</p>
+                      </div>
+                    )}
                     <div className="mt-4 grid grid-cols-4 gap-1.5 rounded-[18px] bg-white p-1.5 shadow-sm ring-1 ring-zinc-950/[0.05]">
                       {([
                         ['small', isRussian ? 'Мало' : 'Small'],

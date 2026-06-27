@@ -24,6 +24,11 @@ export type ScanConfidence = {
   detail: string;
 };
 
+export type ScanBasis = {
+  portionBasis?: string;
+  decisionBasis?: string;
+};
+
 export type ImageScanPayload = {
   result: {
     productName: string;
@@ -31,6 +36,7 @@ export type ImageScanPayload = {
     score: number;
     nutrition?: NutritionFacts;
     confidence?: ScanConfidence;
+    basis?: ScanBasis;
     flaggedChemicals: Array<{
       chemicalName: string;
       severity: Rating;
@@ -194,6 +200,10 @@ function makeInstantScan(fileName: string): ImageScanPayload {
         label: 'Needs confirmation',
         detail: 'AI is still checking the image in the background',
       },
+      basis: {
+        portionBasis: 'One normal serving',
+        decisionBasis: 'Temporary client estimate while the scan finishes',
+      },
       flaggedChemicals: [
         {
           chemicalName: 'Quick estimate',
@@ -222,6 +232,10 @@ function makeFoodTextFallback(name: string): ImageScanPayload {
         score: 68,
         label: 'Text check',
         detail: 'Result is based on typed food or label text',
+      },
+      basis: {
+        portionBasis: 'One normal serving or package',
+        decisionBasis: 'Typed food or label text',
       },
       flaggedChemicals: [
         {
