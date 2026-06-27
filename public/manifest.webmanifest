@@ -1,0 +1,26 @@
+{
+  "name": "DigestSnap",
+  "short_name": "DigestSnap",
+  "description": "Photo-first food memory with nutrition, check-ins, and repeat pattern tracking.",
+  "start_url": "/start",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "categories": ["health", "food", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/digestsnap-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/digestsnap-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
