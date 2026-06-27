@@ -2485,6 +2485,15 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const selectedDayEatenScans = recentScans.filter((item) => item.eaten && isSameLocalDay(item.consumedAt ?? item.createdAt, selectedHomeDate));
   const eatenNutrition = addNutritionValues(selectedDayEatenScans.map((item) => item.nutrition));
   const caloriesEaten = eatenNutrition.calories;
+  const remainingCalories = Math.max(0, calorieTarget - caloriesEaten);
+  const dailyNutritionSummary =
+    selectedDayEatenScans.length === 0
+      ? isRussian
+        ? 'Отметьте скан как съеденный, чтобы питание попало в дневной итог'
+        : 'Mark a scan as eaten to count it in today’s nutrition'
+      : isRussian
+        ? `${selectedDayEatenScans.length} скан(ов) учтено сегодня`
+        : `${selectedDayEatenScans.length} scan${selectedDayEatenScans.length === 1 ? '' : 's'} counted today`;
   const weightKg = storedProfile?.weightKg && storedProfile.weightKg > 0 ? storedProfile.weightKg : 70;
   const proteinTarget = Math.round(weightKg * (calorieMode === 'gain' ? 2 : calorieMode === 'lose' ? 1.8 : 1.6));
   const fatTarget = Math.round((calorieTarget * 0.27) / 9);
@@ -3404,6 +3413,22 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           key="macro-panel"
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
+                          <div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
+                            <div className="flex items-end justify-between gap-4">
+                              <div>
+                                <p className="text-[11px] font-black uppercase text-zinc-400 sm:text-xs">{isRussian ? 'Итог за день' : 'Daily summary'}</p>
+                                <p className="mt-1 text-[27px] font-black leading-none sm:text-[34px]">
+                                  {caloriesEaten}<span className="text-[15px] text-zinc-400 sm:text-lg">/{calorieTarget} cal</span>
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[11px] font-black uppercase text-zinc-400 sm:text-xs">{isRussian ? 'Осталось' : 'Left'}</p>
+                                <p className="mt-1 text-[20px] font-black leading-none sm:text-[24px]">{remainingCalories} cal</p>
+                              </div>
+                            </div>
+                            <p className="mt-3 text-[12px] font-bold leading-5 text-zinc-500 sm:text-sm">{dailyNutritionSummary}</p>
+                          </div>
+
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                             {macroCards.map((card) => (
                               <div
