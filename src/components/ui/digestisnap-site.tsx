@@ -560,7 +560,8 @@ function patternFoodKey(name: string) {
 
 function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
   const isRussian = language === 'Russian';
-  const discomfortScans = scans.filter((scan) => scan.feeling && scan.feeling !== 'Fine');
+  const eatenScans = scans.filter((scan) => scan.eaten === true);
+  const discomfortScans = eatenScans.filter((scan) => scan.feeling && scan.feeling !== 'Fine');
   const grouped = new Map<string, {
     count: number;
     displayName: string;
@@ -618,7 +619,7 @@ function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
     };
   }
 
-  if (scans.length > 0 && scans.some((scan) => !scan.feeling)) {
+  if (eatenScans.length > 0 && eatenScans.some((scan) => !scan.feeling)) {
     return {
       state: 'waiting' as const,
       strength: 'none' as const,
@@ -626,9 +627,24 @@ function buildPatternInsight(scans: RecentScan[], language: AppLanguage) {
       confidenceLabel: isRussian ? 'Ждем отметки' : 'Needs check-in',
       title: isRussian ? 'Нужны отметки самочувствия' : 'Waiting for check-ins',
       body: isRussian
-        ? 'Сканы сохранены. Отметьте самочувствие позже, чтобы появились реальные паттерны'
-        : 'Scans are saved. Add later feelings to turn them into real patterns',
+        ? 'Еда учтена. Отметьте самочувствие позже, чтобы появились реальные паттерны'
+        : 'Eaten meals are saved. Add later feelings to turn them into real patterns',
       count: discomfortScans.length,
+      topFeeling: null,
+    };
+  }
+
+  if (scans.length > 0) {
+    return {
+      state: 'waiting' as const,
+      strength: 'none' as const,
+      confidenceScore: 15,
+      confidenceLabel: isRussian ? 'Нужен статус' : 'Needs meal status',
+      title: isRussian ? 'Сначала отметьте, что ели' : 'Mark eaten first',
+      body: isRussian
+        ? 'Сканы сохранены, но паттерны строятся только из еды, которую вы реально съели'
+        : 'Scans are saved, but patterns only use food you actually ate',
+      count: 0,
       topFeeling: null,
     };
   }
@@ -4848,14 +4864,16 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                               : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
                           )}
                           key={status}
-                          onClick={() => {
-                            setSelectedMealStatus(status);
-                            updateRecentScan(activeRecentScanId, {
-                              eaten: status === 'eaten',
-                              consumedAt: status === 'eaten' ? new Date().toISOString() : undefined,
-                              nutrition: scanNutrition ?? undefined,
-                            });
-                          }}
+	                          onClick={() => {
+	                            setSelectedMealStatus(status);
+	                            if (status === 'not_eaten') setSelectedFeeling(null);
+	                            updateRecentScan(activeRecentScanId, {
+	                              eaten: status === 'eaten',
+	                              consumedAt: status === 'eaten' ? new Date().toISOString() : undefined,
+	                              feeling: status === 'eaten' ? selectedFeeling ?? undefined : undefined,
+	                              nutrition: scanNutrition ?? undefined,
+	                            });
+	                          }}
                           type="button"
                         >
                           {label}
@@ -4864,45 +4882,62 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                     })}
                   </div>
 
-                  <h4 className="mt-5 text-sm font-black text-zinc-500">{isRussian ? 'Как самочувствие?' : 'How do you feel?'}</h4>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {(['Fine', 'Nausea', 'Bloated'] as FeelingOption[]).map((feeling) => {
-                      const active = selectedFeeling === feeling;
-                      return (
-                        <button
-                          className={cn(
-                            'h-12 rounded-[16px] text-sm font-black transition duration-200 active:scale-[0.97]',
-	                            active
-	                              ? 'bg-white text-zinc-950 shadow-[0_14px_28px_rgba(15,15,15,0.12)] ring-1 ring-zinc-950/10'
-	                              : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
-                          )}
-                          key={feeling}
-                          onClick={() => {
-                            setSelectedFeeling(feeling);
-                            updateRecentScan(activeRecentScanId, { feeling });
-                          }}
-                          type="button"
-                        >
-                          {feelingLabel(feeling)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className={cn('mt-3 text-xs font-semibold leading-5', theme.muted)}>
-                   {selectedMealStatus === 'eaten'
-                      ? isRussian
-                        ? 'Питание уже добавлено в дневные калории и макросы.'
-                        : 'Nutrition is now counted toward today.'
-                      : selectedMealStatus === 'not_eaten'
-                        ? isRussian
-                          ? 'Скан сохранен, но не считается в калориях.'
-                          : 'Scan saved, but not counted toward calories.'
-                        : selectedFeeling
-                      ? isRussian
-                        ? `${feelingLabel(selectedFeeling)} будет связано с ${scanResult.result.productName}.`
-                        : `${selectedFeeling} will be connected to ${scanResult.result.productName}.`
-                      : copy.feelingConnectEmpty}
-                  </p>
+	                  {selectedMealStatus === 'eaten' ? (
+	                    <>
+	                      <h4 className="mt-5 text-sm font-black text-zinc-500">{isRussian ? 'Как самочувствие?' : 'How do you feel?'}</h4>
+	                      <div className="mt-2 grid grid-cols-3 gap-2">
+	                        {(['Fine', 'Nausea', 'Bloated'] as FeelingOption[]).map((feeling) => {
+	                          const active = selectedFeeling === feeling;
+	                          return (
+	                            <button
+	                              className={cn(
+	                                'h-12 rounded-[16px] text-sm font-black transition duration-200 active:scale-[0.97]',
+	                                active
+	                                  ? 'bg-white text-zinc-950 shadow-[0_14px_28px_rgba(15,15,15,0.12)] ring-1 ring-zinc-950/10'
+	                                  : 'bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-950/[0.05] hover:text-zinc-950',
+	                              )}
+	                              key={feeling}
+	                              onClick={() => {
+	                                setSelectedFeeling(feeling);
+	                                updateRecentScan(activeRecentScanId, { feeling });
+	                              }}
+	                              type="button"
+	                            >
+	                              {feelingLabel(feeling)}
+	                            </button>
+	                          );
+	                        })}
+	                      </div>
+	                    </>
+	                  ) : (
+	                    <div className="mt-4 rounded-[18px] bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-950/[0.05]">
+	                      <p className="text-sm font-black text-zinc-700">
+	                        {selectedMealStatus === 'not_eaten'
+	                          ? isRussian ? 'Скан сохранен без самочувствия' : 'Saved without a feeling check'
+	                          : isRussian ? 'Сначала выберите статус еды' : 'Choose meal status first'}
+	                      </p>
+	                      <p className="mt-1 text-xs font-semibold leading-5 text-zinc-500">
+	                        {selectedMealStatus === 'not_eaten'
+	                          ? isRussian ? 'Паттерны строятся только из еды, которую вы реально съели' : 'Patterns only use food you actually ate'
+	                          : isRussian ? 'Если вы это съели, DigestSnap сможет связать реакцию позже' : 'If you ate it, DigestSnap can connect your reaction later'}
+	                      </p>
+	                    </div>
+	                  )}
+	                  <p className={cn('mt-3 text-xs font-semibold leading-5', theme.muted)}>
+	                    {selectedMealStatus === 'eaten'
+	                      ? selectedFeeling
+	                        ? isRussian
+	                          ? `${feelingLabel(selectedFeeling)} будет связано с ${scanResult.result.productName}`
+	                          : `${selectedFeeling} will be connected to ${scanResult.result.productName}`
+	                        : isRussian
+	                          ? 'Питание учтено. Самочувствие можно отметить сейчас или позже'
+	                          : 'Nutrition is counted. Add a feeling now or later'
+	                      : selectedMealStatus === 'not_eaten'
+	                        ? isRussian
+	                          ? 'Скан сохранен, но не считается в калориях или паттернах'
+	                          : 'Scan saved, but not counted in calories or patterns'
+	                        : copy.feelingConnectEmpty}
+	                  </p>
                 </div>
                 )}
 
