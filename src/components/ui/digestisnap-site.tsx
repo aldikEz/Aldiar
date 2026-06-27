@@ -2398,6 +2398,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
     setActiveRecentScanId(item.id);
     setSelectedMealStatus(typeof item.eaten === 'boolean' ? (item.eaten ? 'eaten' : 'not_eaten') : null);
     setSelectedFeeling(item.feeling ?? null);
+    setSelectedPortion('medium');
     setHistorySheetOpen(false);
     setResultSheetOpen(true);
   };
@@ -2808,12 +2809,6 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       : calorieMode === 'lose'
         ? Math.max(1200, maintenanceCalories - 350)
         : maintenanceCalories;
-  const calorieTargetLabel =
-    calorieMode === 'gain'
-      ? isRussian ? 'Цель на набор' : 'Gain target'
-      : calorieMode === 'lose'
-        ? isRussian ? 'Цель на снижение' : 'Loss target'
-        : isRussian ? 'Цель на поддержку' : 'Maintain target';
   const calorieTargetReason =
     calorieMode === 'gain'
       ? isRussian ? 'Профиль добавляет умеренный запас к поддержке веса' : 'Your profile adds a moderate surplus to maintenance'
@@ -2840,11 +2835,11 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const dailyNutritionSummary =
     selectedDayEatenScans.length === 0
       ? isRussian
-        ? 'Отметьте скан как съеденный, чтобы питание попало в дневной итог'
-        : 'Mark a scan as eaten to count it in today’s nutrition'
+        ? 'Питание считается только после отметки “съел”'
+        : 'Nutrition counts only after you mark a scan as eaten'
       : isRussian
-        ? `${selectedDayEatenScans.length} скан(ов) учтено сегодня`
-        : `${selectedDayEatenScans.length} scan${selectedDayEatenScans.length === 1 ? '' : 's'} counted today`;
+        ? `${selectedDayEatenScans.length} съеденный скан учтен сегодня`
+        : `${selectedDayEatenScans.length} eaten scan${selectedDayEatenScans.length === 1 ? '' : 's'} counted today`;
   const weightKg = storedProfile?.weightKg && storedProfile.weightKg > 0 ? storedProfile.weightKg : 70;
   const proteinTarget = Math.round(weightKg * (calorieMode === 'gain' ? 2 : calorieMode === 'lose' ? 1.8 : 1.6));
   const fatTarget = Math.round((calorieTarget * 0.27) / 9);
@@ -3914,7 +3909,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
                           <div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05] sm:rounded-[24px] sm:p-5">
                             <div className="flex items-end justify-between gap-4">
                               <div>
-                                <p className="text-[11px] font-black uppercase text-zinc-400 sm:text-xs">{calorieTargetLabel}</p>
+                                <p className="text-[11px] font-black uppercase text-zinc-400 sm:text-xs">{isRussian ? 'Расчет на день' : 'Estimated day'}</p>
                                 <p className="mt-1 text-[27px] font-black leading-none sm:text-[34px]">
                                   {caloriesEaten}<span className="text-[15px] text-zinc-400 sm:text-lg">/{calorieTarget} cal</span>
                                 </p>
