@@ -814,17 +814,20 @@ function revokeObjectUrl(value: string) {
 
 function normalizeStreak(streak: StoredStreak | null): StoredStreak {
   if (!streak) {
-    return { count: 1, maxCount: 1, lastLoggedAt: '' };
+    return { count: 0, maxCount: 0, lastLoggedAt: '' };
   }
 
   const lastLogTime = Date.parse(streak.lastLoggedAt);
   const now = Date.now();
-  const maxCount = Math.min(365, Math.max(1, streak.maxCount || streak.count || 1));
-  if (!Number.isFinite(lastLogTime) || now - lastLogTime > ONE_DAY_MS) {
+  const maxCount = Math.min(365, Math.max(0, streak.maxCount || streak.count || 0));
+  if (!Number.isFinite(lastLogTime)) {
+    return { count: 0, maxCount, lastLoggedAt: '' };
+  }
+  if (now - lastLogTime > ONE_DAY_MS) {
     return { count: 1, maxCount, lastLoggedAt: streak.lastLoggedAt };
   }
 
-  const count = Math.min(365, Math.max(1, streak.count));
+  const count = Math.min(365, Math.max(0, streak.count));
   return {
     count,
     maxCount: Math.max(maxCount, count),
@@ -838,8 +841,8 @@ function readStoredStreak(userId?: string): StoredStreak {
     if (!raw) return normalizeStreak(null);
     const parsed = JSON.parse(raw) as Partial<StoredStreak>;
     return normalizeStreak({
-      count: typeof parsed.count === 'number' ? parsed.count : 1,
-      maxCount: typeof parsed.maxCount === 'number' ? parsed.maxCount : typeof parsed.count === 'number' ? parsed.count : 1,
+      count: typeof parsed.count === 'number' ? parsed.count : 0,
+      maxCount: typeof parsed.maxCount === 'number' ? parsed.maxCount : typeof parsed.count === 'number' ? parsed.count : 0,
       lastLoggedAt: typeof parsed.lastLoggedAt === 'string' ? parsed.lastLoggedAt : '',
     });
   } catch {
@@ -2801,7 +2804,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
       future: date > today,
     };
   });
-  const checkInCount = recentScans.filter((item) => item.feeling).length;
+  const checkInCount = recentScans.filter((item) => item.eaten === true && item.feeling).length;
   const laterCheckInCandidate = recentScans.find((item) => item.eaten === true && !item.feeling && !isImageCheckErrorResult(item.result));
   const laterCheckInAge = laterCheckInCandidate?.consumedAt
     ? Math.max(0, Math.floor((Date.now() - Date.parse(laterCheckInCandidate.consumedAt)) / (60 * 60 * 1000)))
@@ -2839,7 +2842,7 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
         : isRussian ? 'Профиль держит цель около поддержки веса' : 'Your profile keeps the target near maintenance';
   const selectedDayScans = recentScans.filter((item) => isSameLocalDay(item.createdAt, selectedHomeDate));
   const selectedDayEatenScans = selectedDayScans.filter((item) => item.eaten);
-  const selectedDayFeelingCount = selectedDayScans.filter((item) => item.feeling).length;
+  const selectedDayFeelingCount = selectedDayScans.filter((item) => item.eaten === true && item.feeling).length;
   const selectedDayAverageScore = selectedDayScans.length
     ? Math.round(selectedDayScans.reduce((sum, item) => sum + item.result.score, 0) / selectedDayScans.length)
     : null;
@@ -3353,10 +3356,12 @@ export function DashboardPage({ navigate, session }: { navigate: Navigate; sessi
   const cardClass = cn('rounded-[22px] bg-white p-4 shadow-[0_10px_26px_rgba(15,15,15,0.075)] ring-1 ring-black/[0.03] transition-colors duration-700 sm:rounded-[24px] sm:p-5 sm:shadow-[0_14px_32px_rgba(15,15,15,0.10)]', isDarkMode && theme.card);
   const patternInsight = buildPatternInsight(recentScans, language);
   const weeklyScans = recentScans.filter((scan) => Date.now() - Date.parse(scan.createdAt) <= 7 * ONE_DAY_MS);
-  const weeklyCheckIns = weeklyScans.filter((scan) => scan.feeling).length;
-  const weeklyAvoids = weeklyScans.filter((scan) => scan.result.overallRating === 'Avoid').length;
+  const weeklyRealScans = weeklyScans.filter((scan) => scan.eaten === true && !isImageCheckErrorResult(scan.result));
+  const weeklySignalScans = weeklyRealScans.filter((scan) => scan.feeling && scan.feeling !== 'Fine');
+  const weeklyCheckIns = weeklyRealScans.filter((scan) => scan.feeling).length;
+  const weeklyAvoids = weeklyRealScans.filter((scan) => scan.result.overallRating === 'Avoid').length;
   const weeklyConcernCounts = new Map<string, number>();
-  weeklyScans.forEach((scan) => {
+  weeklySignalScans.forEach((scan) => {
     scan.result.flaggedChemicals.slice(0, 2).forEach((item) => {
       const key = item.chemicalName.trim();
       if (!key) return;
