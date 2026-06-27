@@ -49,14 +49,27 @@ for (const table of clientOwnedTables) {
     ok: has(new RegExp(`grant (?:select, insert, update(?:, delete)?|select, insert, update, delete) on table public\\.${table} to authenticated`)),
   });
   checks.push({
+    name: `${table} has no anon grants`,
+    ok: !has(new RegExp(`grant [^;]+ on table public\\.${table} to anon`)),
+  });
+  checks.push({
     name: `${table} policies enforce auth.uid ownership`,
     ok: has(new RegExp(`on public\\.${table}[\\s\\S]+auth\\.uid\\(\\)\\s*=\\s*user_id`)),
+  });
+  checks.push({
+    name: `${table} has no public true policies`,
+    ok: !has(new RegExp(`create policy [\\s\\S]+ on public\\.${table}[\\s\\S]+using \\(true\\)`)),
   });
 }
 
 checks.push({
   name: 'cached_labels is service-role only',
   ok: has(/revoke all on table public\.cached_labels from authenticated/),
+});
+
+checks.push({
+  name: 'no public table grants to anon remain',
+  ok: !has(/grant [^;]+ on table public\.[a-z_]+ to anon/),
 });
 
 const failed = checks.filter((check) => !check.ok);
